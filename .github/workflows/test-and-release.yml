@@ -1,0 +1,31 @@
+name: Run Tests and npm publish
+on:
+  push:
+    branches:
+      - main
+jobs:
+  test_and_release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v2
+
+      - name: Install
+        run: npm i
+
+      - name: Run tests
+        run: npm run test-ci
+
+      - name: Generating coverage badges
+        uses: "jpb06/jest-badges-action@latest"
+        with:
+          branches: main
+
+      - name: Build
+        run: npm run prepublish-me
+
+      - uses: JS-DevTools/npm-publish@v1
+        with:
+          token: ${{secrets.NPM_TOKEN}}
+          package: ./npm-module/package.json
+          greater-version-only: true

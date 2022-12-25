@@ -1,0 +1,15 @@
+{
+  "extends": "@tsconfig/node16-strictest/tsconfig.json",
+  "compilerOptions": {
+    "baseUrl": "./src",
+    "outDir": "./dist",
+    "declaration": true,
+    "paths": {}
+  },
+  "include": [
+    "src",
+    "examples",
+    "tests",
+    "webpack.config.ts"
+  ]
+}

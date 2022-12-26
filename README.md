@@ -1,5 +1,6 @@
 # Caught Object Report JSON
 
+[![npm version](https://img.shields.io/npm/v/caught-object-report-json.svg?style=flat-square)](https://www.npmjs.org/package/caught-object-report-json)
 ![Jest coverage](https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/badges/coverage-jest%20coverage.svg)
 
 Convert object from catch block to json - useful to report exceptions to json logs.

@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "caught_obj_constructor_name": {
+      "type": "string"
+    },
+    "error_message": {
+      "type": "string"
+    },
+    "caught_obj_stringified": {
+      "type": "string"
+    },
+    "caught_obj_typeof": {
+      "type": "string"
+    },
+    "is_error_instance": {
+      "type": "string"
+    },
+    "caught_obj_json": {
+      "type": "string"
+    },
+    "error_stack": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "caught_obj_typeof",
+    "is_error_instance"
+  ]
+}

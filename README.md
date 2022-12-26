@@ -2,7 +2,7 @@
 
 ![Jest coverage](./badges/coverage-jest%20coverage.svg)
 
-Convert object from catch block to json - useful to report exceptions to json logs.
+This library aims to make JS exceptions suitable for structured logging.
 
 > **Warning**
 > Please use fixed version (remove ^ from package.json).
@@ -90,8 +90,8 @@ try {
  *         "env": {},
  *       "headers": {
  *         "Accept": "application/json, text/plain, * /*",
- *           "User-Agent": "axios/1.2.1",
- *           "Accept-Encoding": "gzip, compress, deflate, br"
+ *         "User-Agent": "axios/1.2.1",
+ *         "Accept-Encoding": "gzip, compress, deflate, br"
  *       },
  *       "method": "get",
  *         "url": "https://reqres.in/api/users/23"
@@ -114,9 +114,9 @@ try {
 ```typescript
 const corj = new CorjBuilder({
   shortVersion: false,
-  onCaughtBuilding: (caught, { caughtDuring }) => {
-    console.log('onCaughtBuilding::', { caughtDuring });
-    console.log('onCaughtBuilding::', { caught });
+  onCaughtBuilding: (caught, {caughtDuring}) => {
+    console.log('onCaughtBuilding::', {caughtDuring});
+    console.log('onCaughtBuilding::', {caught});
     console.log('---');
   },
 });

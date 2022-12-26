@@ -58,49 +58,49 @@ try {
  *   "constructor_name": "AxiosError",
  *   "message_prop": "Request failed with status code 404",
  *   "as_string": {
- *   "value": "AxiosError: Request failed with status code 404",
+ *     "value": "AxiosError: Request failed with status code 404",
  *     "format": "String"
- * },
+ *   },
  *   "as_json": {
- *   "value": {
- *     "message": "Request failed with status code 404",
+ *     "value": {
+ *       "message": "Request failed with status code 404",
  *       "name": "AxiosError",
  *       "stack": "AxiosError: Request failed with status code 404\n    at settle (/home/df/hdd/wd/caught-object-report-json/node_modules/axios/lib/core/settle.js:19:12)\n    at IncomingMessage.handleStreamEnd (/home/df/hdd/wd/caught-object-report-json/node_modules/axios/lib/adapters/http.js:505:11)\n    at IncomingMessage.emit (node:events:525:35)\n    at IncomingMessage.emit (node:domain:489:12)\n    at endReadableNT (node:internal/streams/readable:1359:12)\n    at processTicksAndRejections (node:internal/process/task_queues:82:21)",
  *       "config": {
- *       "transitional": {
- *         "silentJSONParsing": true,
- *           "forcedJSONParsing": true,
- *           "clarifyTimeoutError": false
- *       },
- *       "adapter": [
- *         "xhr",
- *         "http"
- *       ],
+ *         "transitional": {
+ *            "silentJSONParsing": true,
+ *            "forcedJSONParsing": true,
+ *            "clarifyTimeoutError": false
+ *         },
+ *         "adapter": [
+ *           "xhr",
+ *           "http"
+ *         ],
  *         "transformRequest": [
- *         null
- *       ],
+ *           null
+ *         ],
  *         "transformResponse": [
- *         null
- *       ],
+ *           null
+ *         ],
  *         "timeout": 0,
  *         "xsrfCookieName": "XSRF-TOKEN",
  *         "xsrfHeaderName": "X-XSRF-TOKEN",
  *         "maxContentLength": -1,
  *         "maxBodyLength": -1,
- *       "env": {},
- *       "headers": {
- *         "Accept": "application/json, text/plain, * /*",
- *         "User-Agent": "axios/1.2.1",
- *         "Accept-Encoding": "gzip, compress, deflate, br"
- *       },
- *       "method": "get",
+ *         "env": {},
+ *         "headers": {
+ *           "Accept": "application/json, text/plain, * /*",
+ *           "User-Agent": "axios/1.2.1",
+ *           "Accept-Encoding": "gzip, compress, deflate, br"
+ *         },
+ *         "method": "get",
  *         "url": "https://reqres.in/api/users/23"
- *     },
- *     "code": "ERR_BAD_REQUEST",
+ *       },
+ *       "code": "ERR_BAD_REQUEST",
  *       "status": 404
+ *     },
+ *     "format": "safe-stable-stringify@2.4.1"
  *   },
- *   "format": "safe-stable-stringify@2.4.1"
- * },
  *   "stack_prop": "AxiosError: Request failed with status code 404\n    at settle (/home/df/hdd/wd/caught-object-report-json/node_modules/axios/lib/core/settle.js:19:12)\n    at IncomingMessage.handleStreamEnd (/home/df/hdd/wd/caught-object-report-json/node_modules/axios/lib/adapters/http.js:505:11)\n    at IncomingMessage.emit (node:events:525:35)\n    at IncomingMessage.emit (node:domain:489:12)\n    at endReadableNT (node:internal/streams/readable:1359:12)\n    at processTicksAndRejections (node:internal/process/task_queues:82:21)",
  *   "v": "corj/v0.1"
  * }

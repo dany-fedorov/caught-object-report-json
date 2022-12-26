@@ -60,7 +60,7 @@ function makeErrorString(
   } catch (caught) {
     if (typeof options.onCaughtBuilding === 'function') {
       options.onCaughtBuilding(caught, {
-        caughtDuring: 'caught-object-stringify',
+        caughtDuring: 'caught-producing-as_string',
       });
     }
     return {
@@ -89,7 +89,7 @@ function makeErrorJson(
   } catch (caught: unknown) {
     if (typeof options.onCaughtBuilding === 'function') {
       options.onCaughtBuilding(caught, {
-        caughtDuring: 'caught-object-json-stringify',
+        caughtDuring: 'caught-producing-as_json',
       });
     }
     return {
@@ -99,18 +99,28 @@ function makeErrorJson(
   }
 }
 
+/**
+ *
+ */
 export type CorjBuilderOnCaughtBuildingDuring =
-  | 'caught-object-json-stringify'
-  | 'caught-object-stringify';
+  | 'caught-producing-as_json'
+  | 'caught-producing-as_string';
+
+export type CorjBuilderObCaughtBuildingFnOptions = {
+  caughtDuring: CorjBuilderOnCaughtBuildingDuring;
+};
+
+export type CorjBuilderObCaughtBuildingFn = (
+  caught: unknown,
+  options: CorjBuilderObCaughtBuildingFnOptions,
+) => void;
 
 export type CorjBuilderOptions = {
   shortVersion: boolean;
-  onCaughtBuilding: (
-    caught: unknown,
-    options: {
-      caughtDuring: CorjBuilderOnCaughtBuildingDuring;
-    },
-  ) => void;
+  /**
+   * This function is called when {@link CorjBuilder.build | CorjBuilder.build} fails to produce `as_json` or `as_string` fields of report json.
+   */
+  onCaughtBuilding: CorjBuilderObCaughtBuildingFn;
 };
 
 export class CorjBuilder {
@@ -153,6 +163,9 @@ export const DEFAULT_CORJ_BUILDER_OPTIONS = {
   },
 } as CorjBuilderOptions;
 
+/**
+ * Wrapper for {@link CorjBuilder.build | CorjBuilder.build} with default options specified in {@link DEFAULT_CORJ_BUILDER_OPTIONS}.
+ */
 export function makeCaughtObjectReportJson(
   caught: unknown,
   options?: Partial<CorjBuilderOptions>,
@@ -165,4 +178,7 @@ export function makeCaughtObjectReportJson(
   return builder.build(caught);
 }
 
+/**
+ * Alias for {@link makeCaughtObjectReportJson}.
+ */
 export const bakeCorj = makeCaughtObjectReportJson;

@@ -25,7 +25,7 @@ Convert object from catch block to json - useful to report exceptions to json lo
 
 - GitHub - https://github.com/dany-fedorov/caught-object-report-json.git
 - Npm - https://www.npmjs.com/package/caught-object-report-json
-- API Docs - https://dany-fedorov.github.io/caught-object-report-json
+- API Docs - https://dany-fedorov.github.io/caught-object-report-json/modules.html
 
 # Examples
 

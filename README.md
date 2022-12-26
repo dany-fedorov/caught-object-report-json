@@ -1,12 +1,31 @@
 # Caught Object Report JSON
 
-[![npm version](https://img.shields.io/npm/v/caught-object-report-json.svg?style=flat-square)](https://www.npmjs.org/package/caught-object-report-json)
+[![Npm Version](https://img.shields.io/npm/v/caught-object-report-json.svg)](https://www.npmjs.org/package/caught-object-report-json)
+[![Package License](https://img.shields.io/npm/l/caught-object-report-json.svg)](https://www.npmjs.org/package/caught-object-report-json)
 ![Jest coverage](https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/badges/coverage-jest%20coverage.svg)
 
 Convert object from catch block to json - useful to report exceptions to json logs.
 
 > **Warning**
 > Please use fixed version (remove ^ from package.json).
+
+# Table of Contents
+
+<!-- TOC -->
+
+* [Links](#links)
+* [Examples](#examples)
+    * [1. Syntax Error](#1-syntax-error)
+    * [2. Axios Error](#2-axios-error)
+    * [3. Not an error object thrown](#3-not-an-error-object-thrown)
+
+<!-- TOC -->
+
+# Links
+
+- GitHub - https://github.com/dany-fedorov/caught-object-report-json.git
+- Npm - https://www.npmjs.com/package/caught-object-report-json
+- API Docs - https://dany-fedorov.github.io/caught-object-report-json
 
 # Examples
 
@@ -164,3 +183,4 @@ try {
  * }
  */
 ```
+

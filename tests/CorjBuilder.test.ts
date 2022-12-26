@@ -101,7 +101,7 @@ describe('CorjBuilder', () => {
           Object {
             "caught": [Error: Could not convert caught object to json string.],
             "options": Object {
-              "caughtDuring": "caught-object-json-stringify",
+              "caughtDuring": "caught-producing-as_json",
             },
           },
         ]

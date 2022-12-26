@@ -29,3 +29,9 @@ jobs:
           token: ${{secrets.NPM_TOKEN}}
           package: ./npm-module/package.json
           greater-version-only: true
+
+      - name: Generate docs
+        run: npx typedoc src/index.ts
+
+      - name: Git Commit and Push
+        run: git add ./docs && git commit -m 'Update docs' && git push

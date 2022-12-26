@@ -2,6 +2,9 @@ import { configure } from 'safe-stable-stringify';
 
 export const CORJ_SAFE_STABLE_STRINGIFY_VERSION = 'safe-stable-stringify@2.4.1';
 export const CORJ_STRINGIFY_VERSION = 'String';
+export const CORJ_SHORT_VERSION = 'corj/v0.1';
+export const CORJ_LONG_VERSION =
+  'https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/v0.1.json';
 
 export type JsonObject<P extends JsonPrimitive> = { [x: string]: JsonValue<P> };
 export type JsonArray<P extends JsonPrimitive> = Array<JsonValue<P>>;
@@ -37,7 +40,7 @@ export type CaughtObjectReportJson = {
   is_error_instance: boolean;
   as_json: CaughtObjectJson;
   stack_prop?: string;
-  v: string;
+  v: typeof CORJ_SHORT_VERSION | typeof CORJ_LONG_VERSION;
 };
 
 const stringify = configure({
@@ -96,7 +99,7 @@ function makeErrorJson(
   }
 }
 
-type CorjBuilderOnCaughtBuildingDuring =
+export type CorjBuilderOnCaughtBuildingDuring =
   | 'caught-object-json-stringify'
   | 'caught-object-stringify';
 
@@ -132,9 +135,7 @@ export class CorjBuilder {
         ['stack_prop', errorStack],
         [
           'v',
-          this.options.shortVersion
-            ? 'corj/v0.1'
-            : 'https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/v0.1.json',
+          this.options.shortVersion ? CORJ_SHORT_VERSION : CORJ_LONG_VERSION,
         ],
       ].filter(([, v]) => v !== undefined),
     );

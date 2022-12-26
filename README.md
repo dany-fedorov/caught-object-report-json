@@ -1,6 +1,6 @@
 # Caught Object Report JSON
 
-![Jest coverage](./badges/coverage-jest%20coverage.svg)
+![Jest coverage](https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/badges/coverage-jest%20coverage.svg)
 
 Convert object from catch block to json - useful to report exceptions to json logs.
 
@@ -140,9 +140,9 @@ try {
  * at Module.load (node:internal/modules/cjs/loader:998:32)
  * at Function.Module._load (node:internal/modules/cjs/loader:839:12)
  * at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:81:12) {
- *   caught: undefined,
+ *     caught: undefined,
  *     stringifiedResult: undefined
- * }
+ *   }
  * }
  * ---
  * {

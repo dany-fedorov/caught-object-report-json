@@ -2,7 +2,7 @@
 
 ![Jest coverage](./badges/coverage-jest%20coverage.svg)
 
-This library aims to make JS exceptions suitable for structured logging.
+Convert object from catch block to json - useful to report exceptions to json logs.
 
 > **Warning**
 > Please use fixed version (remove ^ from package.json).

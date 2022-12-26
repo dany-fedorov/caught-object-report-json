@@ -22,10 +22,10 @@ export type CaughtObjectString = {
 };
 
 export type CaughtObjectReportJson = {
-  caught_obj_constructor_name?: string;
-  error_message?: string;
-  caught_obj_stringified?: CaughtObjectString;
-  caught_obj_typeof:
+  constructor_name?: string;
+  message_prop?: string;
+  as_string: CaughtObjectString;
+  typeof:
     | 'undefined'
     | 'object'
     | 'boolean'
@@ -35,9 +35,9 @@ export type CaughtObjectReportJson = {
     | 'symbol'
     | 'function';
   is_error_instance: boolean;
-  caught_obj_json?: CaughtObjectJson;
-  error_stack?: string;
-  $schema: string;
+  as_json: CaughtObjectJson;
+  stack_prop?: string;
+  v: string;
 };
 
 const stringify = configure({
@@ -101,7 +101,7 @@ type CorjBuilderOnCaughtBuildingDuring =
   | 'caught-object-stringify';
 
 export type CorjBuilderOptions = {
-  shortSchema: boolean;
+  shortVersion: boolean;
   onCaughtBuilding: (
     caught: unknown,
     options: {
@@ -123,17 +123,17 @@ export class CorjBuilder {
     const errorStack = (caught as any)?.stack;
     const res = Object.fromEntries(
       [
-        ['caught_obj_constructor_name', errorConstructorName],
-        ['error_message', errorMessage],
-        ['caught_obj_stringified', errorString],
-        ['caught_obj_typeof', errorType],
         ['is_error_instance', isErrorInstance],
-        ['caught_obj_json', errorJson],
-        ['error_stack', errorStack],
+        ['typeof', errorType],
+        ['constructor_name', errorConstructorName],
+        ['message_prop', errorMessage],
+        ['as_string', errorString],
+        ['as_json', errorJson],
+        ['stack_prop', errorStack],
         [
-          '$schema',
-          this.options.shortSchema
-            ? 'v0.1'
+          'v',
+          this.options.shortVersion
+            ? 'corj/v0.1'
             : 'https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/v0.1.json',
         ],
       ].filter(([, v]) => v !== undefined),
@@ -143,7 +143,7 @@ export class CorjBuilder {
 }
 
 export const DEFAULT_CORJ_BUILDER_OPTIONS = {
-  shortSchema: true,
+  shortVersion: true,
   onCaughtBuilding: (caught: unknown) => {
     console.warn(
       'caught-object-report-json: Caught when converting caught object to json',

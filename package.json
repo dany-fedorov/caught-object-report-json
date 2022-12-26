@@ -37,6 +37,8 @@
     "@types/uuid": "^9.0.0",
     "@typescript-eslint/eslint-plugin": "5.47.0",
     "@typescript-eslint/parser": "5.47.0",
+    "ajv": "^8.11.2",
+    "axios": "^1.2.1",
     "chokidar": "^3.5.3",
     "eslint": "8.30.0",
     "eslint-config-prettier": "8.5.0",

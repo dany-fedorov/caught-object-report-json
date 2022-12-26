@@ -1,25 +1,27 @@
 import { makeCaughtObjectReportJson } from '../src';
+import { getReportValidator } from './utils/getReportValidator';
 
 describe('makeCaughtObjectReportJson', function () {
   test('default', () => {
     const report = makeCaughtObjectReportJson(new Error('I am an error!'));
-    expect(typeof report.error_stack).toBe('string');
-    delete report.error_stack;
+    expect(getReportValidator()(report)).toMatchInlineSnapshot(`true`);
+    expect(typeof report.stack_prop).toBe('string');
+    delete report.stack_prop;
     expect(report).toMatchInlineSnapshot(`
       Object {
-        "$schema": "v0.1",
-        "caught_obj_constructor_name": "Error",
-        "caught_obj_json": Object {
+        "as_json": Object {
           "format": "safe-stable-stringify@2.4.1",
           "value": Object {},
         },
-        "caught_obj_stringified": Object {
+        "as_string": Object {
           "format": "String",
           "value": "Error: I am an error!",
         },
-        "caught_obj_typeof": "object",
-        "error_message": "I am an error!",
+        "constructor_name": "Error",
         "is_error_instance": true,
+        "message_prop": "I am an error!",
+        "typeof": "object",
+        "v": "corj/v0.1",
       }
     `);
   });
@@ -31,21 +33,22 @@ describe('makeCaughtObjectReportJson', function () {
         caughtBuildingArray.push(caught);
       },
     });
-    expect(typeof report.error_stack).toBe('undefined');
-    delete report.error_stack;
+    expect(getReportValidator()(report)).toMatchInlineSnapshot(`true`);
+    expect(typeof report.stack_prop).toBe('undefined');
+    delete report.stack_prop;
     expect(report).toMatchInlineSnapshot(`
       Object {
-        "$schema": "v0.1",
-        "caught_obj_json": Object {
+        "as_json": Object {
           "format": null,
           "value": null,
         },
-        "caught_obj_stringified": Object {
+        "as_string": Object {
           "format": "String",
           "value": "undefined",
         },
-        "caught_obj_typeof": "undefined",
         "is_error_instance": false,
+        "typeof": "undefined",
+        "v": "corj/v0.1",
       }
     `);
     expect(caughtBuildingArray).toMatchInlineSnapshot(`

@@ -2,30 +2,73 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object",
   "properties": {
-    "caught_obj_constructor_name": {
+    "constructor_name": {
       "type": "string"
     },
-    "error_message": {
+    "message_prop": {
       "type": "string"
     },
-    "caught_obj_stringified": {
-      "type": "string"
+    "as_string": {
+      "type": "object",
+      "properties": {
+        "format": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "enum": [
+                "String"
+              ]
+            }
+          ]
+        }
+      }
     },
-    "caught_obj_typeof": {
-      "type": "string"
+    "typeof": {
+      "enum": [
+        "undefined",
+        "object",
+        "boolean",
+        "number",
+        "bigint",
+        "string",
+        "symbol",
+        "function"
+      ]
     },
     "is_error_instance": {
+      "type": "boolean"
+    },
+    "as_json": {
+      "type": "object",
+      "properties": {
+        "format": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "enum": [
+                "safe-stable-stringify@2.4.1"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    "stack_prop": {
       "type": "string"
     },
-    "caught_obj_json": {
-      "type": "string"
-    },
-    "error_stack": {
+    "v": {
       "type": "string"
     }
   },
   "required": [
-    "caught_obj_typeof",
-    "is_error_instance"
+    "typeof",
+    "as_string",
+    "as_json",
+    "is_error_instance",
+    "v"
   ]
 }

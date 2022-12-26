@@ -1,4 +1,5 @@
 import { CorjBuilder, DEFAULT_CORJ_BUILDER_OPTIONS } from '../src';
+import { getReportValidator } from './utils/getReportValidator';
 
 describe('CorjBuilder', () => {
   describe('Default options', function () {
@@ -12,23 +13,24 @@ describe('CorjBuilder', () => {
       });
       const caught = new Error('I am an error!');
       const report = noOptionsBuilder.build(caught);
-      expect(typeof report.error_stack).toBe('string');
-      delete report.error_stack;
+      expect(getReportValidator()(report)).toMatchInlineSnapshot(`true`);
+      expect(typeof report.stack_prop).toBe('string');
+      delete report.stack_prop;
       expect(report).toMatchInlineSnapshot(`
         Object {
-          "$schema": "v0.1",
-          "caught_obj_constructor_name": "Error",
-          "caught_obj_json": Object {
+          "as_json": Object {
             "format": "safe-stable-stringify@2.4.1",
             "value": Object {},
           },
-          "caught_obj_stringified": Object {
+          "as_string": Object {
             "format": "String",
             "value": "Error: I am an error!",
           },
-          "caught_obj_typeof": "object",
-          "error_message": "I am an error!",
+          "constructor_name": "Error",
           "is_error_instance": true,
+          "message_prop": "I am an error!",
+          "typeof": "object",
+          "v": "corj/v0.1",
         }
       `);
       expect(caughtBuildingArray).toMatchInlineSnapshot(`Array []`);
@@ -44,22 +46,23 @@ describe('CorjBuilder', () => {
       });
       const caught = 'I am a string, but I was thrown nevertheless!';
       const report = noOptionsBuilder.build(caught);
-      expect(typeof report.error_stack).toBe('undefined');
-      delete report.error_stack;
+      expect(getReportValidator()(report)).toMatchInlineSnapshot(`true`);
+      expect(typeof report.stack_prop).toBe('undefined');
+      delete report.stack_prop;
       expect(report).toMatchInlineSnapshot(`
         Object {
-          "$schema": "v0.1",
-          "caught_obj_constructor_name": "String",
-          "caught_obj_json": Object {
+          "as_json": Object {
             "format": "safe-stable-stringify@2.4.1",
             "value": "I am a string, but I was thrown nevertheless!",
           },
-          "caught_obj_stringified": Object {
+          "as_string": Object {
             "format": "String",
             "value": "I am a string, but I was thrown nevertheless!",
           },
-          "caught_obj_typeof": "string",
+          "constructor_name": "String",
           "is_error_instance": false,
+          "typeof": "string",
+          "v": "corj/v0.1",
         }
       `);
       expect(caughtBuildingArray).toMatchInlineSnapshot(`Array []`);
@@ -75,21 +78,22 @@ describe('CorjBuilder', () => {
       });
       const caught = undefined;
       const report = noOptionsBuilder.build(caught);
-      expect(typeof report.error_stack).toBe('undefined');
-      delete report.error_stack;
+      expect(getReportValidator()(report)).toMatchInlineSnapshot(`true`);
+      expect(typeof report.stack_prop).toBe('undefined');
+      delete report.stack_prop;
       expect(report).toMatchInlineSnapshot(`
         Object {
-          "$schema": "v0.1",
-          "caught_obj_json": Object {
+          "as_json": Object {
             "format": null,
             "value": null,
           },
-          "caught_obj_stringified": Object {
+          "as_string": Object {
             "format": "String",
             "value": "undefined",
           },
-          "caught_obj_typeof": "undefined",
           "is_error_instance": false,
+          "typeof": "undefined",
+          "v": "corj/v0.1",
         }
       `);
       expect(caughtBuildingArray).toMatchInlineSnapshot(`
@@ -114,21 +118,22 @@ describe('CorjBuilder', () => {
       });
       const caught = null;
       const report = noOptionsBuilder.build(caught);
-      expect(typeof report.error_stack).toBe('undefined');
-      delete report.error_stack;
+      expect(getReportValidator()(report)).toMatchInlineSnapshot(`true`);
+      expect(typeof report.stack_prop).toBe('undefined');
+      delete report.stack_prop;
       expect(report).toMatchInlineSnapshot(`
         Object {
-          "$schema": "v0.1",
-          "caught_obj_json": Object {
+          "as_json": Object {
             "format": "safe-stable-stringify@2.4.1",
             "value": null,
           },
-          "caught_obj_stringified": Object {
+          "as_string": Object {
             "format": "String",
             "value": "null",
           },
-          "caught_obj_typeof": "object",
           "is_error_instance": false,
+          "typeof": "object",
+          "v": "corj/v0.1",
         }
       `);
       expect(caughtBuildingArray).toMatchInlineSnapshot(`Array []`);
@@ -144,22 +149,23 @@ describe('CorjBuilder', () => {
       });
       const caught = 123n;
       const report = noOptionsBuilder.build(caught);
-      expect(typeof report.error_stack).toBe('undefined');
-      delete report.error_stack;
+      expect(getReportValidator()(report)).toMatchInlineSnapshot(`true`);
+      expect(typeof report.stack_prop).toBe('undefined');
+      delete report.stack_prop;
       expect(report).toMatchInlineSnapshot(`
         Object {
-          "$schema": "v0.1",
-          "caught_obj_constructor_name": "BigInt",
-          "caught_obj_json": Object {
+          "as_json": Object {
             "format": "safe-stable-stringify@2.4.1",
             "value": 123,
           },
-          "caught_obj_stringified": Object {
+          "as_string": Object {
             "format": "String",
             "value": "123",
           },
-          "caught_obj_typeof": "bigint",
+          "constructor_name": "BigInt",
           "is_error_instance": false,
+          "typeof": "bigint",
+          "v": "corj/v0.1",
         }
       `);
       expect(caughtBuildingArray).toMatchInlineSnapshot(`Array []`);
@@ -175,13 +181,12 @@ describe('CorjBuilder', () => {
       });
       const caught = [1234, 'string', 1234n, { a: 'b' }];
       const report = noOptionsBuilder.build(caught);
-      expect(typeof report.error_stack).toBe('undefined');
-      delete report.error_stack;
+      expect(getReportValidator()(report)).toMatchInlineSnapshot(`true`);
+      expect(typeof report.stack_prop).toBe('undefined');
+      delete report.stack_prop;
       expect(report).toMatchInlineSnapshot(`
         Object {
-          "$schema": "v0.1",
-          "caught_obj_constructor_name": "Array",
-          "caught_obj_json": Object {
+          "as_json": Object {
             "format": "safe-stable-stringify@2.4.1",
             "value": Array [
               1234,
@@ -192,12 +197,14 @@ describe('CorjBuilder', () => {
               },
             ],
           },
-          "caught_obj_stringified": Object {
+          "as_string": Object {
             "format": "String",
             "value": "1234,string,1234,[object Object]",
           },
-          "caught_obj_typeof": "object",
+          "constructor_name": "Array",
           "is_error_instance": false,
+          "typeof": "object",
+          "v": "corj/v0.1",
         }
       `);
       expect(caughtBuildingArray).toMatchInlineSnapshot(`Array []`);
@@ -212,27 +219,28 @@ describe('CorjBuilder', () => {
         onCaughtBuilding: (caught, options) => {
           caughtBuildingArray.push({ caught, options });
         },
-        shortSchema: false,
+        shortVersion: false,
       });
       const caught = new Error('I am an error!');
       const report = longVersionBuilder.build(caught);
-      expect(typeof report.error_stack).toBe('string');
-      delete report.error_stack;
+      expect(getReportValidator()(report)).toMatchInlineSnapshot(`true`);
+      expect(typeof report.stack_prop).toBe('string');
+      delete report.stack_prop;
       expect(report).toMatchInlineSnapshot(`
         Object {
-          "$schema": "https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/v0.1.json",
-          "caught_obj_constructor_name": "Error",
-          "caught_obj_json": Object {
+          "as_json": Object {
             "format": "safe-stable-stringify@2.4.1",
             "value": Object {},
           },
-          "caught_obj_stringified": Object {
+          "as_string": Object {
             "format": "String",
             "value": "Error: I am an error!",
           },
-          "caught_obj_typeof": "object",
-          "error_message": "I am an error!",
+          "constructor_name": "Error",
           "is_error_instance": true,
+          "message_prop": "I am an error!",
+          "typeof": "object",
+          "v": "https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/v0.1.json",
         }
       `);
       expect(caughtBuildingArray).toMatchInlineSnapshot(`Array []`);
@@ -246,21 +254,22 @@ describe('CorjBuilder', () => {
       const longVersionBuilder = new CorjBuilder(DEFAULT_CORJ_BUILDER_OPTIONS);
       const caught = undefined;
       const report = longVersionBuilder.build(caught);
-      expect(typeof report.error_stack).toBe('undefined');
-      delete report.error_stack;
+      expect(getReportValidator()(report)).toMatchInlineSnapshot(`true`);
+      expect(typeof report.stack_prop).toBe('undefined');
+      delete report.stack_prop;
       expect(report).toMatchInlineSnapshot(`
         Object {
-          "$schema": "v0.1",
-          "caught_obj_json": Object {
+          "as_json": Object {
             "format": null,
             "value": null,
           },
-          "caught_obj_stringified": Object {
+          "as_string": Object {
             "format": "String",
             "value": "undefined",
           },
-          "caught_obj_typeof": "undefined",
           "is_error_instance": false,
+          "typeof": "undefined",
+          "v": "corj/v0.1",
         }
       `);
       expect(warnSpy.mock.calls).toMatchInlineSnapshot(`
@@ -284,22 +293,23 @@ describe('CorjBuilder', () => {
         },
       };
       const report = longVersionBuilder.build(caught);
-      expect(typeof report.error_stack).toBe('undefined');
-      delete report.error_stack;
+      expect(getReportValidator()(report)).toMatchInlineSnapshot(`true`);
+      expect(typeof report.stack_prop).toBe('undefined');
+      delete report.stack_prop;
       expect(report).toMatchInlineSnapshot(`
         Object {
-          "$schema": "v0.1",
-          "caught_obj_constructor_name": "Object",
-          "caught_obj_json": Object {
+          "as_json": Object {
             "format": "safe-stable-stringify@2.4.1",
             "value": Object {},
           },
-          "caught_obj_stringified": Object {
+          "as_string": Object {
             "format": null,
             "value": null,
           },
-          "caught_obj_typeof": "object",
+          "constructor_name": "Object",
           "is_error_instance": false,
+          "typeof": "object",
+          "v": "corj/v0.1",
         }
       `);
       expect(warnSpy.mock.calls).toMatchInlineSnapshot(`
@@ -325,22 +335,23 @@ describe('CorjBuilder', () => {
         },
       };
       const report = longVersionBuilder.build(caught);
-      expect(typeof report.error_stack).toBe('undefined');
-      delete report.error_stack;
+      expect(getReportValidator()(report)).toMatchInlineSnapshot(`true`);
+      expect(typeof report.stack_prop).toBe('undefined');
+      delete report.stack_prop;
       expect(report).toMatchInlineSnapshot(`
         Object {
-          "$schema": "v0.1",
-          "caught_obj_constructor_name": "Object",
-          "caught_obj_json": Object {
+          "as_json": Object {
             "format": "safe-stable-stringify@2.4.1",
             "value": Object {},
           },
-          "caught_obj_stringified": Object {
+          "as_string": Object {
             "format": null,
             "value": null,
           },
-          "caught_obj_typeof": "object",
+          "constructor_name": "Object",
           "is_error_instance": false,
+          "typeof": "object",
+          "v": "corj/v0.1",
         }
       `);
       expect(warnSpy.mock.calls).toMatchInlineSnapshot(`

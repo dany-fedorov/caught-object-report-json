@@ -1,6 +1,6 @@
 {
   "name": "caught-object-report-json",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Convert object from catch block to json - useful to report exceptions to json logs.",
   "main": "./index.js",
   "scripts": {

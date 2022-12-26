@@ -9,7 +9,7 @@ This library aims to make JS exceptions suitable for structured logging.
 
 # Examples
 
-## Example 1: Syntax Error
+## 1. [Syntax Error](./examples/example-1-syntax-error.ts)
 
 (Run with `npm run tsfile ./examples/example-1-syntax-error.ts`)
 
@@ -39,7 +39,7 @@ try {
  */
 ```
 
-## Example 2: Axios Error
+## 2. [Axios Error](./examples/example-2-axios-error.ts)
 
 (Run with `npm run tsfile ./examples/example-2-axios-error.ts`)
 
@@ -107,7 +107,7 @@ try {
  */
 ```
 
-## Example 3: Not an error object thrown
+## 3. [Not an error object thrown](./examples/example-3-not-error-object.ts)
 
 (Run with `npm run tsfile ./examples/example-3-not-error-object.ts`)
 

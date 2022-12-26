@@ -18,7 +18,8 @@ Convert object from catch block to json - useful to report exceptions to json lo
 try {
   JSON.parse(undefined);
 } catch (caught: unknown) {
-  console.log(JSON.stringify(makeCaughtObjectReportJson(caught), null, 2));
+  const report = makeCaughtObjectReportJson(caught);
+  console.log(JSON.stringify(report, null, 2));
 }
 /**
  * {
@@ -49,7 +50,8 @@ try {
   try {
     await axios.get('https://reqres.in/api/users/23');
   } catch (caught: unknown) {
-    console.log(JSON.stringify(makeCaughtObjectReportJson(caught), null, 2));
+    const report = makeCaughtObjectReportJson(caught);
+    console.log(JSON.stringify(report, null, 2));
   }
 })();
 /**
@@ -125,22 +127,23 @@ const corj = new CorjBuilder({
 try {
   throw undefined;
 } catch (caught: unknown) {
-  console.log(JSON.stringify(corj.build(caught), null, 2));
+  const report = corj.build(caught);
+  console.log(JSON.stringify(report, null, 2));
 }
 /**
  * onCaughtBuilding:: { caughtDuring: 'caught-object-json-stringify' }
  * onCaughtBuilding:: {
  *   caught: Error: Could not convert caught object to json string.
- *   at makeErrorJson (/home/df/hdd/wd/caught-object-report-json/src/index.ts:77:19)
- * at CorjBuilder.build (/home/df/hdd/wd/caught-object-report-json/src/index.ts:121:23)
- * at Object.<anonymous> (/home/df/hdd/wd/caught-object-report-json/examples/example-3-not-error-object.ts:15:35)
- * at Module._compile (node:internal/modules/cjs/loader:1120:14)
- * at Module.m._compile (/home/df/hdd/wd/caught-object-report-json/node_modules/ts-node/src/index.ts:1618:23)
- * at Module._extensions..js (node:internal/modules/cjs/loader:1174:10)
- * at Object.require.extensions.<computed> [as .ts] (/home/df/hdd/wd/caught-object-report-json/node_modules/ts-node/src/index.ts:1621:12)
- * at Module.load (node:internal/modules/cjs/loader:998:32)
- * at Function.Module._load (node:internal/modules/cjs/loader:839:12)
- * at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:81:12) {
+ *       at makeErrorJson (/home/df/hdd/wd/caught-object-report-json/src/index.ts:77:19)
+ *       at CorjBuilder.build (/home/df/hdd/wd/caught-object-report-json/src/index.ts:121:23)
+ *       at Object.<anonymous> (/home/df/hdd/wd/caught-object-report-json/examples/example-3-not-error-object.ts:15:35)
+ *       at Module._compile (node:internal/modules/cjs/loader:1120:14)
+ *       at Module.m._compile (/home/df/hdd/wd/caught-object-report-json/node_modules/ts-node/src/index.ts:1618:23)
+ *       at Module._extensions..js (node:internal/modules/cjs/loader:1174:10)
+ *       at Object.require.extensions.<computed> [as .ts] (/home/df/hdd/wd/caught-object-report-json/node_modules/ts-node/src/index.ts:1621:12)
+ *       at Module.load (node:internal/modules/cjs/loader:998:32)
+ *       at Function.Module._load (node:internal/modules/cjs/loader:839:12)
+ *       at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:81:12) {
  *     caught: undefined,
  *     stringifiedResult: undefined
  *   }

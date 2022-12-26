@@ -5,6 +5,7 @@ import axios from 'axios';
   try {
     await axios.get('https://reqres.in/api/users/23');
   } catch (caught: unknown) {
-    console.log(JSON.stringify(makeCaughtObjectReportJson(caught), null, 2));
+    const report = makeCaughtObjectReportJson(caught);
+    console.log(JSON.stringify(report, null, 2));
   }
 })();

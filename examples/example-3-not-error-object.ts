@@ -12,5 +12,6 @@ const corj = new CorjBuilder({
 try {
   throw undefined;
 } catch (caught: unknown) {
-  console.log(JSON.stringify(corj.build(caught), null, 2));
+  const report = corj.build(caught);
+  console.log(JSON.stringify(report, null, 2));
 }

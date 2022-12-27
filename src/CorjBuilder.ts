@@ -173,9 +173,11 @@ function makeCaughtObjectAsJsonProp(
   try {
     const jsonString = stringify(caught);
     if (typeof jsonString !== 'string') {
-      const err = new Error(`Could not convert caught object to json string.`);
-      (err as any).caught = caught;
-      (err as any).stringifiedResult = jsonString;
+      const err = new Error(
+        `Could not convert caught object to json string using ${CORJ_AS_JSON_FORMAT_SAFE_STABLE_STRINGIFY_2_4_1}.`,
+      );
+      (err as any).originalCaught = caught;
+      (err as any).originalCaughtStringifyResult = jsonString;
       throw err;
     }
     return {

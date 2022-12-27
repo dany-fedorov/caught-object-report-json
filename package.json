@@ -1,6 +1,6 @@
 {
   "name": "caught-object-report-json",
-  "version": "0.1.11",
+  "version": "0.1.12",
   "description": "Make JS exceptions suitable for structured logging.",
   "main": "./index.js",
   "scripts": {

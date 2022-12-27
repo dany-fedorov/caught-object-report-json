@@ -158,7 +158,6 @@ const corj = new CorjBuilder({
   onCaughtBuilding: (caught, { caughtDuring }) => {
     console.log('onCaughtBuilding::', { caughtDuring });
     console.log('onCaughtBuilding::', { caught });
-    console.log('---');
   },
 });
 
@@ -175,9 +174,9 @@ prints form onCaughtBuilding callback
 ```
 onCaughtBuilding:: { caughtDuring: 'caught-producing-as_json' }
 onCaughtBuilding:: {
-  caught: Error: Could not convert caught object to json string.
+  caught: Error: Could not convert caught object to json string using safe-stable-stringify@2.4.1.
       at makeCaughtObjectAsJsonProp (/home/df/hdd/wd/caught-object-report-json/src/CorjBuilder.ts:176:19)
-      at CorjBuilder.build (/home/df/hdd/wd/caught-object-report-json/src/CorjBuilder.ts:236:32)
+      at CorjBuilder.build (/home/df/hdd/wd/caught-object-report-json/src/CorjBuilder.ts:238:32)
       at Object.<anonymous> (/home/df/hdd/wd/caught-object-report-json/examples/example-3-not-error-object.ts:15:23)
       at Module._compile (node:internal/modules/cjs/loader:1120:14)
       at Module.m._compile (/home/df/hdd/wd/caught-object-report-json/node_modules/ts-node/src/index.ts:1618:23)
@@ -186,8 +185,8 @@ onCaughtBuilding:: {
       at Module.load (node:internal/modules/cjs/loader:998:32)
       at Function.Module._load (node:internal/modules/cjs/loader:839:12)
       at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:81:12) {
-    caught: undefined,
-    stringifiedResult: undefined
+    originalCaught: undefined,
+    originalCaughtStringifyResult: undefined
   }
 }
 ```

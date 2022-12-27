@@ -5,7 +5,6 @@ const corj = new CorjBuilder({
   onCaughtBuilding: (caught, { caughtDuring }) => {
     console.log('onCaughtBuilding::', { caughtDuring });
     console.log('onCaughtBuilding::', { caught });
-    console.log('---');
   },
 });
 

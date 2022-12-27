@@ -100,7 +100,7 @@ describe('CorjBuilder', () => {
       expect(caughtBuildingArray).toMatchInlineSnapshot(`
         Array [
           Object {
-            "caught": [Error: Could not convert caught object to json string.],
+            "caught": [Error: Could not convert caught object to json string using safe-stable-stringify@2.4.1.],
             "options": Object {
               "caughtDuring": "caught-producing-as_json",
             },
@@ -278,7 +278,7 @@ describe('CorjBuilder', () => {
         Array [
           Array [
             "caught-object-report-json: caught-producing-as_json: Caught when building report json.",
-            [Error: Could not convert caught object to json string.],
+            [Error: Could not convert caught object to json string using safe-stable-stringify@2.4.1.],
           ],
         ]
       `);

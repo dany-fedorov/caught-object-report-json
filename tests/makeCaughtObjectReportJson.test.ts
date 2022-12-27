@@ -53,7 +53,7 @@ describe('makeCaughtObjectReportJson', function () {
     `);
     expect(caughtBuildingArray).toMatchInlineSnapshot(`
       Array [
-        [Error: Could not convert caught object to json string.],
+        [Error: Could not convert caught object to json string using safe-stable-stringify@2.4.1.],
       ]
     `);
   });

@@ -1,7 +1,8 @@
 import { configure } from 'safe-stable-stringify';
 
-export const CORJ_SAFE_STABLE_STRINGIFY_VERSION = 'safe-stable-stringify@2.4.1';
-export const CORJ_STRINGIFY_VERSION = 'String';
+export const CORJ_AS_JSON_FORMAT_SAFE_STABLE_STRINGIFY_2_4_1 =
+  'safe-stable-stringify@2.4.1';
+export const CORJ_AS_STRING_FORMAT_STRING_CONSTRUCTOR = 'String';
 export const CORJ_VERSION = 'corj/v0.1';
 export const CORJ_JSON_SCHEMA_LINK =
   'https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/v0.1.json';
@@ -20,18 +21,68 @@ export type CorjJsonValue<P extends CorjJsonPrimitive> =
 
 export type CaughtObjectAsJson = {
   value: CorjJsonValue<CorjJsonPrimitive>;
-  format: typeof CORJ_SAFE_STABLE_STRINGIFY_VERSION | null;
+  format: typeof CORJ_AS_JSON_FORMAT_SAFE_STABLE_STRINGIFY_2_4_1 | null;
 };
 
 export type CaughtObjectAsString = {
   value: string | null;
-  format: typeof CORJ_STRINGIFY_VERSION | null;
+  format: typeof CORJ_AS_STRING_FORMAT_STRING_CONSTRUCTOR | null;
 };
 
 export type CaughtObjectReportJson = {
+  /**
+   * Result of
+   * ```typescript
+   * typeof caught?.constructor?.name !== 'string'
+   *    ? undefined
+   *    : caught?.constructor?.name;
+   * ```
+   * Undefined result is not included in result object.
+   *
+   * Links
+   * - [MDN on .constructor field on an instance](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Classes/constructor)
+   * - [MDN on .name field on a class](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Function/name#telling_the_constructor_name_of_an_object)
+   *
+   * For example
+   * ```typescript
+   * try { asdf.sdf } catch (caught) { console.log(caught.constructor.name) }
+   * ```
+   * will print "TypeError".
+   */
   constructor_name?: string;
+  /**
+   * Result of
+   * ```typescript
+   * typeof (caught as any)?.message !== 'string'
+   *   ? undefined
+   *   : (caught as any)?.message;
+   * ```
+   * Undefined result is not included in result object.
+   *
+   * Normally JS Error instances include a `message` property with a string.
+   *
+   * Links
+   * - [MDN Error.prototype.message](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Error/message)
+   */
   message_prop?: string;
+  /**
+   * - `as_string.value`
+   *   A string produced from caught object using `as_string.format`
+   *
+   * - `as_string.format`
+   *   Indicates a method used to obtain `as_string.value`.
+   *   - "String" means value was obtained with `as_string.value = String(caught)`.
+   *
+   * Links
+   * - [MDN String() constructor](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/String)
+   */
   as_string: CaughtObjectAsString;
+  /**
+   * Result of
+   * ```typescript
+   * typeof caught
+   * ```
+   */
   typeof:
     | 'undefined'
     | 'object'
@@ -41,10 +92,50 @@ export type CaughtObjectReportJson = {
     | 'string'
     | 'symbol'
     | 'function';
+  /**
+   * Result of
+   * ```typescript
+   * caught instanceof Error
+   * ```
+   */
   is_error_instance: boolean;
+  /**
+   * - `as_json.value`
+   *   A JSON object produced from caught object using `as_json.format`
+   *
+   * - `as_string.format`
+   *   Indicates a method used to obtain `as_json.value`.
+   *   - "safe-stable-stringify@2.4.1" means value was obtained with safe-stable-stringify library.`
+   *
+   * Links
+   * - [safe-stable-stringify@2.4.1 on NPM](https://www.npmjs.com/package/safe-stable-stringify)
+   */
   as_json: CaughtObjectAsJson;
+  /**
+   * Result of
+   * ```typescript
+   * typeof (caught as any)?.stack !== 'string'
+   *   ? undefined
+   *   : (caught as any)?.stack;
+   * ```
+   * Undefined result is not included in result object.
+   *
+   * Normally JS Error instances include a `stack` property with a string,
+   * although the property is non-standard.
+   *
+   * Links
+   * - [MDN Error.prototype.stack](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Error/Stack)
+   */
   stack_prop?: string;
+  /**
+   * Indicates a version of a standard for this object.
+   * Version produced by this library is {@link CORJ_VERSION}
+   */
   v: typeof CORJ_VERSION;
+  /**
+   * Optionally include a link to JSON schema this object conforms to - {@link CORJ_JSON_SCHEMA_LINK}.<br>
+   * This is controlled by {@link CorjBuilderOptions}
+   */
   $schema?: typeof CORJ_JSON_SCHEMA_LINK;
 };
 
@@ -60,7 +151,7 @@ function makeCaughtObjAsStringProp(
   try {
     return {
       value: String(caught),
-      format: CORJ_STRINGIFY_VERSION,
+      format: CORJ_AS_STRING_FORMAT_STRING_CONSTRUCTOR,
     };
   } catch (caught) {
     if (typeof options.onCaughtBuilding === 'function') {
@@ -89,7 +180,7 @@ function makeCaughtObjectAsJsonProp(
     }
     return {
       value: JSON.parse(jsonString),
-      format: CORJ_SAFE_STABLE_STRINGIFY_VERSION,
+      format: CORJ_AS_JSON_FORMAT_SAFE_STABLE_STRINGIFY_2_4_1,
     };
   } catch (caught: unknown) {
     if (typeof options.onCaughtBuilding === 'function') {
@@ -138,10 +229,19 @@ export class CorjBuilder {
       caught,
       this.options,
     );
-    const caughtObjectConstructorName = caught?.constructor?.name;
+    const caughtObjectConstructorName =
+      typeof caught?.constructor?.name !== 'string'
+        ? undefined
+        : caught?.constructor?.name;
     const caughtObjectAsJson = makeCaughtObjectAsJsonProp(caught, this.options);
-    const caughtObjectMessageProp = (caught as any)?.message;
-    const caughtObjectStackProp = (caught as any)?.stack;
+    const caughtObjectMessageProp =
+      typeof (caught as any)?.message !== 'string'
+        ? undefined
+        : (caught as any)?.message;
+    const caughtObjectStackProp =
+      typeof (caught as any)?.stack !== 'string'
+        ? undefined
+        : (caught as any)?.stack;
     const res = Object.fromEntries(
       [
         ['is_error_instance', caughtObjectIsErrorInstance],

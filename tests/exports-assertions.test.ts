@@ -1,8 +1,8 @@
 import {
   CORJ_JSON_SCHEMA_LINK,
   CORJ_VERSION,
-  CORJ_SAFE_STABLE_STRINGIFY_VERSION,
-  CORJ_STRINGIFY_VERSION,
+  CORJ_AS_JSON_FORMAT_SAFE_STABLE_STRINGIFY_2_4_1,
+  CORJ_AS_STRING_FORMAT_STRING_CONSTRUCTOR,
   bakeCorj,
   makeCaughtObjectReportJson,
   DEFAULT_CORJ_BUILDER_OPTIONS,
@@ -13,8 +13,8 @@ describe('Assertions about package exports', function () {
     expect({
       CORJ_JSON_SCHEMA_LINK,
       CORJ_VERSION,
-      CORJ_SAFE_STABLE_STRINGIFY_VERSION,
-      CORJ_STRINGIFY_VERSION,
+      CORJ_SAFE_STABLE_STRINGIFY_VERSION: CORJ_AS_JSON_FORMAT_SAFE_STABLE_STRINGIFY_2_4_1,
+      CORJ_STRINGIFY_VERSION: CORJ_AS_STRING_FORMAT_STRING_CONSTRUCTOR,
     }).toMatchInlineSnapshot(`
       Object {
         "CORJ_JSON_SCHEMA_LINK": "https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/v0.1.json",

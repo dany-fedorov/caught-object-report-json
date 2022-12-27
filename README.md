@@ -24,8 +24,15 @@ Convert object from catch block to json - useful to report exceptions to json lo
 
 # [API](https://dany-fedorov.github.io/caught-object-report-json/modules.html)
 
-- [makeCaughtObjectReportJson](https://dany-fedorov.github.io/caught-object-report-json/functions/makeCaughtObjectReportJson.html)
-- [CorjBuilder.build](https://dany-fedorov.github.io/caught-object-report-json/classes/CorjBuilder.html)
+- [makeCaughtObjectReportJson](https://dany-fedorov.github.io/caught-object-report-json/functions/makeCaughtObjectReportJson.html)<br>
+  A wrapper
+  for [CorjBuilder.build](https://dany-fedorov.github.io/caught-object-report-json/classes/CorjBuilder.html#build) with
+  default options.
+- [CorjBuilder](https://dany-fedorov.github.io/caught-object-report-json/classes/CorjBuilder.html)<br>
+  Use [CorjBuilder.build](https://dany-fedorov.github.io/caught-object-report-json/classes/CorjBuilder.html#build) to
+  produce [CaughtObjectReportJson](https://dany-fedorov.github.io/caught-object-report-json/docs/types/CaughtObjectReportJson.html).
+- [CaughtObjectReportJson](https://dany-fedorov.github.io/caught-object-report-json/docs/types/CaughtObjectReportJson.html)<br>
+  Check out this link for documentation on report json fields.
 
 # Examples
 

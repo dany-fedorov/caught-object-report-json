@@ -138,7 +138,7 @@ export type CaughtObjectReportJson = {
   v: typeof CORJ_VERSION;
   /**
    * Optionally include a link to JSON schema this object conforms to - {@link CORJ_JSON_SCHEMA_LINK}.<br>
-   * This is controlled by {@link CorjBuilderOptions}
+   * This is controlled by {@link CorjMakerOptions}
    */
   $schema?: typeof CORJ_JSON_SCHEMA_LINK;
 };
@@ -150,7 +150,7 @@ const stringify = configure({
 
 function makeCaughtObjAsStringProp(
   caught: unknown,
-  options: CorjBuilderOptions,
+  options: CorjMakerOptions,
 ): CaughtObjectAsString {
   try {
     return {
@@ -158,8 +158,8 @@ function makeCaughtObjAsStringProp(
       format: CORJ_AS_STRING_FORMAT_STRING_CONSTRUCTOR,
     };
   } catch (caught) {
-    if (typeof options.onCaughtBuilding === 'function') {
-      options.onCaughtBuilding(caught, {
+    if (typeof options.onCaughtMaking === 'function') {
+      options.onCaughtMaking(caught, {
         caughtDuring: 'caught-producing-as_string',
       });
     }
@@ -172,7 +172,7 @@ function makeCaughtObjAsStringProp(
 
 function makeCaughtObjectAsJsonProp(
   caught: unknown,
-  options: CorjBuilderOptions,
+  options: CorjMakerOptions,
 ): CaughtObjectAsJson {
   try {
     const jsonString = stringify(caught);
@@ -189,8 +189,8 @@ function makeCaughtObjectAsJsonProp(
       format: CORJ_AS_JSON_FORMAT_SAFE_STABLE_STRINGIFY_2_4_1,
     };
   } catch (caught: unknown) {
-    if (typeof options.onCaughtBuilding === 'function') {
-      options.onCaughtBuilding(caught, {
+    if (typeof options.onCaughtMaking === 'function') {
+      options.onCaughtMaking(caught, {
         caughtDuring: 'caught-producing-as_json',
       });
     }
@@ -201,34 +201,34 @@ function makeCaughtObjectAsJsonProp(
   }
 }
 
-export type CorjBuilderOnCaughtBuildingCallbackFnOptionsDuring =
+export type CorjMakerOnCaughtBuildingCallbackFnOptionsDuring =
   | 'caught-producing-as_json'
   | 'caught-producing-as_string';
 
-export type CorjBuilderOnCaughtBuildingCallbackFnOptions = {
-  caughtDuring: CorjBuilderOnCaughtBuildingCallbackFnOptionsDuring;
+export type CorjMakerOnCaughtBuildingCallbackFnOptions = {
+  caughtDuring: CorjMakerOnCaughtBuildingCallbackFnOptionsDuring;
 };
 
-export type CorjBuilderOnCaughtBuildingCallbackFn = (
+export type CorjMakerOnCaughtBuildingCallbackFn = (
   caught: unknown,
-  options: CorjBuilderOnCaughtBuildingCallbackFnOptions,
+  options: CorjMakerOnCaughtBuildingCallbackFnOptions,
 ) => void;
 
-export type CorjBuilderOptions = {
+export type CorjMakerOptions = {
   /**
    * Adds a `$schema` property to result json with a link to appropriate JSON Schema.
    */
   addJsonSchemaLink: boolean;
   /**
-   * This function is called when {@link CorjBuilder.build | CorjBuilder.build} fails to produce `as_json` or `as_string` fields of report json.
+   * This function is called when {@link CorjMaker.make | CorjMaker.make} fails to produce `as_json` or `as_string` fields of report json.
    */
-  onCaughtBuilding: CorjBuilderOnCaughtBuildingCallbackFn;
+  onCaughtMaking: CorjMakerOnCaughtBuildingCallbackFn;
 };
 
-export class CorjBuilder {
-  constructor(public readonly options: CorjBuilderOptions) {}
+export class CorjMaker {
+  constructor(public readonly options: CorjMakerOptions) {}
 
-  build(caught: unknown): CaughtObjectReportJson {
+  make(caught: unknown): CaughtObjectReportJson {
     const caughtObjectTypeof = typeof caught;
     const caughtObjectIsErrorInstance = caught instanceof Error;
     const caughtObjectAsString = makeCaughtObjAsStringProp(

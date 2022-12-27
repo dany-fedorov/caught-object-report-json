@@ -1,12 +1,12 @@
 export {
-  CorjBuilder,
-  CorjBuilderOptions,
+  CorjMaker,
+  CorjMakerOptions,
   CaughtObjectReportJson,
   CaughtObjectAsJson,
   CaughtObjectAsString,
-  CorjBuilderOnCaughtBuildingCallbackFn,
-  CorjBuilderOnCaughtBuildingCallbackFnOptions,
-  CorjBuilderOnCaughtBuildingCallbackFnOptionsDuring,
+  CorjMakerOnCaughtBuildingCallbackFn,
+  CorjMakerOnCaughtBuildingCallbackFnOptions,
+  CorjMakerOnCaughtBuildingCallbackFnOptionsDuring,
   CORJ_JSON_SCHEMA_LINK,
   CORJ_VERSION,
   CORJ_AS_JSON_FORMAT_SAFE_STABLE_STRINGIFY_2_4_1,
@@ -15,9 +15,9 @@ export {
   CorjJsonArray,
   CorjJsonValue,
   CorjJsonPrimitive,
-} from './CorjBuilder';
+} from './CorjMaker';
 export {
   makeCaughtObjectReportJson,
   bakeCorj,
-  CORJ_BUILDER_OPTIONS_DEFAULTS,
+  CORJ_MAKER_OPTIONS_DEFAULTS,
 } from './makeCaughtObjectReportJson';

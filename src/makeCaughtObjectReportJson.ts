@@ -1,29 +1,29 @@
-import type { CaughtObjectReportJson, CorjBuilderOptions } from './CorjBuilder';
-import { CorjBuilder } from './CorjBuilder';
+import type { CaughtObjectReportJson, CorjMakerOptions } from './CorjMaker';
+import { CorjMaker } from './CorjMaker';
 
-export const CORJ_BUILDER_OPTIONS_DEFAULTS = {
+export const CORJ_MAKER_OPTIONS_DEFAULTS = {
   addJsonSchemaLink: false,
-  onCaughtBuilding: (caught: unknown, { caughtDuring }) => {
+  onCaughtMaking: (caught: unknown, { caughtDuring }) => {
     console.warn(
       `caught-object-report-json: ${caughtDuring}: Caught when building report json.`,
       caught,
     );
   },
-} as CorjBuilderOptions;
+} as CorjMakerOptions;
 
 /**
- * Wrapper for {@link CorjBuilder.build | CorjBuilder.build} with default options specified in {@link CORJ_BUILDER_OPTIONS_DEFAULTS}.
+ * Wrapper for {@link CorjMaker.make | CorjMaker.build} with default options specified in {@link CORJ_MAKER_OPTIONS_DEFAULTS}.
  */
 export function makeCaughtObjectReportJson(
   caught: unknown,
-  options?: Partial<CorjBuilderOptions>,
+  options?: Partial<CorjMakerOptions>,
 ): CaughtObjectReportJson {
   const effectiveOptions = {
-    ...CORJ_BUILDER_OPTIONS_DEFAULTS,
+    ...CORJ_MAKER_OPTIONS_DEFAULTS,
     ...(options ?? {}),
   };
-  const builder = new CorjBuilder(effectiveOptions);
-  return builder.build(caught);
+  const builder = new CorjMaker(effectiveOptions);
+  return builder.make(caught);
 }
 
 /**

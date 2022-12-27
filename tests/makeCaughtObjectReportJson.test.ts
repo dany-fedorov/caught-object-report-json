@@ -29,7 +29,7 @@ describe('makeCaughtObjectReportJson', function () {
   test('oncaughtBuildingArray', () => {
     const caughtBuildingArray: unknown[] = [];
     const report = makeCaughtObjectReportJson(undefined, {
-      onCaughtBuilding: (caught) => {
+      onCaughtMaking: (caught) => {
         caughtBuildingArray.push(caught);
       },
     });

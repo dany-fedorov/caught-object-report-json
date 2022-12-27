@@ -1,16 +1,16 @@
-import { CorjBuilder } from '../src';
+import { CorjMaker } from '../src';
 
-const corj = new CorjBuilder({
+const corj = new CorjMaker({
   addJsonSchemaLink: true,
-  onCaughtBuilding: (caught, { caughtDuring }) => {
-    console.log('onCaughtBuilding::', { caughtDuring });
-    console.log('onCaughtBuilding::', { caught });
+  onCaughtMaking: (caught, { caughtDuring }) => {
+    console.log('onCaughtMaking::', { caughtDuring });
+    console.log('onCaughtMaking::', { caught });
   },
 });
 
 try {
   throw undefined;
 } catch (caught: unknown) {
-  const report = corj.build(caught);
+  const report = corj.make(caught);
   console.log(JSON.stringify(report, null, 2));
 }

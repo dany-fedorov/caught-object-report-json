@@ -1,19 +1,19 @@
-import { CorjBuilder } from '../src';
+import { CorjMaker } from '../src';
 import { getReportValidator } from './utils/getReportValidator';
-import { CORJ_BUILDER_OPTIONS_DEFAULTS } from '../src/makeCaughtObjectReportJson';
+import { CORJ_MAKER_OPTIONS_DEFAULTS } from '../src/makeCaughtObjectReportJson';
 
-describe('CorjBuilder', () => {
+describe('CorjMaker', () => {
   describe('Default options', function () {
     test('Error object', () => {
       const caughtBuildingArray: unknown[] = [];
-      const noOptionsBuilder = new CorjBuilder({
-        ...CORJ_BUILDER_OPTIONS_DEFAULTS,
-        onCaughtBuilding: (caught, options) => {
+      const noOptionsBuilder = new CorjMaker({
+        ...CORJ_MAKER_OPTIONS_DEFAULTS,
+        onCaughtMaking: (caught, options) => {
           caughtBuildingArray.push({ caught, options });
         },
       });
       const caught = new Error('I am an error!');
-      const report = noOptionsBuilder.build(caught);
+      const report = noOptionsBuilder.make(caught);
       expect(getReportValidator()(report)).toMatchInlineSnapshot(`true`);
       expect(typeof report.stack_prop).toBe('string');
       delete report.stack_prop;
@@ -39,14 +39,14 @@ describe('CorjBuilder', () => {
 
     test('String', () => {
       const caughtBuildingArray: unknown[] = [];
-      const noOptionsBuilder = new CorjBuilder({
-        ...CORJ_BUILDER_OPTIONS_DEFAULTS,
-        onCaughtBuilding: (caught, options) => {
+      const noOptionsBuilder = new CorjMaker({
+        ...CORJ_MAKER_OPTIONS_DEFAULTS,
+        onCaughtMaking: (caught, options) => {
           caughtBuildingArray.push({ caught, options });
         },
       });
       const caught = 'I am a string, but I was thrown nevertheless!';
-      const report = noOptionsBuilder.build(caught);
+      const report = noOptionsBuilder.make(caught);
       expect(getReportValidator()(report)).toMatchInlineSnapshot(`true`);
       expect(typeof report.stack_prop).toBe('undefined');
       delete report.stack_prop;
@@ -71,14 +71,14 @@ describe('CorjBuilder', () => {
 
     test('undefined', () => {
       const caughtBuildingArray: unknown[] = [];
-      const noOptionsBuilder = new CorjBuilder({
-        ...CORJ_BUILDER_OPTIONS_DEFAULTS,
-        onCaughtBuilding: (caught, options) => {
+      const noOptionsBuilder = new CorjMaker({
+        ...CORJ_MAKER_OPTIONS_DEFAULTS,
+        onCaughtMaking: (caught, options) => {
           caughtBuildingArray.push({ caught, options });
         },
       });
       const caught = undefined;
-      const report = noOptionsBuilder.build(caught);
+      const report = noOptionsBuilder.make(caught);
       expect(getReportValidator()(report)).toMatchInlineSnapshot(`true`);
       expect(typeof report.stack_prop).toBe('undefined');
       delete report.stack_prop;
@@ -111,14 +111,14 @@ describe('CorjBuilder', () => {
 
     test('null', () => {
       const caughtBuildingArray: unknown[] = [];
-      const noOptionsBuilder = new CorjBuilder({
-        ...CORJ_BUILDER_OPTIONS_DEFAULTS,
-        onCaughtBuilding: (caught, options) => {
+      const noOptionsBuilder = new CorjMaker({
+        ...CORJ_MAKER_OPTIONS_DEFAULTS,
+        onCaughtMaking: (caught, options) => {
           caughtBuildingArray.push({ caught, options });
         },
       });
       const caught = null;
-      const report = noOptionsBuilder.build(caught);
+      const report = noOptionsBuilder.make(caught);
       expect(getReportValidator()(report)).toMatchInlineSnapshot(`true`);
       expect(typeof report.stack_prop).toBe('undefined');
       delete report.stack_prop;
@@ -142,14 +142,14 @@ describe('CorjBuilder', () => {
 
     test('BigInt', () => {
       const caughtBuildingArray: unknown[] = [];
-      const noOptionsBuilder = new CorjBuilder({
-        ...CORJ_BUILDER_OPTIONS_DEFAULTS,
-        onCaughtBuilding: (caught, options) => {
+      const noOptionsBuilder = new CorjMaker({
+        ...CORJ_MAKER_OPTIONS_DEFAULTS,
+        onCaughtMaking: (caught, options) => {
           caughtBuildingArray.push({ caught, options });
         },
       });
       const caught = 123n;
-      const report = noOptionsBuilder.build(caught);
+      const report = noOptionsBuilder.make(caught);
       expect(getReportValidator()(report)).toMatchInlineSnapshot(`true`);
       expect(typeof report.stack_prop).toBe('undefined');
       delete report.stack_prop;
@@ -174,14 +174,14 @@ describe('CorjBuilder', () => {
 
     test('array', () => {
       const caughtBuildingArray: unknown[] = [];
-      const noOptionsBuilder = new CorjBuilder({
-        ...CORJ_BUILDER_OPTIONS_DEFAULTS,
-        onCaughtBuilding: (caught, options) => {
+      const noOptionsBuilder = new CorjMaker({
+        ...CORJ_MAKER_OPTIONS_DEFAULTS,
+        onCaughtMaking: (caught, options) => {
           caughtBuildingArray.push({ caught, options });
         },
       });
       const caught = [1234, 'string', 1234n, { a: 'b' }];
-      const report = noOptionsBuilder.build(caught);
+      const report = noOptionsBuilder.make(caught);
       expect(getReportValidator()(report)).toMatchInlineSnapshot(`true`);
       expect(typeof report.stack_prop).toBe('undefined');
       delete report.stack_prop;
@@ -215,15 +215,15 @@ describe('CorjBuilder', () => {
   describe('Long version', function () {
     test('Error object', () => {
       const caughtBuildingArray: unknown[] = [];
-      const longVersionBuilder = new CorjBuilder({
-        ...CORJ_BUILDER_OPTIONS_DEFAULTS,
-        onCaughtBuilding: (caught, options) => {
+      const longVersionBuilder = new CorjMaker({
+        ...CORJ_MAKER_OPTIONS_DEFAULTS,
+        onCaughtMaking: (caught, options) => {
           caughtBuildingArray.push({ caught, options });
         },
         addJsonSchemaLink: true,
       });
       const caught = new Error('I am an error!');
-      const report = longVersionBuilder.build(caught);
+      const report = longVersionBuilder.make(caught);
       expect(getReportValidator()(report)).toMatchInlineSnapshot(`true`);
       expect(typeof report.stack_prop).toBe('string');
       delete report.stack_prop;
@@ -249,13 +249,13 @@ describe('CorjBuilder', () => {
     });
   });
 
-  describe('Default onCaughtBuilding', function () {
+  describe('Default onCaughtMaking', function () {
     test('undefined', () => {
       const warnSpy = jest.spyOn(console, 'warn');
       warnSpy.mockImplementation(() => null);
-      const longVersionBuilder = new CorjBuilder(CORJ_BUILDER_OPTIONS_DEFAULTS);
+      const longVersionBuilder = new CorjMaker(CORJ_MAKER_OPTIONS_DEFAULTS);
       const caught = undefined;
-      const report = longVersionBuilder.build(caught);
+      const report = longVersionBuilder.make(caught);
       expect(getReportValidator()(report)).toMatchInlineSnapshot(`true`);
       expect(typeof report.stack_prop).toBe('undefined');
       delete report.stack_prop;
@@ -288,13 +288,13 @@ describe('CorjBuilder', () => {
     test('.toString throws', () => {
       const warnSpy = jest.spyOn(console, 'warn');
       warnSpy.mockImplementation(() => null);
-      const longVersionBuilder = new CorjBuilder(CORJ_BUILDER_OPTIONS_DEFAULTS);
+      const longVersionBuilder = new CorjMaker(CORJ_MAKER_OPTIONS_DEFAULTS);
       const caught = {
         toString: () => {
           throw new Error('I am a nasty error!');
         },
       };
-      const report = longVersionBuilder.build(caught);
+      const report = longVersionBuilder.make(caught);
       expect(getReportValidator()(report)).toMatchInlineSnapshot(`true`);
       expect(typeof report.stack_prop).toBe('undefined');
       delete report.stack_prop;
@@ -328,7 +328,7 @@ describe('CorjBuilder', () => {
     test('.toString returns not string', () => {
       const warnSpy = jest.spyOn(console, 'warn');
       warnSpy.mockImplementation(() => null);
-      const longVersionBuilder = new CorjBuilder(CORJ_BUILDER_OPTIONS_DEFAULTS);
+      const longVersionBuilder = new CorjMaker(CORJ_MAKER_OPTIONS_DEFAULTS);
       const caught = {
         toString: () => {
           return {
@@ -336,7 +336,7 @@ describe('CorjBuilder', () => {
           };
         },
       };
-      const report = longVersionBuilder.build(caught);
+      const report = longVersionBuilder.make(caught);
       expect(getReportValidator()(report)).toMatchInlineSnapshot(`true`);
       expect(typeof report.stack_prop).toBe('undefined');
       delete report.stack_prop;

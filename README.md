@@ -10,33 +10,35 @@ Convert object from catch block to JSON suitable for structured logging.
 > **Warning**
 > Please use fixed version (remove ^ from package.json).
 
-* [API](#api)
-    * [makeCaughtObjectReportJson(caught)](#makecaughtobjectreportjsoncaught)
-    * [new CorjBuilder(options)](#new-corjbuilderoptions)
-    * [type CaughtObjectReportJson](#type-caughtobjectreportjson)
-* [Examples](#examples)
-    * [1. Syntax error](#1-syntax-error)
-    * [2. Axios error](#2-axios-error)
-    * [3. Not an error object thrown](#3-not-an-error-object-thrown)
-* [Links](#links)
-    * [GitHub](https://github.com/dany-fedorov/caught-object-report-json.git)
-    * [Npm](https://www.npmjs.com/package/caught-object-report-json)
-    * [JSON Schema v0.1](https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/v0.1.json)
+- [API](#api)
+    - [makeCaughtObjectReportJson(caught)](#makecaughtobjectreportjsoncaught)
+    - [new CorjMaker(options)](#new-corjmakeroptions)
+    - [type CaughtObjectReportJson](#type-caughtobjectreportjson)
+- [Examples](#examples)
+    - [1. Syntax error](#1-syntax-error)
+    - [2. Axios error](#2-axios-error)
+    - [3. Not an error object thrown](#3-not-an-error-object-thrown)
+- [Links](#links)
+    - [GitHub](https://github.com/dany-fedorov/caught-object-report-json.git)
+    - [Npm](https://www.npmjs.com/package/caught-object-report-json)
+    - [JSON Schema v0.1](https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/v0.1.json)
 
 # **[API](https://dany-fedorov.github.io/caught-object-report-json/modules.html)**
 
 ##### [makeCaughtObjectReportJson(caught)](https://dany-fedorov.github.io/caught-object-report-json/functions/makeCaughtObjectReportJson.html)
 
 A wrapper
-for [CorjBuilder#build](https://dany-fedorov.github.io/caught-object-report-json/classes/CorjBuilder.html#build) with
+for [CorjMaker#make](https://dany-fedorov.github.io/caught-object-report-json/classes/CorjMaker.html#build) with
 default options.
 
-##### **[new CorjBuilder(options)](https://dany-fedorov.github.io/caught-object-report-json/classes/CorjBuilder.html)**
+##### **[new CorjMaker(options)](https://dany-fedorov.github.io/caught-object-report-json/classes/CorjMaker.html)**
 
-Use [CorjBuilder#build](https://dany-fedorov.github.io/caught-object-report-json/classes/CorjBuilder.html#build) to
+Use [CorjMaker#make](https://dany-fedorov.github.io/caught-object-report-json/classes/CorjMaker.html#build) to
 produce [CaughtObjectReportJson](https://dany-fedorov.github.io/caught-object-report-json/types/CaughtObjectReportJson.html).
 
-##### **[type CaughtObjectReportJson](https://dany-fedorov.github.io/caught-object-report-json/types/CaughtObjectReportJson.html)**
+##### *
+*[type CaughtObjectReportJson](https://dany-fedorov.github.io/caught-object-report-json/types/CaughtObjectReportJson.html)
+**
 
 Report object, all fields documented.
 
@@ -153,30 +155,30 @@ prints
 (Run with `npm run tsfile ./examples/example-3-not-error-object.ts`)
 
 ```typescript
-const corj = new CorjBuilder({
+const corj = new CorjMaker({
   addJsonSchemaLink: true,
-  onCaughtBuilding: (caught, { caughtDuring }) => {
-    console.log('onCaughtBuilding::', { caughtDuring });
-    console.log('onCaughtBuilding::', { caught });
+  onCaughtMaking: (caught, { caughtDuring }) => {
+    console.log('onCaughtMaking::', { caughtDuring });
+    console.log('onCaughtMaking::', { caught });
   },
 });
 
 try {
   throw undefined;
 } catch (caught: unknown) {
-  const report = corj.build(caught);
+  const report = corj.make(caught);
   console.log(JSON.stringify(report, null, 2));
 }
 ```
 
-prints form onCaughtBuilding callback
+prints form onCaughtMaking callback
 
 ```
-onCaughtBuilding:: { caughtDuring: 'caught-producing-as_json' }
-onCaughtBuilding:: {
+onCaughtMaking:: { caughtDuring: 'caught-producing-as_json' }
+onCaughtMaking:: {
   caught: Error: Could not convert caught object to json string using safe-stable-stringify@2.4.1.
-      at makeCaughtObjectAsJsonProp (/home/df/hdd/wd/caught-object-report-json/src/CorjBuilder.ts:176:19)
-      at CorjBuilder.build (/home/df/hdd/wd/caught-object-report-json/src/CorjBuilder.ts:238:32)
+      at makeCaughtObjectAsJsonProp (/home/df/hdd/wd/caught-object-report-json/src/CorjMaker.ts:176:19)
+      at CorjMaker.make (/home/df/hdd/wd/caught-object-report-json/src/CorjMaker.ts:238:32)
       at Object.<anonymous> (/home/df/hdd/wd/caught-object-report-json/examples/example-3-not-error-object.ts:15:23)
       at Module._compile (node:internal/modules/cjs/loader:1120:14)
       at Module.m._compile (/home/df/hdd/wd/caught-object-report-json/node_modules/ts-node/src/index.ts:1618:23)

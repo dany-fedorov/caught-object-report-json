@@ -33,8 +33,8 @@ Please use fixed version (remove ^ from package.json).</p>
 </ul>
 </li>
 <li><a href="#examples">Examples</a><ul>
-<li><a href="#1-syntax-error">1. Syntax Error</a></li>
-<li><a href="#2-axios-error">2. Axios Error</a></li>
+<li><a href="#1-syntax-error">1. Syntax error</a></li>
+<li><a href="#2-axios-error">2. Axios error</a></li>
 <li><a href="#3-not-an-error-object-thrown">3. Not an error object thrown</a></li>
 </ul>
 </li>
@@ -73,7 +73,7 @@ produce <a href="https://dany-fedorov.github.io/caught-object-report-json/types/
 </a>
 
 <a href="#1-syntax-error" id="1-syntax-error" style="color: inherit; text-decoration: none;">
-  <h2>1. <a href="./examples/example-1-syntax-error.ts">Syntax Error</a></h2>
+  <h2>1. <a href="./examples/example-1-syntax-error.ts">Syntax error</a></h2>
 </a>
 <p>(Run with <code>npm run tsfile ./examples/example-1-syntax-error.ts</code>)</p>
 <pre><code class="language-typescript"><span class="hl-0">try</span><span class="hl-1"> {</span><br/><span class="hl-1">  </span><span class="hl-2">JSON</span><span class="hl-1">.</span><span class="hl-3">parse</span><span class="hl-1">(</span><span class="hl-4">undefined</span><span class="hl-1">);</span><br/><span class="hl-1">} </span><span class="hl-0">catch</span><span class="hl-1"> (</span><span class="hl-5">caught</span><span class="hl-1">: </span><span class="hl-6">unknown</span><span class="hl-1">) {</span><br/><span class="hl-1">  </span><span class="hl-4">const</span><span class="hl-1"> </span><span class="hl-2">report</span><span class="hl-1"> = </span><span class="hl-3">makeCaughtObjectReportJson</span><span class="hl-1">(</span><span class="hl-5">caught</span><span class="hl-1">);</span><br/><span class="hl-1">  </span><span class="hl-5">console</span><span class="hl-1">.</span><span class="hl-3">log</span><span class="hl-1">(</span><span class="hl-2">JSON</span><span class="hl-1">.</span><span class="hl-3">stringify</span><span class="hl-1">(</span><span class="hl-5">report</span><span class="hl-1">, </span><span class="hl-4">null</span><span class="hl-1">, </span><span class="hl-7">2</span><span class="hl-1">));</span><br/><span class="hl-1">}</span>
@@ -83,7 +83,7 @@ produce <a href="https://dany-fedorov.github.io/caught-object-report-json/types/
 </code></pre>
 
 <a href="#2-axios-error" id="2-axios-error" style="color: inherit; text-decoration: none;">
-  <h2>2. <a href="./examples/example-2-axios-error.ts">Axios Error</a></h2>
+  <h2>2. <a href="./examples/example-2-axios-error.ts">Axios error</a></h2>
 </a>
 <p>(Run with <code>npm run tsfile ./examples/example-2-axios-error.ts</code>)</p>
 <pre><code class="language-typescript"><span class="hl-1">(</span><span class="hl-4">async</span><span class="hl-1"> () </span><span class="hl-4">=&gt;</span><span class="hl-1"> {</span><br/><span class="hl-1">  </span><span class="hl-0">try</span><span class="hl-1"> {</span><br/><span class="hl-1">    </span><span class="hl-0">await</span><span class="hl-1"> </span><span class="hl-5">axios</span><span class="hl-1">.</span><span class="hl-3">get</span><span class="hl-1">(</span><span class="hl-9">&#39;https://reqres.in/api/users/23&#39;</span><span class="hl-1">);</span><br/><span class="hl-1">  } </span><span class="hl-0">catch</span><span class="hl-1"> (</span><span class="hl-5">caught</span><span class="hl-1">: </span><span class="hl-6">unknown</span><span class="hl-1">) {</span><br/><span class="hl-1">    </span><span class="hl-4">const</span><span class="hl-1"> </span><span class="hl-2">report</span><span class="hl-1"> = </span><span class="hl-3">makeCaughtObjectReportJson</span><span class="hl-1">(</span><span class="hl-5">caught</span><span class="hl-1">);</span><br/><span class="hl-1">    </span><span class="hl-5">console</span><span class="hl-1">.</span><span class="hl-3">log</span><span class="hl-1">(</span><span class="hl-2">JSON</span><span class="hl-1">.</span><span class="hl-3">stringify</span><span class="hl-1">(</span><span class="hl-5">report</span><span class="hl-1">, </span><span class="hl-4">null</span><span class="hl-1">, </span><span class="hl-7">2</span><span class="hl-1">));</span><br/><span class="hl-1">  }</span><br/><span class="hl-1">})();</span>

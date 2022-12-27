@@ -10,8 +10,6 @@ Convert object from catch block to JSON suitable for structured logging.
 > **Warning**
 > Please use fixed version (remove ^ from package.json).
 
-<!-- TOC -->
-
 * [API](#api)
     * [makeCaughtObjectReportJson(caught)](#makecaughtobjectreportjsoncaught)
     * [new CorjBuilder(options)](#new-corjbuilderoptions)
@@ -24,8 +22,6 @@ Convert object from catch block to JSON suitable for structured logging.
     * [GitHub](https://github.com/dany-fedorov/caught-object-report-json.git)
     * [Npm](https://www.npmjs.com/package/caught-object-report-json)
     * [JSON Schema v0.1](https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/v0.1.json)
-
-<!-- TOC -->
 
 # [API](https://dany-fedorov.github.io/caught-object-report-json/modules.html)
 

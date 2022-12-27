@@ -104,15 +104,12 @@ function makeCaughtObjectAsJsonProp(
   }
 }
 
-/**
- *
- */
-export type CorjBuilderOnCaughtBuildingDuring =
+export type CorjBuilderOnCaughtBuildingCallbackFnOptionsDuring =
   | 'caught-producing-as_json'
   | 'caught-producing-as_string';
 
 export type CorjBuilderOnCaughtBuildingCallbackFnOptions = {
-  caughtDuring: CorjBuilderOnCaughtBuildingDuring;
+  caughtDuring: CorjBuilderOnCaughtBuildingCallbackFnOptionsDuring;
 };
 
 export type CorjBuilderOnCaughtBuildingCallbackFn = (

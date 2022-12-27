@@ -6,7 +6,7 @@ export {
   CaughtObjectAsString,
   CorjBuilderOnCaughtBuildingCallbackFn,
   CorjBuilderOnCaughtBuildingCallbackFnOptions,
-  CorjBuilderOnCaughtBuildingDuring,
+  CorjBuilderOnCaughtBuildingCallbackFnOptionsDuring,
   CORJ_JSON_SCHEMA_LINK,
   CORJ_VERSION,
   CORJ_SAFE_STABLE_STRINGIFY_VERSION,

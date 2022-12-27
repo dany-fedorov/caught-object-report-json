@@ -3,9 +3,9 @@ import { CorjBuilder } from './CorjBuilder';
 
 export const DEFAULT_CORJ_BUILDER_OPTIONS = {
   addJsonSchemaLink: false,
-  onCaughtBuilding: (caught: unknown) => {
+  onCaughtBuilding: (caught: unknown, { caughtDuring }) => {
     console.warn(
-      'caught-object-report-json: Caught when converting caught object to json',
+      `caught-object-report-json: ${caughtDuring}: Caught when building report json.`,
       caught,
     );
   },

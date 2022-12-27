@@ -277,7 +277,7 @@ describe('CorjBuilder', () => {
       expect(warnSpy.mock.calls).toMatchInlineSnapshot(`
         Array [
           Array [
-            "caught-object-report-json: Caught when converting caught object to json",
+            "caught-object-report-json: caught-producing-as_json: Caught when building report json.",
             [Error: Could not convert caught object to json string.],
           ],
         ]
@@ -317,7 +317,7 @@ describe('CorjBuilder', () => {
       expect(warnSpy.mock.calls).toMatchInlineSnapshot(`
         Array [
           Array [
-            "caught-object-report-json: Caught when converting caught object to json",
+            "caught-object-report-json: caught-producing-as_string: Caught when building report json.",
             [Error: I am a nasty error!],
           ],
         ]
@@ -359,7 +359,7 @@ describe('CorjBuilder', () => {
       expect(warnSpy.mock.calls).toMatchInlineSnapshot(`
         Array [
           Array [
-            "caught-object-report-json: Caught when converting caught object to json",
+            "caught-object-report-json: caught-producing-as_string: Caught when building report json.",
             [TypeError: Cannot convert object to primitive value],
           ],
         ]

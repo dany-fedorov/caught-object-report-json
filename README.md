@@ -15,8 +15,8 @@ Convert object from catch block to JSON suitable for structured logging.
     * [new CorjBuilder(options)](#new-corjbuilderoptions)
     * [type CaughtObjectReportJson](#type-caughtobjectreportjson)
 * [Examples](#examples)
-    * [1. Syntax Error](#1-syntax-error)
-    * [2. Axios Error](#2-axios-error)
+    * [1. Syntax error](#1-syntax-error)
+    * [2. Axios error](#2-axios-error)
     * [3. Not an error object thrown](#3-not-an-error-object-thrown)
 * [Links](#links)
     * [GitHub](https://github.com/dany-fedorov/caught-object-report-json.git)
@@ -42,7 +42,7 @@ Report object, all fields documented.
 
 # Examples
 
-## 1. [Syntax Error](./examples/example-1-syntax-error.ts)
+## 1. [Syntax error](./examples/example-1-syntax-error.ts)
 
 (Run with `npm run tsfile ./examples/example-1-syntax-error.ts`)
 
@@ -76,7 +76,7 @@ prints
 }
 ```
 
-## 2. [Axios Error](./examples/example-2-axios-error.ts)
+## 2. [Axios error](./examples/example-2-axios-error.ts)
 
 (Run with `npm run tsfile ./examples/example-2-axios-error.ts`)
 

@@ -66,12 +66,14 @@ export type CaughtObjectReportJson = {
    */
   message_prop?: string;
   /**
-   * - `as_string.value`
-   *   A string produced from caught object using `as_string.format`
+   * - `as_string.value`<br>
+   *   A string produced from caught object using `as_string.format`<br>
    *
-   * - `as_string.format`
-   *   Indicates a method used to obtain `as_string.value`.
-   *   - "String" means value was obtained with `as_string.value = String(caught)`.
+   * - `as_string.format`<br>
+   *   Indicates a method used to obtain `as_string.value`.<br>
+   *   - "String" means value was obtained with `as_string.value = String(caught)`.<br>
+   *
+   * If code that produces `as_string` throws, both `as_string.value` and `as_string.format` are set to `null`.
    *
    * Links
    * - [MDN String() constructor](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/String)
@@ -100,12 +102,14 @@ export type CaughtObjectReportJson = {
    */
   is_error_instance: boolean;
   /**
-   * - `as_json.value`
-   *   A JSON object produced from caught object using `as_json.format`
+   * - `as_json.value`<br>
+   *   A JSON object produced from caught object using `as_json.format`<br>
    *
-   * - `as_string.format`
-   *   Indicates a method used to obtain `as_json.value`.
-   *   - "safe-stable-stringify@2.4.1" means value was obtained with safe-stable-stringify library.`
+   * - `as_string.format`<br>
+   *   Indicates a method used to obtain `as_json.value`.<br>
+   *   - "safe-stable-stringify@2.4.1" means value was obtained with safe-stable-stringify library.`<br>
+   *
+   * If code that produces `as_json` throws, both `as_json.value` and `as_json.format` are set to `null`.
    *
    * Links
    * - [safe-stable-stringify@2.4.1 on NPM](https://www.npmjs.com/package/safe-stable-stringify)

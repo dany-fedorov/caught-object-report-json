@@ -15,8 +15,8 @@ Convert object from catch block to json - useful to report exceptions to json lo
 <!-- TOC -->
 
 * [API](#api)
-    * [makeCaughtObjectReportJson(caught)](#makecaughtobjectreportjson--caught-)
-    * [new CorjBuilder(options)](#new-corjbuilder--options-)
+    * [makeCaughtObjectReportJson(caught)](#makecaughtobjectreportjsoncaught)
+    * [new CorjBuilder(options)](#new-corjbuilderoptions)
     * [type CaughtObjectReportJson](#type-caughtobjectreportjson)
 * [Examples](#examples)
     * [1. Syntax Error](#1-syntax-error)
@@ -154,9 +154,9 @@ try {
 ```typescript
 const corj = new CorjBuilder({
   addJsonSchemaLink: true,
-  onCaughtBuilding: (caught, {caughtDuring}) => {
-    console.log('onCaughtBuilding::', {caughtDuring});
-    console.log('onCaughtBuilding::', {caught});
+  onCaughtBuilding: (caught, { caughtDuring }) => {
+    console.log('onCaughtBuilding::', { caughtDuring });
+    console.log('onCaughtBuilding::', { caught });
     console.log('---');
   },
 });

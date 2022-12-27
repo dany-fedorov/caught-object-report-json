@@ -1,5 +1,6 @@
-import { CorjBuilder, DEFAULT_CORJ_BUILDER_OPTIONS } from '../src';
+import { CorjBuilder } from '../src';
 import { getReportValidator } from './utils/getReportValidator';
+import { DEFAULT_CORJ_BUILDER_OPTIONS } from '../src/makeCaughtObjectReportJson';
 
 describe('CorjBuilder', () => {
   describe('Default options', function () {

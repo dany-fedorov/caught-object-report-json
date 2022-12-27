@@ -16,9 +16,10 @@
 <a href="#caught-object-report-json" id="caught-object-report-json" style="color: inherit; text-decoration: none;">
   <h1>Caught Object Report JSON</h1>
 </a>
-<p><a href="https://www.npmjs.org/package/caught-object-report-json"><img src="https://img.shields.io/npm/v/caught-object-report-json.svg" alt="Npm Version"></a>
+<p><img src="https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/badges/coverage-jest%20coverage.svg" alt="Jest coverage">
+<a href="https://github.com/prettier/prettier"><img src="https://img.shields.io/badge/code_style-prettier-ff69b4.svg" alt="Code Style by Prettier"></a>
 <a href="https://www.npmjs.org/package/caught-object-report-json"><img src="https://img.shields.io/npm/l/caught-object-report-json.svg" alt="Package License"></a>
-<img src="https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/badges/coverage-jest%20coverage.svg" alt="Jest coverage"></p>
+<a href="https://www.npmjs.org/package/caught-object-report-json"><img src="https://img.shields.io/npm/v/caught-object-report-json.svg" alt="Npm Version"></a></p>
 <p>Convert object from catch block to json - useful to report exceptions to json logs.</p>
 <blockquote>
 <p><strong>Warning</strong>
@@ -31,14 +32,23 @@ Please use fixed version (remove ^ from package.json).</p>
 <!-- TOC -->
 
 <ul>
-<li><a href="#api">API</a></li>
+<li><a href="#api">API</a><ul>
+<li><a href="#makecaughtobjectreportjson--caught-">makeCaughtObjectReportJson(caught)</a></li>
+<li><a href="#new-corjbuilder--options-">new CorjBuilder(options)</a></li>
+<li><a href="#type-caughtobjectreportjson">type CaughtObjectReportJson</a></li>
+</ul>
+</li>
 <li><a href="#examples">Examples</a><ul>
 <li><a href="#1-syntax-error">1. Syntax Error</a></li>
 <li><a href="#2-axios-error">2. Axios Error</a></li>
 <li><a href="#3-not-an-error-object-thrown">3. Not an error object thrown</a></li>
 </ul>
 </li>
-<li><a href="#links">Links</a></li>
+<li><a href="#links">Links</a><ul>
+<li><a href="https://github.com/dany-fedorov/caught-object-report-json.git">GitHub</a></li>
+<li><a href="https://www.npmjs.com/package/caught-object-report-json">Npm</a></li>
+</ul>
+</li>
 </ul>
 <!-- TOC -->
 
@@ -46,26 +56,24 @@ Please use fixed version (remove ^ from package.json).</p>
 <a href="#api" id="api" style="color: inherit; text-decoration: none;">
   <h1><a href="https://dany-fedorov.github.io/caught-object-report-json/modules.html">API</a></h1>
 </a>
-<table>
-<thead>
-<tr>
-<th>Exported Symbol</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody><tr>
-<td><a href="https://dany-fedorov.github.io/caught-object-report-json/functions/makeCaughtObjectReportJson.html">makeCaughtObjectReportJson</a></td>
-<td>A wrapper for <a href="https://dany-fedorov.github.io/caught-object-report-json/classes/CorjBuilder.html#build">CorjBuilder.build</a> with default options.</td>
-</tr>
-<tr>
-<td><a href="https://dany-fedorov.github.io/caught-object-report-json/classes/CorjBuilder.html">CorjBuilder</a></td>
-<td>Use <a href="https://dany-fedorov.github.io/caught-object-report-json/classes/CorjBuilder.html#build">CorjBuilder.build</a> to produce <a href="https://dany-fedorov.github.io/caught-object-report-json/types/CaughtObjectReportJson.html">CaughtObjectReportJson</a>.</td>
-</tr>
-<tr>
-<td><a href="https://dany-fedorov.github.io/caught-object-report-json/types/CaughtObjectReportJson.html">CaughtObjectReportJson</a></td>
-<td>Report object, all fields documented.</td>
-</tr>
-</tbody></table>
+
+<a href="#makecaughtobjectreportjsoncaught" id="makecaughtobjectreportjsoncaught" style="color: inherit; text-decoration: none;">
+  <h5><a href="https://dany-fedorov.github.io/caught-object-report-json/functions/makeCaughtObjectReportJson.html">makeCaughtObjectReportJson(caught)</a></h5>
+</a>
+<p>A wrapper
+for <a href="https://dany-fedorov.github.io/caught-object-report-json/classes/CorjBuilder.html#build">CorjBuilder#build</a> with
+default options.</p>
+
+<a href="#new-corjbuilderoptions" id="new-corjbuilderoptions" style="color: inherit; text-decoration: none;">
+  <h5><a href="https://dany-fedorov.github.io/caught-object-report-json/classes/CorjBuilder.html">new CorjBuilder(options)</a></h5>
+</a>
+<p>Use <a href="https://dany-fedorov.github.io/caught-object-report-json/classes/CorjBuilder.html#build">CorjBuilder#build</a> to
+produce <a href="https://dany-fedorov.github.io/caught-object-report-json/types/CaughtObjectReportJson.html">CaughtObjectReportJson</a>.</p>
+
+<a href="#type-caughtobjectreportjson" id="type-caughtobjectreportjson" style="color: inherit; text-decoration: none;">
+  <h5><a href="https://dany-fedorov.github.io/caught-object-report-json/types/CaughtObjectReportJson.html">type CaughtObjectReportJson</a></h5>
+</a>
+<p>Report object, all fields documented.</p>
 
 <a href="#examples" id="examples" style="color: inherit; text-decoration: none;">
   <h1>Examples</h1>
@@ -95,10 +103,16 @@ Please use fixed version (remove ^ from package.json).</p>
 <a href="#links" id="links" style="color: inherit; text-decoration: none;">
   <h1>Links</h1>
 </a>
-<ul>
-<li>GitHub - <a href="https://github.com/dany-fedorov/caught-object-report-json.git">https://github.com/dany-fedorov/caught-object-report-json.git</a></li>
-<li>Npm - <a href="https://www.npmjs.com/package/caught-object-report-json">https://www.npmjs.com/package/caught-object-report-json</a></li>
-</ul>
+
+<a href="#github" id="github" style="color: inherit; text-decoration: none;">
+  <h5>GitHub</h5>
+</a>
+<p><a href="https://github.com/dany-fedorov/caught-object-report-json.git">https://github.com/dany-fedorov/caught-object-report-json.git</a></p>
+
+<a href="#npm" id="npm" style="color: inherit; text-decoration: none;">
+  <h5>Npm</h5>
+</a>
+<p><a href="https://www.npmjs.com/package/caught-object-report-json">https://www.npmjs.com/package/caught-object-report-json</a></p>
 </div></div>
 <div class="col-4 col-menu menu-sticky-wrap menu-highlight">
 <div class="tsd-navigation settings">

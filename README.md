@@ -1,8 +1,9 @@
 # Caught Object Report JSON
 
-[![Npm Version](https://img.shields.io/npm/v/caught-object-report-json.svg)](https://www.npmjs.org/package/caught-object-report-json)
-[![Package License](https://img.shields.io/npm/l/caught-object-report-json.svg)](https://www.npmjs.org/package/caught-object-report-json)
 ![Jest coverage](https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/badges/coverage-jest%20coverage.svg)
+[![Code Style by Prettier](https://img.shields.io/badge/code_style-prettier-ff69b4.svg)](https://github.com/prettier/prettier)
+[![Package License](https://img.shields.io/npm/l/caught-object-report-json.svg)](https://www.npmjs.org/package/caught-object-report-json)
+[![Npm Version](https://img.shields.io/npm/v/caught-object-report-json.svg)](https://www.npmjs.org/package/caught-object-report-json)
 
 Convert object from catch block to json - useful to report exceptions to json logs.
 
@@ -14,21 +15,35 @@ Convert object from catch block to json - useful to report exceptions to json lo
 <!-- TOC -->
 
 * [API](#api)
+    * [makeCaughtObjectReportJson(caught)](#makecaughtobjectreportjson--caught-)
+    * [new CorjBuilder(options)](#new-corjbuilder--options-)
+    * [type CaughtObjectReportJson](#type-caughtobjectreportjson)
 * [Examples](#examples)
     * [1. Syntax Error](#1-syntax-error)
     * [2. Axios Error](#2-axios-error)
     * [3. Not an error object thrown](#3-not-an-error-object-thrown)
 * [Links](#links)
+    * [GitHub](https://github.com/dany-fedorov/caught-object-report-json.git)
+    * [Npm](https://www.npmjs.com/package/caught-object-report-json)
 
 <!-- TOC -->
 
 # [API](https://dany-fedorov.github.io/caught-object-report-json/modules.html)
 
-| Exported Symbol                                                                                                                  | Description                                                                                                                                                                                                                                       |
-|----------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| [makeCaughtObjectReportJson](https://dany-fedorov.github.io/caught-object-report-json/functions/makeCaughtObjectReportJson.html) | A wrapper for [CorjBuilder.build](https://dany-fedorov.github.io/caught-object-report-json/classes/CorjBuilder.html#build) with default options.                                                                                                  |
-| [CorjBuilder](https://dany-fedorov.github.io/caught-object-report-json/classes/CorjBuilder.html)                                 | Use [CorjBuilder.build](https://dany-fedorov.github.io/caught-object-report-json/classes/CorjBuilder.html#build) to produce [CaughtObjectReportJson](https://dany-fedorov.github.io/caught-object-report-json/types/CaughtObjectReportJson.html). |
-| [CaughtObjectReportJson](https://dany-fedorov.github.io/caught-object-report-json/types/CaughtObjectReportJson.html)             | Report object, all fields documented.                                                                                                                                                                                                             |
+##### [makeCaughtObjectReportJson(caught)](https://dany-fedorov.github.io/caught-object-report-json/functions/makeCaughtObjectReportJson.html)
+
+A wrapper
+for [CorjBuilder#build](https://dany-fedorov.github.io/caught-object-report-json/classes/CorjBuilder.html#build) with
+default options.
+
+##### [new CorjBuilder(options)](https://dany-fedorov.github.io/caught-object-report-json/classes/CorjBuilder.html)
+
+Use [CorjBuilder#build](https://dany-fedorov.github.io/caught-object-report-json/classes/CorjBuilder.html#build) to
+produce [CaughtObjectReportJson](https://dany-fedorov.github.io/caught-object-report-json/types/CaughtObjectReportJson.html).
+
+##### [type CaughtObjectReportJson](https://dany-fedorov.github.io/caught-object-report-json/types/CaughtObjectReportJson.html)
+
+Report object, all fields documented.
 
 # Examples
 
@@ -192,5 +207,10 @@ try {
 
 # Links
 
-- GitHub - https://github.com/dany-fedorov/caught-object-report-json.git
-- Npm - https://www.npmjs.com/package/caught-object-report-json
+##### GitHub
+
+https://github.com/dany-fedorov/caught-object-report-json.git
+
+##### Npm
+
+https://www.npmjs.com/package/caught-object-report-json

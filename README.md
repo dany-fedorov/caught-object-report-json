@@ -23,7 +23,7 @@ Convert object from catch block to JSON suitable for structured logging.
     * [Npm](https://www.npmjs.com/package/caught-object-report-json)
     * [JSON Schema v0.1](https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/v0.1.json)
 
-# [API](https://dany-fedorov.github.io/caught-object-report-json/modules.html)
+# **[API](https://dany-fedorov.github.io/caught-object-report-json/modules.html)**
 
 ##### [makeCaughtObjectReportJson(caught)](https://dany-fedorov.github.io/caught-object-report-json/functions/makeCaughtObjectReportJson.html)
 
@@ -31,12 +31,12 @@ A wrapper
 for [CorjBuilder#build](https://dany-fedorov.github.io/caught-object-report-json/classes/CorjBuilder.html#build) with
 default options.
 
-##### [new CorjBuilder(options)](https://dany-fedorov.github.io/caught-object-report-json/classes/CorjBuilder.html)
+##### **[new CorjBuilder(options)](https://dany-fedorov.github.io/caught-object-report-json/classes/CorjBuilder.html)**
 
 Use [CorjBuilder#build](https://dany-fedorov.github.io/caught-object-report-json/classes/CorjBuilder.html#build) to
 produce [CaughtObjectReportJson](https://dany-fedorov.github.io/caught-object-report-json/types/CaughtObjectReportJson.html).
 
-##### [type CaughtObjectReportJson](https://dany-fedorov.github.io/caught-object-report-json/types/CaughtObjectReportJson.html)
+##### **[type CaughtObjectReportJson](https://dany-fedorov.github.io/caught-object-report-json/types/CaughtObjectReportJson.html)**
 
 Report object, all fields documented.
 

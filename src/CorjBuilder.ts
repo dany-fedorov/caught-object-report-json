@@ -6,13 +6,20 @@ export const CORJ_VERSION = 'corj/v0.1';
 export const CORJ_JSON_SCHEMA_LINK =
   'https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/v0.1.json';
 
-type JsonObject<P extends JsonPrimitive> = { [x: string]: JsonValue<P> };
-type JsonArray<P extends JsonPrimitive> = Array<JsonValue<P>>;
-type JsonPrimitive = string | number | boolean | null;
-type JsonValue<P extends JsonPrimitive> = P | JsonObject<P> | JsonArray<P>;
+export type CorjJsonObject<P extends CorjJsonPrimitive> = {
+  [x: string]: CorjJsonValue<P>;
+};
+export type CorjJsonArray<P extends CorjJsonPrimitive> = Array<
+  CorjJsonValue<P>
+>;
+export type CorjJsonPrimitive = string | number | boolean | null;
+export type CorjJsonValue<P extends CorjJsonPrimitive> =
+  | P
+  | CorjJsonObject<P>
+  | CorjJsonArray<P>;
 
 export type CaughtObjectAsJson = {
-  value: JsonValue<JsonPrimitive>;
+  value: CorjJsonValue<CorjJsonPrimitive>;
   format: typeof CORJ_SAFE_STABLE_STRINGIFY_VERSION | null;
 };
 
@@ -104,13 +111,13 @@ export type CorjBuilderOnCaughtBuildingDuring =
   | 'caught-producing-as_json'
   | 'caught-producing-as_string';
 
-export type CorjBuilderObCaughtBuildingFnOptions = {
+export type CorjBuilderOnCaughtBuildingCallbackFnOptions = {
   caughtDuring: CorjBuilderOnCaughtBuildingDuring;
 };
 
-export type CorjBuilderObCaughtBuildingFn = (
+export type CorjBuilderOnCaughtBuildingCallbackFn = (
   caught: unknown,
-  options: CorjBuilderObCaughtBuildingFnOptions,
+  options: CorjBuilderOnCaughtBuildingCallbackFnOptions,
 ) => void;
 
 export type CorjBuilderOptions = {
@@ -121,7 +128,7 @@ export type CorjBuilderOptions = {
   /**
    * This function is called when {@link CorjBuilder.build | CorjBuilder.build} fails to produce `as_json` or `as_string` fields of report json.
    */
-  onCaughtBuilding: CorjBuilderObCaughtBuildingFn;
+  onCaughtBuilding: CorjBuilderOnCaughtBuildingCallbackFn;
 };
 
 export class CorjBuilder {
@@ -157,4 +164,3 @@ export class CorjBuilder {
     return res as CaughtObjectReportJson;
   }
 }
-

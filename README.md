@@ -176,9 +176,9 @@ prints form onCaughtBuilding callback
 onCaughtBuilding:: { caughtDuring: 'caught-producing-as_json' }
 onCaughtBuilding:: {
   caught: Error: Could not convert caught object to json string.
-      at makeErrorJson (/home/df/hdd/wd/caught-object-report-json/src/index.ts:77:19)
-      at CorjBuilder.build (/home/df/hdd/wd/caught-object-report-json/src/index.ts:121:23)
-      at Object.<anonymous> (/home/df/hdd/wd/caught-object-report-json/examples/example-3-not-error-object.ts:15:35)
+      at makeCaughtObjectAsJsonProp (/home/df/hdd/wd/caught-object-report-json/src/CorjBuilder.ts:176:19)
+      at CorjBuilder.build (/home/df/hdd/wd/caught-object-report-json/src/CorjBuilder.ts:236:32)
+      at Object.<anonymous> (/home/df/hdd/wd/caught-object-report-json/examples/example-3-not-error-object.ts:15:23)
       at Module._compile (node:internal/modules/cjs/loader:1120:14)
       at Module.m._compile (/home/df/hdd/wd/caught-object-report-json/node_modules/ts-node/src/index.ts:1618:23)
       at Module._extensions..js (node:internal/modules/cjs/loader:1174:10)
@@ -190,7 +190,6 @@ onCaughtBuilding:: {
     stringifiedResult: undefined
   }
 }
----
 ```
 
 and then prints form catch block

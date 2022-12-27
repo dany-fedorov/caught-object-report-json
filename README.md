@@ -36,9 +36,7 @@ default options.
 Use [CorjMaker#make](https://dany-fedorov.github.io/caught-object-report-json/classes/CorjMaker.html#build) to
 produce [CaughtObjectReportJson](https://dany-fedorov.github.io/caught-object-report-json/types/CaughtObjectReportJson.html).
 
-##### *
-*[type CaughtObjectReportJson](https://dany-fedorov.github.io/caught-object-report-json/types/CaughtObjectReportJson.html)
-**
+##### **[type CaughtObjectReportJson](https://dany-fedorov.github.io/caught-object-report-json/types/CaughtObjectReportJson.html)**
 
 Report object, all fields documented.
 

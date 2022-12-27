@@ -13,8 +13,8 @@ Convert object from catch block to JSON suitable for structured logging.
 <!-- TOC -->
 
 * [API](#api)
-    * [makeCaughtObjectReportJson(caught)](#makecaughtobjectreportjson--caught-)
-    * [new CorjBuilder(options)](#new-corjbuilder--options-)
+    * [makeCaughtObjectReportJson(caught)](#makecaughtobjectreportjsoncaught)
+    * [new CorjBuilder(options)](#new-corjbuilderoptions)
     * [type CaughtObjectReportJson](#type-caughtobjectreportjson)
 * [Examples](#examples)
     * [1. Syntax Error](#1-syntax-error)

@@ -219,7 +219,7 @@ describe('CorjBuilder', () => {
         onCaughtBuilding: (caught, options) => {
           caughtBuildingArray.push({ caught, options });
         },
-        shortVersion: false,
+        addJsonSchemaLink: true,
       });
       const caught = new Error('I am an error!');
       const report = longVersionBuilder.build(caught);
@@ -228,6 +228,7 @@ describe('CorjBuilder', () => {
       delete report.stack_prop;
       expect(report).toMatchInlineSnapshot(`
         Object {
+          "$schema": "https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/v0.1.json",
           "as_json": Object {
             "format": "safe-stable-stringify@2.4.1",
             "value": Object {},
@@ -240,7 +241,7 @@ describe('CorjBuilder', () => {
           "is_error_instance": true,
           "message_prop": "I am an error!",
           "typeof": "object",
-          "v": "https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/v0.1.json",
+          "v": "corj/v0.1",
         }
       `);
       expect(caughtBuildingArray).toMatchInlineSnapshot(`Array []`);

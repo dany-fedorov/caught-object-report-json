@@ -1,7 +1,7 @@
 import { CorjBuilder } from '../src';
 
 const corj = new CorjBuilder({
-  shortVersion: false,
+  addJsonSchemaLink: true,
   onCaughtBuilding: (caught, { caughtDuring }) => {
     console.log('onCaughtBuilding::', { caughtDuring });
     console.log('onCaughtBuilding::', { caught });

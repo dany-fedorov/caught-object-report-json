@@ -13,19 +13,19 @@ Convert object from catch block to json - useful to report exceptions to json lo
 
 <!-- TOC -->
 
-* [Links](#links)
+* [API](#api)
 * [Examples](#examples)
     * [1. Syntax Error](#1-syntax-error)
     * [2. Axios Error](#2-axios-error)
     * [3. Not an error object thrown](#3-not-an-error-object-thrown)
+* [Links](#links)
 
 <!-- TOC -->
 
-# Links
+# [API](https://dany-fedorov.github.io/caught-object-report-json/modules.html)
 
-- GitHub - https://github.com/dany-fedorov/caught-object-report-json.git
-- Npm - https://www.npmjs.com/package/caught-object-report-json
-- API Docs - https://dany-fedorov.github.io/caught-object-report-json/modules.html
+- [makeCaughtObjectReportJson](https://dany-fedorov.github.io/caught-object-report-json/functions/makeCaughtObjectReportJson.html)
+- [CorjBuilder.build](https://dany-fedorov.github.io/caught-object-report-json/classes/CorjBuilder.html)
 
 # Examples
 
@@ -135,7 +135,7 @@ try {
 
 ```typescript
 const corj = new CorjBuilder({
-  shortVersion: false,
+  addJsonSchemaLink: true,
   onCaughtBuilding: (caught, {caughtDuring}) => {
     console.log('onCaughtBuilding::', {caughtDuring});
     console.log('onCaughtBuilding::', {caught});
@@ -150,7 +150,7 @@ try {
   console.log(JSON.stringify(report, null, 2));
 }
 /**
- * onCaughtBuilding:: { caughtDuring: 'caught-object-json-stringify' }
+ * onCaughtBuilding:: { caughtDuring: 'caught-producing-as_json' }
  * onCaughtBuilding:: {
  *   caught: Error: Could not convert caught object to json string.
  *       at makeErrorJson (/home/df/hdd/wd/caught-object-report-json/src/index.ts:77:19)
@@ -168,6 +168,7 @@ try {
  *   }
  * }
  * ---
+ *
  * {
  *   "is_error_instance": false,
  *   "typeof": "undefined",
@@ -179,8 +180,14 @@ try {
  *     "value": null,
  *     "format": null
  *   },
- *   "v": "https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/v0.1.json"
+ *   "v": "corj/v0.1",
+ *   "$schema": "https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/v0.1.json"
  * }
+
  */
 ```
 
+# Links
+
+- GitHub - https://github.com/dany-fedorov/caught-object-report-json.git
+- Npm - https://www.npmjs.com/package/caught-object-report-json

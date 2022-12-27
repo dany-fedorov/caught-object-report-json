@@ -1,7 +1,7 @@
 import type { CaughtObjectReportJson, CorjBuilderOptions } from './CorjBuilder';
 import { CorjBuilder } from './CorjBuilder';
 
-export const DEFAULT_CORJ_BUILDER_OPTIONS = {
+export const CORJ_BUILDER_OPTIONS_DEFAULTS = {
   addJsonSchemaLink: false,
   onCaughtBuilding: (caught: unknown, { caughtDuring }) => {
     console.warn(
@@ -12,14 +12,14 @@ export const DEFAULT_CORJ_BUILDER_OPTIONS = {
 } as CorjBuilderOptions;
 
 /**
- * Wrapper for {@link CorjBuilder.build | CorjBuilder.build} with default options specified in {@link DEFAULT_CORJ_BUILDER_OPTIONS}.
+ * Wrapper for {@link CorjBuilder.build | CorjBuilder.build} with default options specified in {@link CORJ_BUILDER_OPTIONS_DEFAULTS}.
  */
 export function makeCaughtObjectReportJson(
   caught: unknown,
   options?: Partial<CorjBuilderOptions>,
 ): CaughtObjectReportJson {
   const effectiveOptions = {
-    ...DEFAULT_CORJ_BUILDER_OPTIONS,
+    ...CORJ_BUILDER_OPTIONS_DEFAULTS,
     ...(options ?? {}),
   };
   const builder = new CorjBuilder(effectiveOptions);

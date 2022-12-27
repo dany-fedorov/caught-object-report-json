@@ -19,5 +19,5 @@ export {
 export {
   makeCaughtObjectReportJson,
   bakeCorj,
-  DEFAULT_CORJ_BUILDER_OPTIONS,
+  CORJ_BUILDER_OPTIONS_DEFAULTS,
 } from './makeCaughtObjectReportJson';

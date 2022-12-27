@@ -1,13 +1,13 @@
 import { CorjBuilder } from '../src';
 import { getReportValidator } from './utils/getReportValidator';
-import { DEFAULT_CORJ_BUILDER_OPTIONS } from '../src/makeCaughtObjectReportJson';
+import { CORJ_BUILDER_OPTIONS_DEFAULTS } from '../src/makeCaughtObjectReportJson';
 
 describe('CorjBuilder', () => {
   describe('Default options', function () {
     test('Error object', () => {
       const caughtBuildingArray: unknown[] = [];
       const noOptionsBuilder = new CorjBuilder({
-        ...DEFAULT_CORJ_BUILDER_OPTIONS,
+        ...CORJ_BUILDER_OPTIONS_DEFAULTS,
         onCaughtBuilding: (caught, options) => {
           caughtBuildingArray.push({ caught, options });
         },
@@ -40,7 +40,7 @@ describe('CorjBuilder', () => {
     test('String', () => {
       const caughtBuildingArray: unknown[] = [];
       const noOptionsBuilder = new CorjBuilder({
-        ...DEFAULT_CORJ_BUILDER_OPTIONS,
+        ...CORJ_BUILDER_OPTIONS_DEFAULTS,
         onCaughtBuilding: (caught, options) => {
           caughtBuildingArray.push({ caught, options });
         },
@@ -72,7 +72,7 @@ describe('CorjBuilder', () => {
     test('undefined', () => {
       const caughtBuildingArray: unknown[] = [];
       const noOptionsBuilder = new CorjBuilder({
-        ...DEFAULT_CORJ_BUILDER_OPTIONS,
+        ...CORJ_BUILDER_OPTIONS_DEFAULTS,
         onCaughtBuilding: (caught, options) => {
           caughtBuildingArray.push({ caught, options });
         },
@@ -112,7 +112,7 @@ describe('CorjBuilder', () => {
     test('null', () => {
       const caughtBuildingArray: unknown[] = [];
       const noOptionsBuilder = new CorjBuilder({
-        ...DEFAULT_CORJ_BUILDER_OPTIONS,
+        ...CORJ_BUILDER_OPTIONS_DEFAULTS,
         onCaughtBuilding: (caught, options) => {
           caughtBuildingArray.push({ caught, options });
         },
@@ -143,7 +143,7 @@ describe('CorjBuilder', () => {
     test('BigInt', () => {
       const caughtBuildingArray: unknown[] = [];
       const noOptionsBuilder = new CorjBuilder({
-        ...DEFAULT_CORJ_BUILDER_OPTIONS,
+        ...CORJ_BUILDER_OPTIONS_DEFAULTS,
         onCaughtBuilding: (caught, options) => {
           caughtBuildingArray.push({ caught, options });
         },
@@ -175,7 +175,7 @@ describe('CorjBuilder', () => {
     test('array', () => {
       const caughtBuildingArray: unknown[] = [];
       const noOptionsBuilder = new CorjBuilder({
-        ...DEFAULT_CORJ_BUILDER_OPTIONS,
+        ...CORJ_BUILDER_OPTIONS_DEFAULTS,
         onCaughtBuilding: (caught, options) => {
           caughtBuildingArray.push({ caught, options });
         },
@@ -216,7 +216,7 @@ describe('CorjBuilder', () => {
     test('Error object', () => {
       const caughtBuildingArray: unknown[] = [];
       const longVersionBuilder = new CorjBuilder({
-        ...DEFAULT_CORJ_BUILDER_OPTIONS,
+        ...CORJ_BUILDER_OPTIONS_DEFAULTS,
         onCaughtBuilding: (caught, options) => {
           caughtBuildingArray.push({ caught, options });
         },
@@ -253,7 +253,7 @@ describe('CorjBuilder', () => {
     test('undefined', () => {
       const warnSpy = jest.spyOn(console, 'warn');
       warnSpy.mockImplementation(() => null);
-      const longVersionBuilder = new CorjBuilder(DEFAULT_CORJ_BUILDER_OPTIONS);
+      const longVersionBuilder = new CorjBuilder(CORJ_BUILDER_OPTIONS_DEFAULTS);
       const caught = undefined;
       const report = longVersionBuilder.build(caught);
       expect(getReportValidator()(report)).toMatchInlineSnapshot(`true`);
@@ -288,7 +288,7 @@ describe('CorjBuilder', () => {
     test('.toString throws', () => {
       const warnSpy = jest.spyOn(console, 'warn');
       warnSpy.mockImplementation(() => null);
-      const longVersionBuilder = new CorjBuilder(DEFAULT_CORJ_BUILDER_OPTIONS);
+      const longVersionBuilder = new CorjBuilder(CORJ_BUILDER_OPTIONS_DEFAULTS);
       const caught = {
         toString: () => {
           throw new Error('I am a nasty error!');
@@ -328,7 +328,7 @@ describe('CorjBuilder', () => {
     test('.toString returns not string', () => {
       const warnSpy = jest.spyOn(console, 'warn');
       warnSpy.mockImplementation(() => null);
-      const longVersionBuilder = new CorjBuilder(DEFAULT_CORJ_BUILDER_OPTIONS);
+      const longVersionBuilder = new CorjBuilder(CORJ_BUILDER_OPTIONS_DEFAULTS);
       const caught = {
         toString: () => {
           return {

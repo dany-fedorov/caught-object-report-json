@@ -5,7 +5,7 @@ import {
   CORJ_AS_STRING_FORMAT_STRING_CONSTRUCTOR,
   bakeCorj,
   makeCaughtObjectReportJson,
-  DEFAULT_CORJ_BUILDER_OPTIONS,
+  CORJ_BUILDER_OPTIONS_DEFAULTS,
 } from '../src';
 
 describe('Assertions about package exports', function () {
@@ -30,7 +30,7 @@ describe('Assertions about package exports', function () {
   });
 
   test('DEFAULT_CORJ_BUILDER_OPTIONS', () => {
-    expect(DEFAULT_CORJ_BUILDER_OPTIONS).toMatchInlineSnapshot(`
+    expect(CORJ_BUILDER_OPTIONS_DEFAULTS).toMatchInlineSnapshot(`
       Object {
         "addJsonSchemaLink": false,
         "onCaughtBuilding": [Function],

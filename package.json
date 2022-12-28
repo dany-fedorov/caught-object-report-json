@@ -1,7 +1,7 @@
 {
   "name": "caught-object-report-json",
-  "version": "0.1.17",
-  "description": "Make JS exceptions suitable for structured logging.",
+  "version": "0.1.18",
+  "description": "JS Error JSON representation",
   "main": "./index.js",
   "scripts": {
     "test": "NODE_OPTIONS='--stack-trace-limit=1000' ./node_modules/.bin/jest",
@@ -25,7 +25,10 @@
     "typescript",
     "exception",
     "json logs",
-    "structured logging"
+    "structured logging",
+    "error-to-json",
+    "error",
+    "js error"
   ],
   "author": "Dany Fedorov",
   "license": "MIT",

@@ -5,7 +5,16 @@
 [![Package License](https://img.shields.io/npm/l/caught-object-report-json.svg)](https://www.npmjs.org/package/caught-object-report-json)
 [![Npm Version](https://img.shields.io/npm/v/caught-object-report-json.svg)](https://www.npmjs.org/package/caught-object-report-json)
 
-Convert object from catch block to JSON suitable for structured logging.
+In JavaScript, you can apply `throw` statement to any object, not just to `Error` instances. For
+example `throw Infinity` is a valid JS statement.
+This library attempts to provide a useful JSON representation for any JS object thrown and caught.
+
+Intended use cases are
+
+- Structured logging
+- Communicating thrown objects through network, e.g. REST API or GraphQL response
+
+Please don't hesitate to open an issue if your use case for this type of library is not met.
 
 > **Warning**
 > Please use fixed version (remove ^ from package.json).
@@ -23,20 +32,20 @@ Convert object from catch block to JSON suitable for structured logging.
     - [Npm](https://www.npmjs.com/package/caught-object-report-json)
     - [JSON Schema v0.1](https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/v0.1.json)
 
-# **[API](https://dany-fedorov.github.io/caught-object-report-json/modules.html)**
+# [API](https://dany-fedorov.github.io/caught-object-report-json/modules.html)
 
-##### [makeCaughtObjectReportJson(caught)](https://dany-fedorov.github.io/caught-object-report-json/functions/makeCaughtObjectReportJson.html)
+#### <strong>[makeCaughtObjectReportJson(caught)](https://dany-fedorov.github.io/caught-object-report-json/functions/makeCaughtObjectReportJson.html)</strong>
 
 A wrapper
 for [CorjMaker#make](https://dany-fedorov.github.io/caught-object-report-json/classes/CorjMaker.html#build) with
 default options.
 
-##### **[new CorjMaker(options)](https://dany-fedorov.github.io/caught-object-report-json/classes/CorjMaker.html)**
+#### <strong>[new CorjMaker(options)](https://dany-fedorov.github.io/caught-object-report-json/classes/CorjMaker.html)</strong>
 
 Use [CorjMaker#make](https://dany-fedorov.github.io/caught-object-report-json/classes/CorjMaker.html#build) to
 produce [CaughtObjectReportJson](https://dany-fedorov.github.io/caught-object-report-json/types/CaughtObjectReportJson.html).
 
-##### **[type CaughtObjectReportJson](https://dany-fedorov.github.io/caught-object-report-json/types/CaughtObjectReportJson.html)**
+#### <strong>[type CaughtObjectReportJson](https://dany-fedorov.github.io/caught-object-report-json/types/CaughtObjectReportJson.html)</strong>
 
 Report object, all fields documented.
 

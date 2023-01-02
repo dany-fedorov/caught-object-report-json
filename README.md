@@ -18,9 +18,6 @@ Intended use cases are
 
 Please don't hesitate to open an issue if your use case for this type of library is not met.
 
-> **Warning**
-> Please use fixed version (remove ^ from package.json).
-
 - [API](#api)
     - [makeCaughtObjectReportJson(caught)](#makecaughtobjectreportjsoncaught)
     - [new CorjMaker(options)](#new-corjmakeroptions)

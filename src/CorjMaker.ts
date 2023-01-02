@@ -238,16 +238,16 @@ export class CorjMaker {
     const caughtObjectConstructorName =
       typeof caught?.constructor?.name !== 'string'
         ? undefined
-        : caught?.constructor?.name;
+        : caught.constructor.name;
     const caughtObjectAsJson = makeCaughtObjectAsJsonProp(caught, this.options);
     const caughtObjectMessageProp =
       typeof (caught as any)?.message !== 'string'
         ? undefined
-        : (caught as any)?.message;
+        : (caught as any).message;
     const caughtObjectStackProp =
       typeof (caught as any)?.stack !== 'string'
         ? undefined
-        : (caught as any)?.stack;
+        : (caught as any).stack;
     const res = Object.fromEntries(
       [
         ['is_error_instance', caughtObjectIsErrorInstance],

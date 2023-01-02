@@ -9,8 +9,7 @@
         "preset": "angular",
         "releaseRules": [
           {
-            "type": "docs",
-            "scope": "release",
+            "scope": "force-release-patch",
             "release": "patch"
           },
           {

@@ -23,6 +23,12 @@ jobs:
       - name: Run tests
         run: npm run test-ci
 
+      - name: Upload tests coverage
+        uses: actions/upload-artifact@master
+        with:
+          name: tests-coverage
+          path: coverage
+
   build:
     runs-on: ubuntu-latest
     steps:

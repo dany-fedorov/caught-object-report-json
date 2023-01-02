@@ -148,7 +148,7 @@ describe('CorjMaker', () => {
           caughtBuildingArray.push({ caught, options });
         },
       });
-      const caught = 123n;
+      const caught = BigInt(123);
       const report = noOptionsBuilder.make(caught);
       expect(getReportValidator()(report)).toMatchInlineSnapshot(`true`);
       expect(typeof report.stack_prop).toBe('undefined');
@@ -180,7 +180,7 @@ describe('CorjMaker', () => {
           caughtBuildingArray.push({ caught, options });
         },
       });
-      const caught = [1234, 'string', 1234n, { a: 'b' }];
+      const caught = [1234, 'string', BigInt(1234), { a: 'b' }];
       const report = noOptionsBuilder.make(caught);
       expect(getReportValidator()(report)).toMatchInlineSnapshot(`true`);
       expect(typeof report.stack_prop).toBe('undefined');

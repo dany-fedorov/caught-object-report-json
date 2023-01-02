@@ -12,7 +12,7 @@ export const CORJ_MAKER_OPTIONS_DEFAULTS = {
 } as CorjMakerOptions;
 
 /**
- * Wrapper for {@link CorjMaker.make | CorjMaker.build} with default options specified in {@link CORJ_MAKER_OPTIONS_DEFAULTS}.
+ * Wrapper for {@link CorjMaker.make | CorjMaker.make} with default options specified in {@link CORJ_MAKER_OPTIONS_DEFAULTS}.
  */
 export function makeCaughtObjectReportJson(
   caught: unknown,

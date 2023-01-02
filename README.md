@@ -1,12 +1,14 @@
 # Caught Object Report JSON
 
 ![Jest coverage](https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/badges/coverage-jest%20coverage.svg)
+[![semantic-release: angular](https://img.shields.io/badge/semantic--release-angular-e10079?logo=semantic-release)](https://github.com/semantic-release/semantic-release)
 [![Code Style by Prettier](https://img.shields.io/badge/code_style-prettier-ff69b4.svg)](https://github.com/prettier/prettier)
-[![Package License](https://img.shields.io/npm/l/caught-object-report-json.svg)](https://www.npmjs.org/package/caught-object-report-json)
+[![Strictest TypeScript Config](https://badgen.net/badge/TS/strictest "Strictest TypeScript Config")](https://www.npmjs.com/package/@tsconfig/strictest)
+[![Package License MIT](https://img.shields.io/npm/l/caught-object-report-json.svg)](https://www.npmjs.org/package/caught-object-report-json)
 [![Npm Version](https://img.shields.io/npm/v/caught-object-report-json.svg)](https://www.npmjs.org/package/caught-object-report-json)
 
 In JavaScript, you can apply `throw` statement to any object, not just to `Error` instances. For
-example `throw Infinity` is a valid JS statement.
+example `throw Infinity` is valid JS code.
 This library attempts to provide a useful JSON representation for any JS object thrown and caught.
 
 Intended use cases are
@@ -34,26 +36,26 @@ Please don't hesitate to open an issue if your use case for this type of library
 
 # [API](https://dany-fedorov.github.io/caught-object-report-json/modules.html)
 
-#### <strong>[makeCaughtObjectReportJson(caught)](https://dany-fedorov.github.io/caught-object-report-json/functions/makeCaughtObjectReportJson.html)</strong>
+#### [makeCaughtObjectReportJson(caught)](https://dany-fedorov.github.io/caught-object-report-json/functions/makeCaughtObjectReportJson.html)
 
 A wrapper
 for [CorjMaker#make](https://dany-fedorov.github.io/caught-object-report-json/classes/CorjMaker.html#build) with
 default options.
 
-#### <strong>[new CorjMaker(options)](https://dany-fedorov.github.io/caught-object-report-json/classes/CorjMaker.html)</strong>
+#### [new CorjMaker(options)](https://dany-fedorov.github.io/caught-object-report-json/classes/CorjMaker.html)
 
 Use [CorjMaker#make](https://dany-fedorov.github.io/caught-object-report-json/classes/CorjMaker.html#build) to
 produce [CaughtObjectReportJson](https://dany-fedorov.github.io/caught-object-report-json/types/CaughtObjectReportJson.html).
 
-#### <strong>[type CaughtObjectReportJson](https://dany-fedorov.github.io/caught-object-report-json/types/CaughtObjectReportJson.html)</strong>
+#### [type CaughtObjectReportJson](https://dany-fedorov.github.io/caught-object-report-json/types/CaughtObjectReportJson.html)
 
-Report object, all fields documented.
+Report object, check out the link for details about properties.
 
 # Examples
 
 ## 1. [Syntax error](./examples/example-1-syntax-error.ts)
 
-(Run with `npm run tsfile ./examples/example-1-syntax-error.ts`)
+(Run with `npm run ts-file ./examples/example-1-syntax-error.ts`)
 
 ```typescript
 try {
@@ -87,7 +89,7 @@ prints
 
 ## 2. [Axios error](./examples/example-2-axios-error.ts)
 
-(Run with `npm run tsfile ./examples/example-2-axios-error.ts`)
+(Run with `npm run ts-file ./examples/example-2-axios-error.ts`)
 
 ```typescript
 (async () => {
@@ -159,7 +161,7 @@ prints
 
 ## 3. [Not an error object thrown](./examples/example-3-not-error-object.ts)
 
-(Run with `npm run tsfile ./examples/example-3-not-error-object.ts`)
+(Run with `npm run ts-file ./examples/example-3-not-error-object.ts`)
 
 ```typescript
 const corj = new CorjMaker({
@@ -229,6 +231,6 @@ https://github.com/dany-fedorov/caught-object-report-json.git
 
 https://www.npmjs.com/package/caught-object-report-json
 
-##### JSON Schema v0.1
+##### CORJ JSON Schema v0.1
 
 https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/v0.1.json

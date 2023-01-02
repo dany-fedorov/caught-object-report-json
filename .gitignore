@@ -1,5 +1,5 @@
 .idea
 node_modules/
 /dist/
-/npm-module
+/npm-module-build
 /coverage

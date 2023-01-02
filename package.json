@@ -5,13 +5,13 @@
   "main": "./index.js",
   "scripts": {
     "test": "NODE_OPTIONS='--stack-trace-limit=1000' ./node_modules/.bin/jest",
-    "build": "tsc -p ./tsconfig.build.json # && tsconfig-replace-paths --project tsconfig.paths.json -s ./src",
+    "build": "tsc -p ./tsconfig.build.json",
     "prepare-me": "rm -rf ./dist && npm run build",
-    "prepublish-me": "npm run prepare-me && rm -fr ./npm-module && mv dist ./npm-module && cp package.json ./npm-module && cp README.md ./npm-module && cp LICENSE ./npm-module",
-    "publish-me": "npm run prepublish-me && cd npm-module && npm publish --access public --registry https://registry.npmjs.org/",
-    "postpublish-me": "rm -fr npm-module",
+    "prepublish-me": "npm run prepare-me && rm -fr ./npm-module-build && mv dist ./npm-module-build && cp package.json ./npm-module-build && cp README.md ./npm-module-build && cp LICENSE ./npm-module-build",
+    "publish-me": "npm run prepublish-me && cd npm-module-build && npm publish --access public --registry https://registry.npmjs.org/",
+    "postpublish-me": "rm -fr npm-module-build",
     "build-watch": "chokidar './src/**/*.ts' -c 'npm run build' -i './node_modules/**/*' --initial",
-    "tsfile": "ts-node -r tsconfig-paths/register -T -s",
+    "ts-file": "ts-node -r tsconfig-paths/register -T -s",
     "test-ci": "npm run test -- --ci --coverage"
   },
   "repository": {
@@ -34,7 +34,10 @@
   "license": "MIT",
   "devDependencies": {
     "@jest/types": "^28.1.3",
-    "@tsconfig/node16-strictest": "^1.0.3",
+    "@tsconfig/strictest": "^1.0.2",
+    "@semantic-release/changelog": "^6.0.2",
+    "@semantic-release/exec": "^6.0.3",
+    "@semantic-release/git": "^10.0.1",
     "@types/jest": "^29.2.4",
     "@types/node": "^18.7.3",
     "@types/uuid": "^9.0.0",
@@ -48,6 +51,7 @@
     "eslint-plugin-import": "2.26.0",
     "jest": "^28.1.2",
     "prettier": "2.8.1",
+    "semantic-release": "^19.0.5",
     "ts-jest": "^28.0.5",
     "ts-node": "^10.8.2",
     "tsconfig-paths": "^4.1.0",

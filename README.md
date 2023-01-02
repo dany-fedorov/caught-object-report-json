@@ -32,7 +32,7 @@ Please don't hesitate to open an issue if your use case for this type of library
 - [Links](#links)
     - [GitHub](https://github.com/dany-fedorov/caught-object-report-json.git)
     - [Npm](https://www.npmjs.com/package/caught-object-report-json)
-    - [JSON Schema v0.1](https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/v0.1.json)
+    - [CORJ JSON Schema v0.1](https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/v0.1.json)
 
 # [API](https://dany-fedorov.github.io/caught-object-report-json/modules.html)
 

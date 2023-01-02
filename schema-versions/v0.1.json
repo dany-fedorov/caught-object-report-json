@@ -3,6 +3,13 @@
   "title": "Caught Object Report JSON",
   "description": "A JSON produced from caught object by JavaScript library. Default implementation is https://www.npmjs.com/package/caught-object-report-json.",
   "type": "object",
+  "required": [
+    "typeof",
+    "as_string",
+    "as_json",
+    "is_error_instance",
+    "v"
+  ],
   "properties": {
     "constructor_name": {
       "type": "string"
@@ -12,7 +19,21 @@
     },
     "as_string": {
       "type": "object",
+      "required": [
+        "format",
+        "value"
+      ],
       "properties": {
+        "value": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
         "format": {
           "oneOf": [
             {
@@ -44,7 +65,33 @@
     },
     "as_json": {
       "type": "object",
+      "required": [
+        "format",
+        "value"
+      ],
       "properties": {
+        "value": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "array"
+            },
+            {
+              "type": "object"
+            }
+          ]
+        },
         "format": {
           "oneOf": [
             {
@@ -67,12 +114,5 @@
         "corj/v0.1"
       ]
     }
-  },
-  "required": [
-    "typeof",
-    "as_string",
-    "as_json",
-    "is_error_instance",
-    "v"
-  ]
+  }
 }

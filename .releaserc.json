@@ -13,6 +13,10 @@
             "release": "patch"
           },
           {
+            "scope": "deps",
+            "release": "patch"
+          },
+          {
             "scope": "no-release",
             "release": false
           }

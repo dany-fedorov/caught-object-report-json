@@ -29,7 +29,7 @@ Please don't hesitate to open an issue if your use case for this type of library
 - [Links](#links)
     - [GitHub](https://github.com/dany-fedorov/caught-object-report-json.git)
     - [Npm](https://www.npmjs.com/package/caught-object-report-json)
-    - [CORJ JSON Schema v0.1](https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/v0.1.json)
+    - [CORJ JSON Schema v0.2](https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/v0.1.json)
 
 # Examples
 
@@ -206,17 +206,19 @@ and then prints form catch block
 #### [makeCaughtObjectReportJson(caught)](https://dany-fedorov.github.io/caught-object-report-json/functions/makeCaughtObjectReportJson.html)
 
 A wrapper
-for [CorjMaker#make](https://dany-fedorov.github.io/caught-object-report-json/classes/CorjMaker.html#build) with
+for `CorjMaker#make` with
 default options.
 
 #### [new CorjMaker(options)](https://dany-fedorov.github.io/caught-object-report-json/classes/CorjMaker.html)
 
-Use [CorjMaker#make](https://dany-fedorov.github.io/caught-object-report-json/classes/CorjMaker.html#build) to
-produce [CaughtObjectReportJson](https://dany-fedorov.github.io/caught-object-report-json/types/CaughtObjectReportJson.html).
+Use `CorjMaker#make` to produce `CaughtObjectReportJson`.
 
 #### [type CaughtObjectReportJson](https://dany-fedorov.github.io/caught-object-report-json/types/CaughtObjectReportJson.html)
 
-Report object, check out the link for details about properties.
+Report object produced by `CorjMaker#make`.
+See the link for details about properties or check out a source code
+of [CorjMaker#make](https://github.com/dany-fedorov/caught-object-report-json/blob/59f819b/src/CorjMaker.ts#L231), it is
+straightforward.
 
 # Links
 

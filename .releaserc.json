@@ -9,6 +9,11 @@
         "preset": "angular",
         "releaseRules": [
           {
+            "type": "docs",
+            "scope": "README",
+            "release": "patch"
+          },
+          {
             "scope": "force-release-patch",
             "release": "patch"
           },

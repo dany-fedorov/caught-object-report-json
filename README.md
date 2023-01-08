@@ -197,7 +197,7 @@ and then prints form catch block
     "format": null
   },
   "v": "corj/v0.2",
-  "$schema": "https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/v0.1.json"
+  "$schema": "https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/v0.2.json"
 }
 ```
 

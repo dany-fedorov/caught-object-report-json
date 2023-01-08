@@ -228,6 +228,6 @@ https://github.com/dany-fedorov/caught-object-report-json.git
 
 https://www.npmjs.com/package/caught-object-report-json
 
-##### CORJ JSON Schema v0.1
+##### CORJ JSON Schema v0.2
 
-https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/v0.1.json
+https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/v0.2.json

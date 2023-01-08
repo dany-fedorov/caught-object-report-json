@@ -27,9 +27,9 @@ Please don't hesitate to open an issue if your use case for this type of library
     - [new CorjMaker(options)](#new-corjmakeroptions)
     - [type CaughtObjectReportJson](#type-caughtobjectreportjson)
 - [Links](#links)
-    - [GitHub](https://github.com/dany-fedorov/caught-object-report-json.git)
-    - [Npm](https://www.npmjs.com/package/caught-object-report-json)
-    - [CORJ JSON Schema v0.2](https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/v0.1.json)
+    * [GitHub](#github)
+    * [Npm](#npm)
+    * [CORJ JSON Schema v0.2](#corj-json-schema-v02)
 
 # Examples
 

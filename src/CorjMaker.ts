@@ -3,9 +3,9 @@ import { configure } from 'safe-stable-stringify';
 export const CORJ_AS_JSON_FORMAT_SAFE_STABLE_STRINGIFY_2_4_1 =
   'safe-stable-stringify@2.4.1';
 export const CORJ_AS_STRING_FORMAT_STRING_CONSTRUCTOR = 'String';
-export const CORJ_VERSION = 'corj/v0.1';
+export const CORJ_VERSION = 'corj/v0.2';
 export const CORJ_JSON_SCHEMA_LINK =
-  'https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/v0.1.json';
+  'https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/v0.2.json';
 
 export type CorjJsonObject<P extends CorjJsonPrimitive> = {
   [x: string]: CorjJsonValue<P>;
@@ -64,7 +64,7 @@ export type CaughtObjectReportJson = {
    * Links
    * - [MDN Error.prototype.message](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Error/message)
    */
-  message_prop?: string;
+  message?: string;
   /**
    * - `as_string.value`<br>
    *   A string produced from caught object using `as_string.format`<br>
@@ -130,7 +130,7 @@ export type CaughtObjectReportJson = {
    * Links
    * - [MDN Error.prototype.stack](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Error/Stack)
    */
-  stack_prop?: string;
+  stack?: string;
   /**
    * Indicates a version of a standard for this object.
    * Version produced by this library is {@link CORJ_VERSION}
@@ -253,10 +253,10 @@ export class CorjMaker {
         ['is_error_instance', caughtObjectIsErrorInstance],
         ['typeof', caughtObjectTypeof],
         ['constructor_name', caughtObjectConstructorName],
-        ['message_prop', caughtObjectMessageProp],
+        ['message', caughtObjectMessageProp],
         ['as_string', caughtObjectAsString],
         ['as_json', caughtObjectAsJson],
-        ['stack_prop', caughtObjectStackProp],
+        ['stack', caughtObjectStackProp],
         ['v', CORJ_VERSION],
         [
           '$schema',

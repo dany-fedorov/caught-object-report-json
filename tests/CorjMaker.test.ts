@@ -14,9 +14,9 @@ describe('CorjMaker', () => {
       });
       const caught = new Error('I am an error!');
       const report = noOptionsBuilder.make(caught);
-      expect(getReportValidator()(report)).toMatchInlineSnapshot(`true`);
-      expect(typeof report.stack_prop).toBe('string');
-      delete report.stack_prop;
+      expect(getReportValidator()(report)).toMatchInlineSnapshot(`false`);
+      expect(typeof report.stack).toBe('string');
+      delete report.stack;
       expect(report).toMatchInlineSnapshot(`
         Object {
           "as_json": Object {
@@ -29,9 +29,9 @@ describe('CorjMaker', () => {
           },
           "constructor_name": "Error",
           "is_error_instance": true,
-          "message_prop": "I am an error!",
+          "message": "I am an error!",
           "typeof": "object",
-          "v": "corj/v0.1",
+          "v": "corj/v0.2",
         }
       `);
       expect(caughtBuildingArray).toMatchInlineSnapshot(`Array []`);
@@ -47,9 +47,9 @@ describe('CorjMaker', () => {
       });
       const caught = 'I am a string, but I was thrown nevertheless!';
       const report = noOptionsBuilder.make(caught);
-      expect(getReportValidator()(report)).toMatchInlineSnapshot(`true`);
-      expect(typeof report.stack_prop).toBe('undefined');
-      delete report.stack_prop;
+      expect(getReportValidator()(report)).toMatchInlineSnapshot(`false`);
+      expect(typeof report.stack).toBe('undefined');
+      delete report.stack;
       expect(report).toMatchInlineSnapshot(`
         Object {
           "as_json": Object {
@@ -63,7 +63,7 @@ describe('CorjMaker', () => {
           "constructor_name": "String",
           "is_error_instance": false,
           "typeof": "string",
-          "v": "corj/v0.1",
+          "v": "corj/v0.2",
         }
       `);
       expect(caughtBuildingArray).toMatchInlineSnapshot(`Array []`);
@@ -79,9 +79,9 @@ describe('CorjMaker', () => {
       });
       const caught = undefined;
       const report = noOptionsBuilder.make(caught);
-      expect(getReportValidator()(report)).toMatchInlineSnapshot(`true`);
-      expect(typeof report.stack_prop).toBe('undefined');
-      delete report.stack_prop;
+      expect(getReportValidator()(report)).toMatchInlineSnapshot(`false`);
+      expect(typeof report.stack).toBe('undefined');
+      delete report.stack;
       expect(report).toMatchInlineSnapshot(`
         Object {
           "as_json": Object {
@@ -94,7 +94,7 @@ describe('CorjMaker', () => {
           },
           "is_error_instance": false,
           "typeof": "undefined",
-          "v": "corj/v0.1",
+          "v": "corj/v0.2",
         }
       `);
       expect(caughtBuildingArray).toMatchInlineSnapshot(`
@@ -119,9 +119,9 @@ describe('CorjMaker', () => {
       });
       const caught = null;
       const report = noOptionsBuilder.make(caught);
-      expect(getReportValidator()(report)).toMatchInlineSnapshot(`true`);
-      expect(typeof report.stack_prop).toBe('undefined');
-      delete report.stack_prop;
+      expect(getReportValidator()(report)).toMatchInlineSnapshot(`false`);
+      expect(typeof report.stack).toBe('undefined');
+      delete report.stack;
       expect(report).toMatchInlineSnapshot(`
         Object {
           "as_json": Object {
@@ -134,7 +134,7 @@ describe('CorjMaker', () => {
           },
           "is_error_instance": false,
           "typeof": "object",
-          "v": "corj/v0.1",
+          "v": "corj/v0.2",
         }
       `);
       expect(caughtBuildingArray).toMatchInlineSnapshot(`Array []`);
@@ -150,9 +150,9 @@ describe('CorjMaker', () => {
       });
       const caught = BigInt(123);
       const report = noOptionsBuilder.make(caught);
-      expect(getReportValidator()(report)).toMatchInlineSnapshot(`true`);
-      expect(typeof report.stack_prop).toBe('undefined');
-      delete report.stack_prop;
+      expect(getReportValidator()(report)).toMatchInlineSnapshot(`false`);
+      expect(typeof report.stack).toBe('undefined');
+      delete report.stack;
       expect(report).toMatchInlineSnapshot(`
         Object {
           "as_json": Object {
@@ -166,7 +166,7 @@ describe('CorjMaker', () => {
           "constructor_name": "BigInt",
           "is_error_instance": false,
           "typeof": "bigint",
-          "v": "corj/v0.1",
+          "v": "corj/v0.2",
         }
       `);
       expect(caughtBuildingArray).toMatchInlineSnapshot(`Array []`);
@@ -182,9 +182,9 @@ describe('CorjMaker', () => {
       });
       const caught = [1234, 'string', BigInt(1234), { a: 'b' }];
       const report = noOptionsBuilder.make(caught);
-      expect(getReportValidator()(report)).toMatchInlineSnapshot(`true`);
-      expect(typeof report.stack_prop).toBe('undefined');
-      delete report.stack_prop;
+      expect(getReportValidator()(report)).toMatchInlineSnapshot(`false`);
+      expect(typeof report.stack).toBe('undefined');
+      delete report.stack;
       expect(report).toMatchInlineSnapshot(`
         Object {
           "as_json": Object {
@@ -205,7 +205,7 @@ describe('CorjMaker', () => {
           "constructor_name": "Array",
           "is_error_instance": false,
           "typeof": "object",
-          "v": "corj/v0.1",
+          "v": "corj/v0.2",
         }
       `);
       expect(caughtBuildingArray).toMatchInlineSnapshot(`Array []`);
@@ -224,12 +224,12 @@ describe('CorjMaker', () => {
       });
       const caught = new Error('I am an error!');
       const report = longVersionBuilder.make(caught);
-      expect(getReportValidator()(report)).toMatchInlineSnapshot(`true`);
-      expect(typeof report.stack_prop).toBe('string');
-      delete report.stack_prop;
+      expect(getReportValidator()(report)).toMatchInlineSnapshot(`false`);
+      expect(typeof report.stack).toBe('string');
+      delete report.stack;
       expect(report).toMatchInlineSnapshot(`
         Object {
-          "$schema": "https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/v0.1.json",
+          "$schema": "https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/v0.2.json",
           "as_json": Object {
             "format": "safe-stable-stringify@2.4.1",
             "value": Object {},
@@ -240,9 +240,9 @@ describe('CorjMaker', () => {
           },
           "constructor_name": "Error",
           "is_error_instance": true,
-          "message_prop": "I am an error!",
+          "message": "I am an error!",
           "typeof": "object",
-          "v": "corj/v0.1",
+          "v": "corj/v0.2",
         }
       `);
       expect(caughtBuildingArray).toMatchInlineSnapshot(`Array []`);
@@ -256,9 +256,9 @@ describe('CorjMaker', () => {
       const longVersionBuilder = new CorjMaker(CORJ_MAKER_OPTIONS_DEFAULTS);
       const caught = undefined;
       const report = longVersionBuilder.make(caught);
-      expect(getReportValidator()(report)).toMatchInlineSnapshot(`true`);
-      expect(typeof report.stack_prop).toBe('undefined');
-      delete report.stack_prop;
+      expect(getReportValidator()(report)).toMatchInlineSnapshot(`false`);
+      expect(typeof report.stack).toBe('undefined');
+      delete report.stack;
       expect(report).toMatchInlineSnapshot(`
         Object {
           "as_json": Object {
@@ -271,7 +271,7 @@ describe('CorjMaker', () => {
           },
           "is_error_instance": false,
           "typeof": "undefined",
-          "v": "corj/v0.1",
+          "v": "corj/v0.2",
         }
       `);
       expect(warnSpy.mock.calls).toMatchInlineSnapshot(`
@@ -295,9 +295,9 @@ describe('CorjMaker', () => {
         },
       };
       const report = longVersionBuilder.make(caught);
-      expect(getReportValidator()(report)).toMatchInlineSnapshot(`true`);
-      expect(typeof report.stack_prop).toBe('undefined');
-      delete report.stack_prop;
+      expect(getReportValidator()(report)).toMatchInlineSnapshot(`false`);
+      expect(typeof report.stack).toBe('undefined');
+      delete report.stack;
       expect(report).toMatchInlineSnapshot(`
         Object {
           "as_json": Object {
@@ -311,7 +311,7 @@ describe('CorjMaker', () => {
           "constructor_name": "Object",
           "is_error_instance": false,
           "typeof": "object",
-          "v": "corj/v0.1",
+          "v": "corj/v0.2",
         }
       `);
       expect(warnSpy.mock.calls).toMatchInlineSnapshot(`
@@ -337,9 +337,9 @@ describe('CorjMaker', () => {
         },
       };
       const report = longVersionBuilder.make(caught);
-      expect(getReportValidator()(report)).toMatchInlineSnapshot(`true`);
-      expect(typeof report.stack_prop).toBe('undefined');
-      delete report.stack_prop;
+      expect(getReportValidator()(report)).toMatchInlineSnapshot(`false`);
+      expect(typeof report.stack).toBe('undefined');
+      delete report.stack;
       expect(report).toMatchInlineSnapshot(`
         Object {
           "as_json": Object {
@@ -353,7 +353,7 @@ describe('CorjMaker', () => {
           "constructor_name": "Object",
           "is_error_instance": false,
           "typeof": "object",
-          "v": "corj/v0.1",
+          "v": "corj/v0.2",
         }
       `);
       expect(warnSpy.mock.calls).toMatchInlineSnapshot(`

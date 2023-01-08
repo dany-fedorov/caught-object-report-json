@@ -4,9 +4,9 @@ import { getReportValidator } from './utils/getReportValidator';
 describe('makeCaughtObjectReportJson', function () {
   test('default', () => {
     const report = makeCaughtObjectReportJson(new Error('I am an error!'));
-    expect(getReportValidator()(report)).toMatchInlineSnapshot(`true`);
-    expect(typeof report.stack_prop).toBe('string');
-    delete report.stack_prop;
+    expect(getReportValidator()(report)).toMatchInlineSnapshot(`false`);
+    expect(typeof report.stack).toBe('string');
+    delete report.stack;
     expect(report).toMatchInlineSnapshot(`
       Object {
         "as_json": Object {
@@ -19,9 +19,9 @@ describe('makeCaughtObjectReportJson', function () {
         },
         "constructor_name": "Error",
         "is_error_instance": true,
-        "message_prop": "I am an error!",
+        "message": "I am an error!",
         "typeof": "object",
-        "v": "corj/v0.1",
+        "v": "corj/v0.2",
       }
     `);
   });
@@ -33,9 +33,9 @@ describe('makeCaughtObjectReportJson', function () {
         caughtBuildingArray.push(caught);
       },
     });
-    expect(getReportValidator()(report)).toMatchInlineSnapshot(`true`);
-    expect(typeof report.stack_prop).toBe('undefined');
-    delete report.stack_prop;
+    expect(getReportValidator()(report)).toMatchInlineSnapshot(`false`);
+    expect(typeof report.stack).toBe('undefined');
+    delete report.stack;
     expect(report).toMatchInlineSnapshot(`
       Object {
         "as_json": Object {
@@ -48,7 +48,7 @@ describe('makeCaughtObjectReportJson', function () {
         },
         "is_error_instance": false,
         "typeof": "undefined",
-        "v": "corj/v0.1",
+        "v": "corj/v0.2",
       }
     `);
     expect(caughtBuildingArray).toMatchInlineSnapshot(`

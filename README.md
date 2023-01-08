@@ -3,7 +3,7 @@
 ![Jest coverage](https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/badges/coverage-jest%20coverage.svg)
 [![semantic-release: angular](https://img.shields.io/badge/semantic--release-angular-e10079?logo=semantic-release)](https://github.com/semantic-release/semantic-release)
 [![Code Style by Prettier](https://img.shields.io/badge/code_style-prettier-ff69b4.svg)](https://github.com/prettier/prettier)
-[![Strictest TypeScript Config](https://badgen.net/badge/TS/strictest "Strictest TypeScript Config")](https://www.npmjs.com/package/@tsconfig/strictest)
+[![Strictest TypeScript Config](https://badgen.net/badge/typescript/strictest "Strictest TypeScript Config")](https://www.npmjs.com/package/@tsconfig/strictest)
 [![Package License MIT](https://img.shields.io/npm/l/caught-object-report-json.svg)](https://www.npmjs.org/package/caught-object-report-json)
 [![Npm Version](https://img.shields.io/npm/v/caught-object-report-json.svg)](https://www.npmjs.org/package/caught-object-report-json)
 
@@ -18,35 +18,18 @@ Intended use cases are
 
 Please don't hesitate to open an issue if your use case for this type of library is not met.
 
-- [API](#api)
-    - [makeCaughtObjectReportJson(caught)](#makecaughtobjectreportjsoncaught)
-    - [new CorjMaker(options)](#new-corjmakeroptions)
-    - [type CaughtObjectReportJson](#type-caughtobjectreportjson)
 - [Examples](#examples)
     - [1. Syntax error](#1-syntax-error)
     - [2. Axios error](#2-axios-error)
     - [3. Not an error object thrown](#3-not-an-error-object-thrown)
+- [API](#api)
+    - [makeCaughtObjectReportJson(caught)](#makecaughtobjectreportjsoncaught)
+    - [new CorjMaker(options)](#new-corjmakeroptions)
+    - [type CaughtObjectReportJson](#type-caughtobjectreportjson)
 - [Links](#links)
     - [GitHub](https://github.com/dany-fedorov/caught-object-report-json.git)
     - [Npm](https://www.npmjs.com/package/caught-object-report-json)
     - [CORJ JSON Schema v0.1](https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/v0.1.json)
-
-# [API](https://dany-fedorov.github.io/caught-object-report-json/modules.html)
-
-#### [makeCaughtObjectReportJson(caught)](https://dany-fedorov.github.io/caught-object-report-json/functions/makeCaughtObjectReportJson.html)
-
-A wrapper
-for [CorjMaker#make](https://dany-fedorov.github.io/caught-object-report-json/classes/CorjMaker.html#build) with
-default options.
-
-#### [new CorjMaker(options)](https://dany-fedorov.github.io/caught-object-report-json/classes/CorjMaker.html)
-
-Use [CorjMaker#make](https://dany-fedorov.github.io/caught-object-report-json/classes/CorjMaker.html#build) to
-produce [CaughtObjectReportJson](https://dany-fedorov.github.io/caught-object-report-json/types/CaughtObjectReportJson.html).
-
-#### [type CaughtObjectReportJson](https://dany-fedorov.github.io/caught-object-report-json/types/CaughtObjectReportJson.html)
-
-Report object, check out the link for details about properties.
 
 # Examples
 
@@ -217,6 +200,23 @@ and then prints form catch block
   "$schema": "https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/v0.1.json"
 }
 ```
+
+# [API](https://dany-fedorov.github.io/caught-object-report-json/modules.html)
+
+#### [makeCaughtObjectReportJson(caught)](https://dany-fedorov.github.io/caught-object-report-json/functions/makeCaughtObjectReportJson.html)
+
+A wrapper
+for [CorjMaker#make](https://dany-fedorov.github.io/caught-object-report-json/classes/CorjMaker.html#build) with
+default options.
+
+#### [new CorjMaker(options)](https://dany-fedorov.github.io/caught-object-report-json/classes/CorjMaker.html)
+
+Use [CorjMaker#make](https://dany-fedorov.github.io/caught-object-report-json/classes/CorjMaker.html#build) to
+produce [CaughtObjectReportJson](https://dany-fedorov.github.io/caught-object-report-json/types/CaughtObjectReportJson.html).
+
+#### [type CaughtObjectReportJson](https://dany-fedorov.github.io/caught-object-report-json/types/CaughtObjectReportJson.html)
+
+Report object, check out the link for details about properties.
 
 # Links
 

@@ -86,6 +86,10 @@ jobs:
       - name: Check out repository code
         uses: actions/checkout@v3
 
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
       - name: Install dependencies - node_modules cache
         id: node_modules_cache
         uses: actions/cache@v3

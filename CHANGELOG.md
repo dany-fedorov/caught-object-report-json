@@ -1,3 +1,16 @@
+# [3.0.0](https://github.com/dany-fedorov/caught-object-report-json/compare/v2.0.1...v3.0.0) (2023-01-11)
+
+
+### Features
+
+* Change prop name ([7f62608](https://github.com/dany-fedorov/caught-object-report-json/commit/7f626084249b6980412be93df75cd6a7499b9a10))
+
+
+### BREAKING CHANGES
+
+* "is_error_instance" is changed to "instanceof_error" to align with
+"typeof" property name
+
 ## [2.0.1](https://github.com/dany-fedorov/caught-object-report-json/compare/v2.0.0...v2.0.1) (2023-01-08)
 
 # [2.0.0](https://github.com/dany-fedorov/caught-object-report-json/compare/v1.0.3...v2.0.0) (2023-01-08)

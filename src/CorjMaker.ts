@@ -3,9 +3,9 @@ import { configure } from 'safe-stable-stringify';
 export const CORJ_AS_JSON_FORMAT_SAFE_STABLE_STRINGIFY_2_4_1 =
   'safe-stable-stringify@2.4.1';
 export const CORJ_AS_STRING_FORMAT_STRING_CONSTRUCTOR = 'String';
-export const CORJ_VERSION = 'corj/v0.2';
+export const CORJ_VERSION = 'corj/v0.3';
 export const CORJ_JSON_SCHEMA_LINK =
-  'https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/v0.2.json';
+  'https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/v0.3.json';
 
 export type CorjJsonObject<P extends CorjJsonPrimitive> = {
   [x: string]: CorjJsonValue<P>;
@@ -100,7 +100,7 @@ export type CaughtObjectReportJson = {
    * caught instanceof Error
    * ```
    */
-  is_error_instance: boolean;
+  instanceof_error: boolean;
   /**
    * - `as_json.value`<br>
    *   A JSON object produced from caught object using `as_json.format`<br>
@@ -250,7 +250,7 @@ export class CorjMaker {
         : (caught as any).stack;
     const res = Object.fromEntries(
       [
-        ['is_error_instance', caughtObjectIsErrorInstance],
+        ['instanceof_error', caughtObjectIsErrorInstance],
         ['typeof', caughtObjectTypeof],
         ['constructor_name', caughtObjectConstructorName],
         ['message', caughtObjectMessageProp],

@@ -18,10 +18,10 @@ describe('makeCaughtObjectReportJson', function () {
           "value": "Error: I am an error!",
         },
         "constructor_name": "Error",
-        "is_error_instance": true,
+        "instanceof_error": true,
         "message": "I am an error!",
         "typeof": "object",
-        "v": "corj/v0.2",
+        "v": "corj/v0.3",
       }
     `);
   });
@@ -46,9 +46,9 @@ describe('makeCaughtObjectReportJson', function () {
           "format": "String",
           "value": "undefined",
         },
-        "is_error_instance": false,
+        "instanceof_error": false,
         "typeof": "undefined",
-        "v": "corj/v0.2",
+        "v": "corj/v0.3",
       }
     `);
     expect(caughtBuildingArray).toMatchInlineSnapshot(`

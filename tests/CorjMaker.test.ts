@@ -28,10 +28,10 @@ describe('CorjMaker', () => {
             "value": "Error: I am an error!",
           },
           "constructor_name": "Error",
-          "is_error_instance": true,
+          "instanceof_error": true,
           "message": "I am an error!",
           "typeof": "object",
-          "v": "corj/v0.2",
+          "v": "corj/v0.3",
         }
       `);
       expect(caughtBuildingArray).toMatchInlineSnapshot(`Array []`);
@@ -61,9 +61,9 @@ describe('CorjMaker', () => {
             "value": "I am a string, but I was thrown nevertheless!",
           },
           "constructor_name": "String",
-          "is_error_instance": false,
+          "instanceof_error": false,
           "typeof": "string",
-          "v": "corj/v0.2",
+          "v": "corj/v0.3",
         }
       `);
       expect(caughtBuildingArray).toMatchInlineSnapshot(`Array []`);
@@ -92,9 +92,9 @@ describe('CorjMaker', () => {
             "format": "String",
             "value": "undefined",
           },
-          "is_error_instance": false,
+          "instanceof_error": false,
           "typeof": "undefined",
-          "v": "corj/v0.2",
+          "v": "corj/v0.3",
         }
       `);
       expect(caughtBuildingArray).toMatchInlineSnapshot(`
@@ -132,9 +132,9 @@ describe('CorjMaker', () => {
             "format": "String",
             "value": "null",
           },
-          "is_error_instance": false,
+          "instanceof_error": false,
           "typeof": "object",
-          "v": "corj/v0.2",
+          "v": "corj/v0.3",
         }
       `);
       expect(caughtBuildingArray).toMatchInlineSnapshot(`Array []`);
@@ -164,9 +164,9 @@ describe('CorjMaker', () => {
             "value": "123",
           },
           "constructor_name": "BigInt",
-          "is_error_instance": false,
+          "instanceof_error": false,
           "typeof": "bigint",
-          "v": "corj/v0.2",
+          "v": "corj/v0.3",
         }
       `);
       expect(caughtBuildingArray).toMatchInlineSnapshot(`Array []`);
@@ -203,9 +203,9 @@ describe('CorjMaker', () => {
             "value": "1234,string,1234,[object Object]",
           },
           "constructor_name": "Array",
-          "is_error_instance": false,
+          "instanceof_error": false,
           "typeof": "object",
-          "v": "corj/v0.2",
+          "v": "corj/v0.3",
         }
       `);
       expect(caughtBuildingArray).toMatchInlineSnapshot(`Array []`);
@@ -229,7 +229,7 @@ describe('CorjMaker', () => {
       delete report.stack;
       expect(report).toMatchInlineSnapshot(`
         Object {
-          "$schema": "https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/v0.2.json",
+          "$schema": "https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/v0.3.json",
           "as_json": Object {
             "format": "safe-stable-stringify@2.4.1",
             "value": Object {},
@@ -239,10 +239,10 @@ describe('CorjMaker', () => {
             "value": "Error: I am an error!",
           },
           "constructor_name": "Error",
-          "is_error_instance": true,
+          "instanceof_error": true,
           "message": "I am an error!",
           "typeof": "object",
-          "v": "corj/v0.2",
+          "v": "corj/v0.3",
         }
       `);
       expect(caughtBuildingArray).toMatchInlineSnapshot(`Array []`);
@@ -269,9 +269,9 @@ describe('CorjMaker', () => {
             "format": "String",
             "value": "undefined",
           },
-          "is_error_instance": false,
+          "instanceof_error": false,
           "typeof": "undefined",
-          "v": "corj/v0.2",
+          "v": "corj/v0.3",
         }
       `);
       expect(warnSpy.mock.calls).toMatchInlineSnapshot(`
@@ -309,9 +309,9 @@ describe('CorjMaker', () => {
             "value": null,
           },
           "constructor_name": "Object",
-          "is_error_instance": false,
+          "instanceof_error": false,
           "typeof": "object",
-          "v": "corj/v0.2",
+          "v": "corj/v0.3",
         }
       `);
       expect(warnSpy.mock.calls).toMatchInlineSnapshot(`
@@ -351,9 +351,9 @@ describe('CorjMaker', () => {
             "value": null,
           },
           "constructor_name": "Object",
-          "is_error_instance": false,
+          "instanceof_error": false,
           "typeof": "object",
-          "v": "corj/v0.2",
+          "v": "corj/v0.3",
         }
       `);
       expect(warnSpy.mock.calls).toMatchInlineSnapshot(`

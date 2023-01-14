@@ -20,13 +20,13 @@ export type CorjJsonValue<P extends CorjJsonPrimitive> =
   | CorjJsonArray<P>;
 
 export type CaughtObjectAsJson = {
-  value: CorjJsonValue<CorjJsonPrimitive>;
   format: typeof CORJ_AS_JSON_FORMAT_SAFE_STABLE_STRINGIFY_2_4_1 | null;
+  value: CorjJsonValue<CorjJsonPrimitive>;
 };
 
 export type CaughtObjectAsString = {
-  value: string | null;
   format: typeof CORJ_AS_STRING_FORMAT_STRING_CONSTRUCTOR | null;
+  value: string | null;
 };
 
 export type CaughtObjectReportJson = {
@@ -154,8 +154,8 @@ function makeCaughtObjAsStringProp(
 ): CaughtObjectAsString {
   try {
     return {
-      value: String(caught),
       format: CORJ_AS_STRING_FORMAT_STRING_CONSTRUCTOR,
+      value: String(caught),
     };
   } catch (caught) {
     if (typeof options.onCaughtMaking === 'function') {
@@ -164,8 +164,8 @@ function makeCaughtObjAsStringProp(
       });
     }
     return {
-      value: null,
       format: null,
+      value: null,
     };
   }
 }
@@ -185,8 +185,8 @@ function makeCaughtObjectAsJsonProp(
       throw err;
     }
     return {
-      value: JSON.parse(jsonString),
       format: CORJ_AS_JSON_FORMAT_SAFE_STABLE_STRINGIFY_2_4_1,
+      value: JSON.parse(jsonString),
     };
   } catch (caught: unknown) {
     if (typeof options.onCaughtMaking === 'function') {
@@ -195,8 +195,8 @@ function makeCaughtObjectAsJsonProp(
       });
     }
     return {
-      value: null,
       format: null,
+      value: null,
     };
   }
 }

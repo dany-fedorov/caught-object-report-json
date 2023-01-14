@@ -35,7 +35,7 @@ Please don't hesitate to open an issue if your use case for this type of library
 
 ## 1. [Syntax error](./examples/example-1-syntax-error.ts)
 
-(Run with `npm run ts-file ./examples/example-1-syntax-error.ts`)
+<sub>(Run with `npm run ts-file ./examples/example-1-syntax-error.ts`)</sub>
 
 ```typescript
 try {
@@ -55,12 +55,12 @@ prints
   "constructor_name": "SyntaxError",
   "message": "Unexpected token u in JSON at position 0",
   "as_string": {
-    "value": "SyntaxError: Unexpected token u in JSON at position 0",
-    "format": "String"
+    "format": "String",
+    "value": "SyntaxError: Unexpected token u in JSON at position 0"
   },
   "as_json": {
-    "value": {},
-    "format": "safe-stable-stringify@2.4.1"
+    "format": "safe-stable-stringify@2.4.1",
+    "value": {}
   },
   "stack": "SyntaxError: Unexpected token u in JSON at position 0\n    at JSON.parse (<anonymous>)\n    at Object.<anonymous> (/home/df/hdd/wd/caught-object-report-json/examples/example-1.ts:6:8)\n    at Module._compile (node:internal/modules/cjs/loader:1120:14)\n    at Module.m._compile (/home/df/hdd/wd/caught-object-report-json/node_modules/ts-node/src/index.ts:1618:23)\n    at Module._extensions..js (node:internal/modules/cjs/loader:1174:10)\n    at Object.require.extensions.<computed> [as .ts] (/home/df/hdd/wd/caught-object-report-json/node_modules/ts-node/src/index.ts:1621:12)\n    at Module.load (node:internal/modules/cjs/loader:998:32)\n    at Function.Module._load (node:internal/modules/cjs/loader:839:12)\n    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:81:12)\n    at phase4 (/home/df/hdd/wd/caught-object-report-json/node_modules/ts-node/src/bin.ts:649:14)",
   "v": "corj/v0.3"
@@ -69,7 +69,7 @@ prints
 
 ## 2. [Axios error](./examples/example-2-axios-error.ts)
 
-(Run with `npm run ts-file ./examples/example-2-axios-error.ts`)
+<sub>(Run with `npm run ts-file ./examples/example-2-axios-error.ts`)</sub>
 
 ```typescript
 (async () => {
@@ -91,10 +91,11 @@ prints
   "constructor_name": "AxiosError",
   "message": "Request failed with status code 404",
   "as_string": {
-    "value": "AxiosError: Request failed with status code 404",
-    "format": "String"
+    "format": "String",
+    "value": "AxiosError: Request failed with status code 404"
   },
   "as_json": {
+    "format": "safe-stable-stringify@2.4.1",
     "value": {
       "message": "Request failed with status code 404",
       "name": "AxiosError",
@@ -131,8 +132,7 @@ prints
       },
       "code": "ERR_BAD_REQUEST",
       "status": 404
-    },
-    "format": "safe-stable-stringify@2.4.1"
+    }
   },
   "stack": "AxiosError: Request failed with status code 404\n    at settle (/home/df/hdd/wd/caught-object-report-json/node_modules/axios/lib/core/settle.js:19:12)\n    at IncomingMessage.handleStreamEnd (/home/df/hdd/wd/caught-object-report-json/node_modules/axios/lib/adapters/http.js:505:11)\n    at IncomingMessage.emit (node:events:525:35)\n    at IncomingMessage.emit (node:domain:489:12)\n    at endReadableNT (node:internal/streams/readable:1359:12)\n    at processTicksAndRejections (node:internal/process/task_queues:82:21)",
   "v": "corj/v0.3"
@@ -141,7 +141,7 @@ prints
 
 ## 3. [Not an error object thrown](./examples/example-3-not-error-object.ts)
 
-(Run with `npm run ts-file ./examples/example-3-not-error-object.ts`)
+<sub>(Run with `npm run ts-file ./examples/example-3-not-error-object.ts`)</sub>
 
 ```typescript
 const corj = new CorjMaker({
@@ -189,12 +189,12 @@ and then prints form catch block
   "instanceof_error": false,
   "typeof": "undefined",
   "as_string": {
-    "value": "undefined",
-    "format": "String"
+    "format": "String",
+    "value": "undefined"
   },
   "as_json": {
-    "value": null,
-    "format": null
+    "format": null,
+    "value": null
   },
   "v": "corj/v0.3",
   "$schema": "https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/v0.3.json"
@@ -205,9 +205,7 @@ and then prints form catch block
 
 #### [makeCaughtObjectReportJson(caught)](https://dany-fedorov.github.io/caught-object-report-json/functions/makeCaughtObjectReportJson.html)
 
-A wrapper
-for `CorjMaker#make` with
-default options.
+A wrapper for `CorjMaker#make` with default options.
 
 #### [new CorjMaker(options)](https://dany-fedorov.github.io/caught-object-report-json/classes/CorjMaker.html)
 

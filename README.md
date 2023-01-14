@@ -168,14 +168,6 @@ onCaughtMaking:: {
   caught: Error: Could not convert caught object to json string using safe-stable-stringify@2.4.1.
       at makeCaughtObjectAsJsonProp (/home/df/hdd/wd/caught-object-report-json/src/CorjMaker.ts:176:19)
       at CorjMaker.make (/home/df/hdd/wd/caught-object-report-json/src/CorjMaker.ts:238:32)
-      at Object.<anonymous> (/home/df/hdd/wd/caught-object-report-json/examples/example-3-not-error-object.ts:15:23)
-      at Module._compile (node:internal/modules/cjs/loader:1120:14)
-      at Module.m._compile (/home/df/hdd/wd/caught-object-report-json/node_modules/ts-node/src/index.ts:1618:23)
-      at Module._extensions..js (node:internal/modules/cjs/loader:1174:10)
-      at Object.require.extensions.<computed> [as .ts] (/home/df/hdd/wd/caught-object-report-json/node_modules/ts-node/src/index.ts:1621:12)
-      at Module.load (node:internal/modules/cjs/loader:998:32)
-      at Function.Module._load (node:internal/modules/cjs/loader:839:12)
-      at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:81:12) {
     originalCaught: undefined,
     originalCaughtStringifyResult: undefined
   }

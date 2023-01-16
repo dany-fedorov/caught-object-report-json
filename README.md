@@ -69,12 +69,51 @@ prints
 
 ## 2. [Axios error](./examples/example-2-axios-error.ts)
 
+`AxiosError#toJSON` does not include response headers and response
+data ([issue](https://github.com/axios/axios/issues/4836)), so you'll have to add it yourself.
+
 <sub>(Run with `npm run ts-file ./examples/example-2-axios-error.ts`)</sub>
 
 ```typescript
+const axiosClient = axios.create();
+
+class AxiosErrorWrapper extends AxiosError {
+  error: AxiosError;
+
+  constructor(error: AxiosError) {
+    super(
+      error.message,
+      error.code,
+      error.config,
+      error.request,
+      error.response,
+    );
+    this.error = error;
+  }
+
+  override toJSON = function (this: AxiosErrorWrapper) {
+    return {
+      ...this.error.toJSON(),
+      ...(!this.error.response
+        ? {}
+        : {
+          response_data: this.error.response.data,
+          response_headers: this.error.response.headers,
+        }),
+    };
+  };
+}
+
+axiosClient.interceptors.response.use(undefined, (error) => {
+  if (error instanceof AxiosError) {
+    return Promise.reject(new AxiosErrorWrapper(error));
+  }
+  return Promise.reject(error);
+});
+
 (async () => {
   try {
-    await axios.get('https://reqres.in/api/users/23');
+    await axiosClient.get('https://reqres.in/api/users/23');
   } catch (caught: unknown) {
     const report = makeCaughtObjectReportJson(caught);
     console.log(JSON.stringify(report, null, 2));
@@ -88,7 +127,7 @@ prints
 {
   "instanceof_error": true,
   "typeof": "object",
-  "constructor_name": "AxiosError",
+  "constructor_name": "AxiosErrorWrapper",
   "message": "Request failed with status code 404",
   "as_string": {
     "format": "String",
@@ -123,7 +162,7 @@ prints
         "maxBodyLength": -1,
         "env": {},
         "headers": {
-          "Accept": "application/json, text/plain, * /*",
+          "Accept": "application/json, text/plain, */*",
           "User-Agent": "axios/1.2.1",
           "Accept-Encoding": "gzip, compress, deflate, br"
         },
@@ -131,15 +170,35 @@ prints
         "url": "https://reqres.in/api/users/23"
       },
       "code": "ERR_BAD_REQUEST",
-      "status": 404
+      "status": 404,
+      "response_data": {},
+      "response_headers": {
+        "date": "Mon, 16 Jan 2023 09:16:58 GMT",
+        "content-type": "application/json; charset=utf-8",
+        "content-length": "2",
+        "connection": "close",
+        "x-powered-by": "Express",
+        "access-control-allow-origin": "*",
+        "etag": "W/\"2-vyGp6PvFo4RvsFtPoIWeCReyIC8\"",
+        "via": "1.1 vegur",
+        "cache-control": "max-age=14400",
+        "cf-cache-status": "EXPIRED",
+        "report-to": "{\"endpoints\":[{\"url\":\"https:\\/\\/a.nel.cloudflare.com\\/report\\/v3?s=r5GuTAr5x2kDEeEXtRdQr1Gj9zAhFDACLdWDImSbxnTSIwdTHH%2BKngfXfZoudJmK4%2FfsHHxBb1yWfmp0iAv%2BFTfiFBQTidK4HeeaXRiztPWHQDqxUegtm9pI2A%3D%3D\"}],\"group\":\"cf-nel\",\"max_age\":604800}",
+        "nel": "{\"success_fraction\":0,\"report_to\":\"cf-nel\",\"max_age\":604800}",
+        "vary": "Accept-Encoding",
+        "server": "cloudflare",
+        "cf-ray": "78a5c160adc82bea-FRA"
+      }
     }
   },
-  "stack": "AxiosError: Request failed with status code 404\n    at settle (/home/df/hdd/wd/caught-object-report-json/node_modules/axios/lib/core/settle.js:19:12)\n    at IncomingMessage.handleStreamEnd (/home/df/hdd/wd/caught-object-report-json/node_modules/axios/lib/adapters/http.js:505:11)\n    at IncomingMessage.emit (node:events:525:35)\n    at IncomingMessage.emit (node:domain:489:12)\n    at endReadableNT (node:internal/streams/readable:1359:12)\n    at processTicksAndRejections (node:internal/process/task_queues:82:21)",
+  "stack": "AxiosError: Request failed with status code 404\n    at /home/df/hdd/wd/caught-object-report-json/examples/example-2-axios-error.ts:32:27\n    at processTicksAndRejections (node:internal/process/task_queues:95:5)",
   "v": "corj/v0.3"
 }
 ```
 
 ## 3. [Not an error object thrown](./examples/example-3-not-error-object.ts)
+
+If you do not provide `onCaughtMaking` callback, then any errors are muffled. 
 
 <sub>(Run with `npm run ts-file ./examples/example-3-not-error-object.ts`)</sub>
 

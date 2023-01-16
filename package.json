@@ -46,7 +46,7 @@
     "ajv": "^8.11.2",
     "axios": "^1.2.1",
     "chokidar": "^3.5.3",
-    "eslint": "8.31.0",
+    "eslint": "8.32.0",
     "eslint-config-prettier": "8.6.0",
     "eslint-plugin-import": "2.26.0",
     "jest": "^28.1.2",

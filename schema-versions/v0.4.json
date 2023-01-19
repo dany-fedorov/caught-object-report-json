@@ -1,0 +1,139 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Caught Object Report JSON",
+  "description": "A JSON produced from caught object by JavaScript library. Default implementation is https://www.npmjs.com/package/caught-object-report-json.",
+  "type": "object",
+  "required": [
+    "typeof",
+    "as_string",
+    "as_json",
+    "instanceof_error",
+    "v"
+  ],
+  "properties": {
+    "constructor_name": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string"
+        }
+      ]
+    },
+    "message": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string"
+        }
+      ]
+    },
+    "as_string": {
+      "type": "object",
+      "required": [
+        "format",
+        "value"
+      ],
+      "properties": {
+        "value": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "format": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "enum": [
+                "String"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    "typeof": {
+      "enum": [
+        "undefined",
+        "object",
+        "boolean",
+        "number",
+        "bigint",
+        "string",
+        "symbol",
+        "function"
+      ]
+    },
+    "instanceof_error": {
+      "type": "boolean"
+    },
+    "as_json": {
+      "type": "object",
+      "required": [
+        "format",
+        "value"
+      ],
+      "properties": {
+        "value": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "array"
+            },
+            {
+              "type": "object"
+            }
+          ]
+        },
+        "format": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "enum": [
+                "safe-stable-stringify@2.4.1"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    "stack": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string"
+        }
+      ]
+    },
+    "v": {
+      "enum": [
+        "corj/v0.4"
+      ]
+    }
+  }
+}

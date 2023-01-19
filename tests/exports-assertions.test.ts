@@ -5,7 +5,7 @@ import {
   CORJ_AS_STRING_FORMAT_STRING_CONSTRUCTOR,
   bakeCorj,
   makeCaughtObjectReportJson,
-  CORJ_MAKER_OPTIONS_DEFAULTS,
+  CORJ_MAKER_DEFAULT_OPTIONS_1,
 } from '../src';
 
 describe('Assertions about package exports', function () {
@@ -21,7 +21,7 @@ describe('Assertions about package exports', function () {
         "CORJ_JSON_SCHEMA_LINK": "https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/v0.3.json",
         "CORJ_SAFE_STABLE_STRINGIFY_VERSION": "safe-stable-stringify@2.4.1",
         "CORJ_STRINGIFY_VERSION": "String",
-        "CORJ_VERSION": "corj/v0.3",
+        "CORJ_VERSION": "corj/v0.4",
       }
     `);
   });
@@ -31,7 +31,7 @@ describe('Assertions about package exports', function () {
   });
 
   test('DEFAULT_CORJ_MAKER_OPTIONS', () => {
-    expect(CORJ_MAKER_OPTIONS_DEFAULTS).toMatchInlineSnapshot(`
+    expect(CORJ_MAKER_DEFAULT_OPTIONS_1).toMatchInlineSnapshot(`
       Object {
         "addJsonSchemaLink": false,
         "onCaughtMaking": [Function],

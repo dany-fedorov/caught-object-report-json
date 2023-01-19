@@ -21,7 +21,7 @@ describe('makeCaughtObjectReportJson', function () {
         "instanceof_error": true,
         "message": "I am an error!",
         "typeof": "object",
-        "v": "corj/v0.3",
+        "v": "corj/v0.4",
       }
     `);
   });
@@ -48,7 +48,7 @@ describe('makeCaughtObjectReportJson', function () {
         },
         "instanceof_error": false,
         "typeof": "undefined",
-        "v": "corj/v0.3",
+        "v": "corj/v0.4",
       }
     `);
     expect(caughtBuildingArray).toMatchInlineSnapshot(`

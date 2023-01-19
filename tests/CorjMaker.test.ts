@@ -1,13 +1,12 @@
-import { CorjMaker } from '../src';
+import { CorjMaker, CORJ_MAKER_DEFAULT_OPTIONS_1 } from '../src';
 import { getReportValidator } from './utils/getReportValidator';
-import { CORJ_MAKER_OPTIONS_DEFAULTS } from '../src/makeCaughtObjectReportJson';
 
 describe('CorjMaker', () => {
   describe('Default options', function () {
     test('Error object', () => {
       const caughtBuildingArray: unknown[] = [];
       const noOptionsBuilder = new CorjMaker({
-        ...CORJ_MAKER_OPTIONS_DEFAULTS,
+        ...CORJ_MAKER_DEFAULT_OPTIONS_1,
         onCaughtMaking: (caught, options) => {
           caughtBuildingArray.push({ caught, options });
         },
@@ -31,7 +30,7 @@ describe('CorjMaker', () => {
           "instanceof_error": true,
           "message": "I am an error!",
           "typeof": "object",
-          "v": "corj/v0.3",
+          "v": "corj/v0.4",
         }
       `);
       expect(caughtBuildingArray).toMatchInlineSnapshot(`Array []`);
@@ -40,7 +39,7 @@ describe('CorjMaker', () => {
     test('String', () => {
       const caughtBuildingArray: unknown[] = [];
       const noOptionsBuilder = new CorjMaker({
-        ...CORJ_MAKER_OPTIONS_DEFAULTS,
+        ...CORJ_MAKER_DEFAULT_OPTIONS_1,
         onCaughtMaking: (caught, options) => {
           caughtBuildingArray.push({ caught, options });
         },
@@ -63,7 +62,7 @@ describe('CorjMaker', () => {
           "constructor_name": "String",
           "instanceof_error": false,
           "typeof": "string",
-          "v": "corj/v0.3",
+          "v": "corj/v0.4",
         }
       `);
       expect(caughtBuildingArray).toMatchInlineSnapshot(`Array []`);
@@ -72,7 +71,7 @@ describe('CorjMaker', () => {
     test('undefined', () => {
       const caughtBuildingArray: unknown[] = [];
       const noOptionsBuilder = new CorjMaker({
-        ...CORJ_MAKER_OPTIONS_DEFAULTS,
+        ...CORJ_MAKER_DEFAULT_OPTIONS_1,
         onCaughtMaking: (caught, options) => {
           caughtBuildingArray.push({ caught, options });
         },
@@ -94,7 +93,7 @@ describe('CorjMaker', () => {
           },
           "instanceof_error": false,
           "typeof": "undefined",
-          "v": "corj/v0.3",
+          "v": "corj/v0.4",
         }
       `);
       expect(caughtBuildingArray).toMatchInlineSnapshot(`
@@ -102,7 +101,9 @@ describe('CorjMaker', () => {
           Object {
             "caught": [Error: Could not convert caught object to json string using safe-stable-stringify@2.4.1.],
             "options": Object {
-              "caughtDuring": "caught-producing-as_json",
+              "caughtDuring": Object {
+                "key": "as_json",
+              },
             },
           },
         ]
@@ -112,7 +113,7 @@ describe('CorjMaker', () => {
     test('null', () => {
       const caughtBuildingArray: unknown[] = [];
       const noOptionsBuilder = new CorjMaker({
-        ...CORJ_MAKER_OPTIONS_DEFAULTS,
+        ...CORJ_MAKER_DEFAULT_OPTIONS_1,
         onCaughtMaking: (caught, options) => {
           caughtBuildingArray.push({ caught, options });
         },
@@ -134,7 +135,7 @@ describe('CorjMaker', () => {
           },
           "instanceof_error": false,
           "typeof": "object",
-          "v": "corj/v0.3",
+          "v": "corj/v0.4",
         }
       `);
       expect(caughtBuildingArray).toMatchInlineSnapshot(`Array []`);
@@ -143,7 +144,7 @@ describe('CorjMaker', () => {
     test('BigInt', () => {
       const caughtBuildingArray: unknown[] = [];
       const noOptionsBuilder = new CorjMaker({
-        ...CORJ_MAKER_OPTIONS_DEFAULTS,
+        ...CORJ_MAKER_DEFAULT_OPTIONS_1,
         onCaughtMaking: (caught, options) => {
           caughtBuildingArray.push({ caught, options });
         },
@@ -166,7 +167,7 @@ describe('CorjMaker', () => {
           "constructor_name": "BigInt",
           "instanceof_error": false,
           "typeof": "bigint",
-          "v": "corj/v0.3",
+          "v": "corj/v0.4",
         }
       `);
       expect(caughtBuildingArray).toMatchInlineSnapshot(`Array []`);
@@ -175,7 +176,7 @@ describe('CorjMaker', () => {
     test('array', () => {
       const caughtBuildingArray: unknown[] = [];
       const noOptionsBuilder = new CorjMaker({
-        ...CORJ_MAKER_OPTIONS_DEFAULTS,
+        ...CORJ_MAKER_DEFAULT_OPTIONS_1,
         onCaughtMaking: (caught, options) => {
           caughtBuildingArray.push({ caught, options });
         },
@@ -205,7 +206,7 @@ describe('CorjMaker', () => {
           "constructor_name": "Array",
           "instanceof_error": false,
           "typeof": "object",
-          "v": "corj/v0.3",
+          "v": "corj/v0.4",
         }
       `);
       expect(caughtBuildingArray).toMatchInlineSnapshot(`Array []`);
@@ -216,7 +217,7 @@ describe('CorjMaker', () => {
     test('Error object', () => {
       const caughtBuildingArray: unknown[] = [];
       const longVersionBuilder = new CorjMaker({
-        ...CORJ_MAKER_OPTIONS_DEFAULTS,
+        ...CORJ_MAKER_DEFAULT_OPTIONS_1,
         onCaughtMaking: (caught, options) => {
           caughtBuildingArray.push({ caught, options });
         },
@@ -242,7 +243,7 @@ describe('CorjMaker', () => {
           "instanceof_error": true,
           "message": "I am an error!",
           "typeof": "object",
-          "v": "corj/v0.3",
+          "v": "corj/v0.4",
         }
       `);
       expect(caughtBuildingArray).toMatchInlineSnapshot(`Array []`);
@@ -253,7 +254,7 @@ describe('CorjMaker', () => {
     test('undefined', () => {
       const warnSpy = jest.spyOn(console, 'warn');
       warnSpy.mockImplementation(() => null);
-      const longVersionBuilder = new CorjMaker(CORJ_MAKER_OPTIONS_DEFAULTS);
+      const longVersionBuilder = new CorjMaker(CORJ_MAKER_DEFAULT_OPTIONS_1);
       const caught = undefined;
       const report = longVersionBuilder.make(caught);
       expect(getReportValidator()(report)).toMatchInlineSnapshot(`false`);
@@ -271,13 +272,13 @@ describe('CorjMaker', () => {
           },
           "instanceof_error": false,
           "typeof": "undefined",
-          "v": "corj/v0.3",
+          "v": "corj/v0.4",
         }
       `);
       expect(warnSpy.mock.calls).toMatchInlineSnapshot(`
         Array [
           Array [
-            "caught-object-report-json: caught-producing-as_json: Caught when building report json.",
+            "caught-object-report-json: Caught when building key \\"as_json\\" for report json.",
             [Error: Could not convert caught object to json string using safe-stable-stringify@2.4.1.],
           ],
         ]
@@ -288,7 +289,7 @@ describe('CorjMaker', () => {
     test('.toString throws', () => {
       const warnSpy = jest.spyOn(console, 'warn');
       warnSpy.mockImplementation(() => null);
-      const longVersionBuilder = new CorjMaker(CORJ_MAKER_OPTIONS_DEFAULTS);
+      const longVersionBuilder = new CorjMaker(CORJ_MAKER_DEFAULT_OPTIONS_1);
       const caught = {
         toString: () => {
           throw new Error('I am a nasty error!');
@@ -311,13 +312,13 @@ describe('CorjMaker', () => {
           "constructor_name": "Object",
           "instanceof_error": false,
           "typeof": "object",
-          "v": "corj/v0.3",
+          "v": "corj/v0.4",
         }
       `);
       expect(warnSpy.mock.calls).toMatchInlineSnapshot(`
         Array [
           Array [
-            "caught-object-report-json: caught-producing-as_string: Caught when building report json.",
+            "caught-object-report-json: Caught when building key \\"as_string\\" for report json.",
             [Error: I am a nasty error!],
           ],
         ]
@@ -328,7 +329,7 @@ describe('CorjMaker', () => {
     test('.toString returns not string', () => {
       const warnSpy = jest.spyOn(console, 'warn');
       warnSpy.mockImplementation(() => null);
-      const longVersionBuilder = new CorjMaker(CORJ_MAKER_OPTIONS_DEFAULTS);
+      const longVersionBuilder = new CorjMaker(CORJ_MAKER_DEFAULT_OPTIONS_1);
       const caught = {
         toString: () => {
           return {
@@ -353,13 +354,13 @@ describe('CorjMaker', () => {
           "constructor_name": "Object",
           "instanceof_error": false,
           "typeof": "object",
-          "v": "corj/v0.3",
+          "v": "corj/v0.4",
         }
       `);
       expect(warnSpy.mock.calls).toMatchInlineSnapshot(`
         Array [
           Array [
-            "caught-object-report-json: caught-producing-as_string: Caught when building report json.",
+            "caught-object-report-json: Caught when building key \\"as_string\\" for report json.",
             [TypeError: Cannot convert object to primitive value],
           ],
         ]

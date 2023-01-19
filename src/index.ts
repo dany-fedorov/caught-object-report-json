@@ -120,6 +120,11 @@ export type CaughtObjectReportJson = {
   $schema?: typeof CORJ_JSON_SCHEMA_LINK;
 };
 
+export type CaughtObjectReportJsonEntries = [
+  keyof CaughtObjectReportJson,
+  CaughtObjectReportJson[keyof CaughtObjectReportJson],
+][];
+
 export type CorjJsonObject<P extends CorjJsonPrimitive> = {
   [x: string]: CorjJsonValue<P>;
 };
@@ -202,7 +207,7 @@ const jsonStringify = configureJsonStringify({
   deterministic: false,
 });
 
-function makeCaughtObjectProp_as_string(
+function makeProp_as_string(
   caught: unknown,
   options: CorjMakerOptions,
 ): CaughtObjectAsString {
@@ -226,7 +231,7 @@ function makeCaughtObjectProp_as_string(
   }
 }
 
-function makeCaughtObjectProp_as_json(
+function makeProp_as_json(
   caught: unknown,
   options: CorjMakerOptions,
 ): CaughtObjectAsJson {
@@ -259,7 +264,7 @@ function makeCaughtObjectProp_as_json(
   }
 }
 
-function makeCaughtObjectProp_message(
+function makeProp_message(
   caught: unknown,
   options: CorjMakerOptions,
 ): string | null | undefined {
@@ -279,7 +284,7 @@ function makeCaughtObjectProp_message(
   }
 }
 
-function makeCaughtObjectProp_stack(
+function makeProp_stack(
   caught: unknown,
   options: CorjMakerOptions,
 ): string | null | undefined {
@@ -299,7 +304,7 @@ function makeCaughtObjectProp_stack(
   }
 }
 
-function makeCaughtObjectProp_constructor_name(
+function makeProp_constructor_name(
   caught: unknown,
   options: CorjMakerOptions,
 ): string | null | undefined {
@@ -322,34 +327,28 @@ function makeCaughtObjectProp_constructor_name(
 export class CorjMaker {
   constructor(public readonly options: CorjMakerOptions) {}
 
+  /**
+   * This exists to produce entires in dependable order.
+   */
+  entries(caught: unknown): CaughtObjectReportJsonEntries {
+    const schemaProp = !this.options.addJsonSchemaLink
+      ? undefined
+      : CORJ_JSON_SCHEMA_LINK;
+    return [
+      ['instanceof_error', caught instanceof Error],
+      ['typeof', typeof caught],
+      ['constructor_name', makeProp_constructor_name(caught, this.options)],
+      ['message', makeProp_message(caught, this.options)],
+      ['as_string', makeProp_as_string(caught, this.options)],
+      ['as_json', makeProp_as_json(caught, this.options)],
+      ['stack', makeProp_stack(caught, this.options)],
+      ['v', CORJ_VERSION],
+      ['$schema', schemaProp],
+    ].filter(([, v]) => v !== undefined) as CaughtObjectReportJsonEntries;
+  }
+
   make(caught: unknown): CaughtObjectReportJson {
-    const typeof_prop = typeof caught;
-    const instanceof_error_prop = caught instanceof Error;
-    const as_string_prop = makeCaughtObjectProp_as_string(caught, this.options);
-    const constructor_name_prop = makeCaughtObjectProp_constructor_name(
-      caught,
-      this.options,
-    );
-    const as_json_prop = makeCaughtObjectProp_as_json(caught, this.options);
-    const message_prop = makeCaughtObjectProp_message(caught, this.options);
-    const stack_prop = makeCaughtObjectProp_stack(caught, this.options);
-    const report = Object.fromEntries(
-      [
-        ['instanceof_error', instanceof_error_prop],
-        ['typeof', typeof_prop],
-        ['constructor_name', constructor_name_prop],
-        ['message', message_prop],
-        ['as_string', as_string_prop],
-        ['as_json', as_json_prop],
-        ['stack', stack_prop],
-        ['v', CORJ_VERSION],
-        [
-          '$schema',
-          !this.options.addJsonSchemaLink ? undefined : CORJ_JSON_SCHEMA_LINK,
-        ],
-      ].filter(([, v]) => v !== undefined),
-    );
-    return report as CaughtObjectReportJson;
+    return Object.fromEntries(this.entries(caught)) as CaughtObjectReportJson;
   }
 }
 

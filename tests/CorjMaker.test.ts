@@ -250,7 +250,7 @@ describe('CorjMaker', () => {
     });
   });
 
-  describe('Default onCaughtDuring', function () {
+  describe('Default onCaughtMaking', function () {
     test('undefined', () => {
       const warnSpy = jest.spyOn(console, 'warn');
       warnSpy.mockImplementation(() => null);
@@ -503,11 +503,11 @@ describe('CorjMaker', () => {
       expect(warnSpy.mock.calls).toMatchInlineSnapshot(`
         Array [
           Array [
-            "caught-object-report-json: Caught when building key \\"as_json\\" for report json.",
+            "caught-object-report-json: Caught when building key \\"message\\" for report json.",
             [Error: (in .message) Yes, I'm a piece of shit for throwing here and I know it],
           ],
           Array [
-            "caught-object-report-json: Caught when building key \\"message\\" for report json.",
+            "caught-object-report-json: Caught when building key \\"as_json\\" for report json.",
             [Error: (in .message) Yes, I'm a piece of shit for throwing here and I know it],
           ],
         ]
@@ -562,5 +562,57 @@ describe('CorjMaker', () => {
       `);
       jest.restoreAllMocks();
     });
+  });
+
+  test('CorjMaker#entries', function () {
+    const corj = new CorjMaker(CORJ_MAKER_DEFAULT_OPTIONS_1);
+    const entries = corj.entries(new Error(`Hey, I'm an error`));
+    expect(entries?.[6]?.[0]).toBe('stack');
+    expect(typeof entries?.[6]?.[1]).toBe('string');
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
+    delete entries[6][1];
+    expect(entries).toMatchInlineSnapshot(`
+      Array [
+        Array [
+          "instanceof_error",
+          true,
+        ],
+        Array [
+          "typeof",
+          "object",
+        ],
+        Array [
+          "constructor_name",
+          "Error",
+        ],
+        Array [
+          "message",
+          "Hey, I'm an error",
+        ],
+        Array [
+          "as_string",
+          Object {
+            "format": "String",
+            "value": "Error: Hey, I'm an error",
+          },
+        ],
+        Array [
+          "as_json",
+          Object {
+            "format": "safe-stable-stringify@2.4.1",
+            "value": Object {},
+          },
+        ],
+        Array [
+          "stack",
+          ,
+        ],
+        Array [
+          "v",
+          "corj/v0.4",
+        ],
+      ]
+    `);
   });
 });

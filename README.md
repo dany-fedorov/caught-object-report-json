@@ -328,7 +328,7 @@ Use `CorjMaker#make` instance method to produce `CaughtObjectReportJson`.
 
 Report object produced by `CorjMaker#make`.
 See the link for details about properties or check out a source code
-of [CorjMaker#make](https://github.com/dany-fedorov/caught-object-report-json/blob/59f819b/src/CorjMaker.ts#L231), it is
+of `CorjMaker#make`, it is
 straightforward.
 
 # Links

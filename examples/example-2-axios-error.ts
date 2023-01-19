@@ -42,6 +42,6 @@ axiosClient.interceptors.response.use(undefined, (error) => {
     await axiosClient.get('https://reqres.in/api/users/23');
   } catch (caught: unknown) {
     const report = makeCaughtObjectReportJson(caught);
-    console.log(JSON.stringify(report, null, 2));
+    console.log(report);
   }
 })();

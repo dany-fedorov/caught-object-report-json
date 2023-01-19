@@ -6,5 +6,5 @@ try {
   JSON.parse(undefined);
 } catch (caught: unknown) {
   const report = makeCaughtObjectReportJson(caught);
-  console.log(JSON.stringify(report, null, 2));
+  console.log(report);
 }

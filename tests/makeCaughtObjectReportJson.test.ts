@@ -9,19 +9,17 @@ describe('makeCaughtObjectReportJson', function () {
     delete report.stack;
     expect(report).toMatchInlineSnapshot(`
       Object {
-        "as_json": Object {
-          "format": "safe-stable-stringify@2.4.1",
-          "value": Object {},
-        },
-        "as_string": Object {
-          "format": "String",
-          "value": "Error: I am an error!",
-        },
+        "_m": Array [
+          "v0.4",
+          "String",
+          "safe-stable-stringify@2.4.1",
+        ],
+        "as_json": Object {},
+        "as_string": "Error: I am an error!",
         "constructor_name": "Error",
         "instanceof_error": true,
         "message": "I am an error!",
         "typeof": "object",
-        "v": "corj/v0.4",
       }
     `);
   });
@@ -38,17 +36,15 @@ describe('makeCaughtObjectReportJson', function () {
     delete report.stack;
     expect(report).toMatchInlineSnapshot(`
       Object {
-        "as_json": Object {
-          "format": null,
-          "value": null,
-        },
-        "as_string": Object {
-          "format": "String",
-          "value": "undefined",
-        },
+        "_m": Array [
+          "v0.4",
+          "String",
+          "safe-stable-stringify@2.4.1",
+        ],
+        "as_json": null,
+        "as_string": "undefined",
         "instanceof_error": false,
         "typeof": "undefined",
-        "v": "corj/v0.4",
       }
     `);
     expect(caughtBuildingArray).toMatchInlineSnapshot(`

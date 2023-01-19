@@ -42,25 +42,34 @@ try {
   JSON.parse(undefined);
 } catch (caught: unknown) {
   const report = makeCaughtObjectReportJson(caught);
-  console.log(JSON.stringify(report, null, 2));
+  console.log(report);
 }
 ```
 
 prints
 
-```json
+```text
 {
-  "instanceof_error": true,
-  "typeof": "object",
-  "constructor_name": "SyntaxError",
-  "message": "Unexpected token u in JSON at position 0",
-  "as_string": "SyntaxError: Unexpected token u in JSON at position 0",
-  "as_json": {},
-  "stack": "SyntaxError: Unexpected token u in JSON at position 0\n    at JSON.parse (<anonymous>)\n    at Object.<anonymous> (/home/df/hdd/wd/caught-object-report-json/examples/example-1-syntax-error.ts:6:8)\n    at Module._compile (node:internal/modules/cjs/loader:1120:14)\n    at Module.m._compile (/home/df/hdd/wd/caught-object-report-json/node_modules/ts-node/src/index.ts:1618:23)\n    at Module._extensions..js (node:internal/modules/cjs/loader:1174:10)\n    at Object.require.extensions.<computed> [as .ts] (/home/df/hdd/wd/caught-object-report-json/node_modules/ts-node/src/index.ts:1621:12)\n    at Module.load (node:internal/modules/cjs/loader:998:32)\n    at Function.Module._load (node:internal/modules/cjs/loader:839:12)\n    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:81:12)\n    at phase4 (/home/df/hdd/wd/caught-object-report-json/node_modules/ts-node/src/bin.ts:649:14)",
-  "as_string_format": "String",
-  "as_json_format": "safe-stable-stringify@2.4.1",
-  "v": "corj/v0.4"
+  instanceof_error: true,
+  typeof: 'object',
+  constructor_name: 'SyntaxError',
+  message: 'Unexpected token u in JSON at position 0',
+  as_string: 'SyntaxError: Unexpected token u in JSON at position 0',
+  as_json: {},
+  stack: 'SyntaxError: Unexpected token u in JSON at position 0\n' +
+  '    at JSON.parse (<anonymous>)\n' +
+  '    at Object.<anonymous> (/home/df/hdd/wd/caught-object-report-json/examples/example-1-syntax-error.ts:6:8)\n' +
+  '    at Module._compile (node:internal/modules/cjs/loader:1120:14)\n' +
+  '    at Module.m._compile (/home/df/hdd/wd/caught-object-report-json/node_modules/ts-node/src/index.ts:1618:23)\n' +
+  '    at Module._extensions..js (node:internal/modules/cjs/loader:1174:10)\n' +
+  '    at Object.require.extensions.<computed> [as .ts] (/home/df/hdd/wd/caught-object-report-json/node_modules/ts-node/src/index.ts:1621:12)\n' +
+  '    at Module.load (node:internal/modules/cjs/loader:998:32)\n' +
+  '    at Function.Module._load (node:internal/modules/cjs/loader:839:12)\n' +
+  '    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:81:12)\n' +
+  '    at phase4 (/home/df/hdd/wd/caught-object-report-json/node_modules/ts-node/src/bin.ts:649:14)',
+  _m: [ 'v0.4', 'String', 'safe-stable-stringify@2.4.1' ]
 }
+
 ```
 
 ## 2. [Axios error](./examples/example-2-axios-error.ts)
@@ -112,63 +121,70 @@ axiosClient.interceptors.response.use(undefined, (error) => {
     await axiosClient.get('https://reqres.in/api/users/23');
   } catch (caught: unknown) {
     const report = makeCaughtObjectReportJson(caught);
-    console.log(JSON.stringify(report, null, 2));
+    console.log(report);
   }
 })();
 ```
 
 prints
 
-```json
+```text
 {
-  "instanceof_error": true,
-  "typeof": "object",
-  "constructor_name": "AxiosErrorWrapper",
-  "message": "getaddrinfo ENOTFOUND reqres.in",
-  "as_string": "AxiosError: getaddrinfo ENOTFOUND reqres.in",
-  "as_json": {
-    "message": "getaddrinfo ENOTFOUND reqres.in",
-    "name": "Error",
-    "stack": "Error: getaddrinfo ENOTFOUND reqres.in\n    at Function.AxiosError.from (/home/df/hdd/wd/caught-object-report-json/node_modules/axios/lib/core/AxiosError.js:89:14)\n    at RedirectableRequest.handleRequestError (/home/df/hdd/wd/caught-object-report-json/node_modules/axios/lib/adapters/http.js:526:25)\n    at RedirectableRequest.emit (node:events:513:28)\n    at RedirectableRequest.emit (node:domain:489:12)\n    at ClientRequest.eventHandlers.<computed> (/home/df/hdd/wd/caught-object-report-json/node_modules/follow-redirects/index.js:14:24)\n    at ClientRequest.emit (node:events:513:28)\n    at ClientRequest.emit (node:domain:489:12)\n    at TLSSocket.socketErrorListener (node:_http_client:481:9)\n    at TLSSocket.emit (node:events:513:28)\n    at TLSSocket.emit (node:domain:489:12)",
-    "config": {
-      "transitional": {
-        "silentJSONParsing": true,
-        "forcedJSONParsing": true,
-        "clarifyTimeoutError": false
-      },
-      "adapter": [
-        "xhr",
-        "http"
-      ],
-      "transformRequest": [
-        null
-      ],
-      "transformResponse": [
-        null
-      ],
-      "timeout": 0,
-      "xsrfCookieName": "XSRF-TOKEN",
-      "xsrfHeaderName": "X-XSRF-TOKEN",
-      "maxContentLength": -1,
-      "maxBodyLength": -1,
-      "env": {},
-      "headers": {
-        "Accept": "application/json, text/plain, */*",
-        "User-Agent": "axios/1.2.1",
-        "Accept-Encoding": "gzip, compress, deflate, br"
-      },
-      "method": "get",
-      "url": "https://reqres.in/api/users/23"
+  instanceof_error: true,
+  typeof: 'object',
+  constructor_name: 'AxiosErrorWrapper',
+  message: 'Request failed with status code 404',
+  as_string: 'AxiosError: Request failed with status code 404',
+  as_json: {
+    message: 'Request failed with status code 404',
+    name: 'AxiosError',
+    stack: 'AxiosError: Request failed with status code 404\n' +
+      '    at settle (/home/df/hdd/wd/caught-object-report-json/node_modules/axios/lib/core/settle.js:19:12)\n' +
+      '    at IncomingMessage.handleStreamEnd (/home/df/hdd/wd/caught-object-report-json/node_modules/axios/lib/adapters/http.js:505:11)\n' +
+      '    at IncomingMessage.emit (node:events:525:35)\n' +
+      '    at IncomingMessage.emit (node:domain:489:12)\n' +
+      '    at endReadableNT (node:internal/streams/readable:1359:12)\n' +
+      '    at processTicksAndRejections (node:internal/process/task_queues:82:21)',
+    config: {
+      transitional: [Object],
+      adapter: [Array],
+      transformRequest: [Array],
+      transformResponse: [Array],
+      timeout: 0,
+      xsrfCookieName: 'XSRF-TOKEN',
+      xsrfHeaderName: 'X-XSRF-TOKEN',
+      maxContentLength: -1      maxBodyLength: -1,
+      env: {},
+      headers: [Object],
+      method: 'get',
+      url: 'https://reqres.in/api/users/23'
     },
-    "code": "ENOTFOUND",
-    "status": null
+    code: 'ERR_BAD_REQUEST',
+    status: 404,
+    response_data: {},
+    response_headers: {
+      date: 'Thu, 19 Jan 2023 21:58:32 GMT',
+      'content-type': 'application/json; charset=utf-8',
+      'content-length': '2',
+      connection: 'close',
+      'x-powered-by': 'Express',
+      'access-control-allow-origin': '*',
+      etag: 'W/"2-vyGp6PvFo4RvsFtPoIWeCReyIC8"',
+      via: '1.1 vegur',
+      'cache-control': 'max-age=14400',
+      'cf-cache-status': 'EXPIRED',
+      'report-to': '{"endpoints":[{"url":"https:\\/\\/a.nel.cloudflare.com\\/report\\/v3?s=pki0zzsIm2JvJtBg%2B6%2BSk%2Bd7LYg4%2BVSVxN%2BvCeDIgIjqqjhD9NUgC2VzHNJPqk8Tw7eNgHF0KDfiKSJCh7e%2BTGnM0YekBhiShXQVb9IlKWashaw9PwiNl3i8Bw%3D%3D"}],"group":"cf-nel","max_age":604800}',
+      nel: '{"success_fraction":0,"report_to":"cf-nel","max_age":604800}',
+      vary: 'Accept-Encoding',
+      server: 'cloudflare',
+      'cf-ray': '78c2d513fffa2be5-FRA'
+    }
   },
-  "stack": "AxiosError: getaddrinfo ENOTFOUND reqres.in\n    at /home/df/hdd/wd/caught-object-report-json/examples/example-2-axios-error.ts:35:27\n    at processTicksAndRejections (node:internal/process/task_queues:95:5)",
-  "as_string_format": "String",
-  "as_json_format": "safe-stable-stringify@2.4.1",
-  "v": "corj/v0.4"
+  stack: 'AxiosError: Request failed with status code 404\n' +
+    '    at /home/df/hdd/wd/caught-object-report-json/examples/example-2-axios-error.ts:35:27\n' +
+    '    at processTicksAndRejections (node:internal/process/task_queues:95:5)',
+  _m: [ 'v0.4', 'String', 'safe-stable-stringify@2.4.1' ]
 }
-
 ```
 
 ## 3. [Not an error object thrown](./examples/example-3-not-error-object.ts)
@@ -181,16 +197,16 @@ If you do not provide `onCaughtMaking` callback, then any errors are muffled.
 const corj = new CorjMaker({
   addJsonSchemaLink: true,
   onCaughtMaking: (caught, { caughtDuring }) => {
-    console.log('onCaughtMaking::', { caughtDuring });
-    console.log('onCaughtMaking::', { caught });
-  },
+    console.log("onCaughtMaking::", { caughtDuring });
+    console.log("onCaughtMaking::", { caught });
+  }
 });
 
 try {
   throw undefined;
 } catch (caught: unknown) {
   const report = corj.make(caught);
-  console.log(JSON.stringify(report, null, 2));
+  console.log(report);
 }
 ```
 
@@ -200,24 +216,22 @@ prints form onCaughtMaking callback
 onCaughtMaking:: { caughtDuring: { key: 'as_json' } }
 onCaughtMaking:: {
   caught: Error: Could not convert caught object to json string using safe-stable-stringify@2.4.1.
-      at makeCaughtObjectAsJsonProp (/home/df/hdd/wd/caught-object-report-json/src/CorjMaker.ts:176:19)
-      at CorjMaker.make (/home/df/hdd/wd/caught-object-report-json/src/CorjMaker.ts:238:32)
+      at makeProp_as_json (/home/df/hdd/wd/caught-object-report-json/src/index.ts:273:19)
+      at CorjMaker.entries (/home/df/hdd/wd/caught-object-report-json/src/index.ts:370:20)
   }
 }
 ```
 
 and then prints form catch block
 
-```json
+```text
 {
-  "instanceof_error": false,
-  "typeof": "undefined",
-  "as_string": "undefined",
-  "as_json": null,
-  "as_string_format": "String",
-  "as_json_format": "safe-stable-stringify@2.4.1",
-  "v": "corj/v0.4",
-  "$schema": "https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.4.json"
+  instanceof_error: false,
+  typeof: 'undefined',
+  as_string: 'undefined',
+  as_json: null,
+  _m: [ 'v0.4', 'String', 'safe-stable-stringify@2.4.1' ],
+  '$schema': 'https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/v0.4.json'
 }
 ```
 
@@ -250,4 +264,4 @@ https://www.npmjs.com/package/caught-object-report-json
 
 ##### CORJ JSON Schema v0.4
 
-https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.4.json
+https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/v0.4.json

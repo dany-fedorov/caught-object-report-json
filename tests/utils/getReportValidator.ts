@@ -7,7 +7,7 @@ const ajv = new Ajv();
 ajv.addSchema(
   JSON.parse(
     String(
-      fs.readFileSync(path.join(__dirname, '../../schema-versions/corj/v0.4.json')),
+      fs.readFileSync(path.join(__dirname, '../../schema-versions/v0.4.json')),
     ),
   ),
   'report',

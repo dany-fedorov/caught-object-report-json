@@ -10,6 +10,28 @@ export type CaughtObjectReportJson = {
   /**
    * Result of
    * ```typescript
+   * caught instanceof Error
+   * ```
+   */
+  instanceof_error: boolean;
+  /**
+   * Result of
+   * ```typescript
+   * typeof caught
+   * ```
+   */
+  typeof:
+    | 'undefined'
+    | 'object'
+    | 'boolean'
+    | 'number'
+    | 'bigint'
+    | 'string'
+    | 'symbol'
+    | 'function';
+  /**
+   * Result of
+   * ```typescript
    * typeof caught?.constructor?.name !== 'string'
    *    ? undefined
    *    : caught?.constructor?.name;
@@ -48,36 +70,6 @@ export type CaughtObjectReportJson = {
    */
   as_string: string | null;
   /**
-   * Indicates a method used to obtain `as_string.value`.<br>
-   * - "String" means value was obtained with `as_string.value = String(caught)`.<br>
-   *
-   * Links
-   * - [MDN String() constructor](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/String)
-   */
-  as_string_format: typeof CORJ_AS_STRING_FORMAT_STRING_CONSTRUCTOR;
-  /**
-   * Result of
-   * ```typescript
-   * typeof caught
-   * ```
-   */
-  typeof:
-    | 'undefined'
-    | 'object'
-    | 'boolean'
-    | 'number'
-    | 'bigint'
-    | 'string'
-    | 'symbol'
-    | 'function';
-  /**
-   * Result of
-   * ```typescript
-   * caught instanceof Error
-   * ```
-   */
-  instanceof_error: boolean;
-  /**
    * A JSON object produced from caught object using `as_json.format`<br>
    *
    * If code that produces `as_json` throws, both `as_json` is set to `null`.
@@ -86,11 +78,6 @@ export type CaughtObjectReportJson = {
    * - [safe-stable-stringify@2.4.1 on NPM](https://www.npmjs.com/package/safe-stable-stringify)
    */
   as_json: CorjJsonValue<CorjJsonPrimitive>;
-  /**
-   * Indicates a method used to obtain `as_json.value`.<br>
-   * - "safe-stable-stringify@2.4.1" means value was obtained with safe-stable-stringify library.`
-   */
-  as_json_format: typeof CORJ_AS_JSON_FORMAT_SAFE_STABLE_STRINGIFY_2_4_1;
   /**
    * Result of
    * ```typescript
@@ -108,10 +95,28 @@ export type CaughtObjectReportJson = {
    */
   stack?: string | null;
   /**
+   * Metadata field.
+   *
+   * Element 0:
    * Indicates a version of a standard for this object.
    * Version produced by this library is {@link CORJ_VERSION}
+   *
+   * Element 1:
+   * Indicates a method used to obtain the value of `as_string`.<br>
+   * - "String" means value was obtained with `as_string = String(caught)`.<br>
+   *
+   * Element 2:
+   * Indicates a method used to obtain the value of `as_json`.<br>
+   * - "safe-stable-stringify@2.4.1" means value was obtained with safe-stable-stringify library.`
+   *
+   * Links
+   * - [MDN String() constructor](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/String)
    */
-  v: typeof CORJ_VERSION;
+  _m: [
+    typeof CORJ_VERSION,
+    typeof CORJ_AS_STRING_FORMAT_STRING_CONSTRUCTOR,
+    typeof CORJ_AS_JSON_FORMAT_SAFE_STABLE_STRINGIFY_2_4_1,
+  ];
   /**
    * Optionally include a link to JSON schema this object conforms to - {@link CORJ_JSON_SCHEMA_LINK}.<br>
    * This is controlled by {@link CorjMakerOptions}
@@ -140,12 +145,12 @@ export type CorjJsonValue<P extends CorjJsonPrimitive> =
   | CorjJsonArray<P>;
 
 export type CaughtObjectAsJsonReport = {
-  format: CaughtObjectReportJson['as_json_format'];
+  format: CaughtObjectReportJson['_m'][2];
   value: CaughtObjectReportJson['as_json'];
 };
 
 export type CaughtObjectAsStringReport = {
-  format: CaughtObjectReportJson['as_string_format'];
+  format: CaughtObjectReportJson['_m'][1];
   value: CaughtObjectReportJson['as_string'];
 };
 
@@ -182,9 +187,9 @@ export type CorjMakerOptions = {
 export const CORJ_AS_JSON_FORMAT_SAFE_STABLE_STRINGIFY_2_4_1 =
   'safe-stable-stringify@2.4.1';
 export const CORJ_AS_STRING_FORMAT_STRING_CONSTRUCTOR = 'String';
-export const CORJ_VERSION = 'corj/v0.4';
+export const CORJ_VERSION = 'v0.4';
 export const CORJ_JSON_SCHEMA_LINK =
-  'https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.4.json';
+  'https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/v0.4.json';
 export const CORJ_MAKER_DEFAULT_OPTIONS_1 = {
   addJsonSchemaLink: false,
   onCaughtMaking: (caught: unknown, { caughtDuring }) => {
@@ -194,6 +199,32 @@ export const CORJ_MAKER_DEFAULT_OPTIONS_1 = {
     );
   },
 } as CorjMakerOptions;
+
+/**
+ * ------------
+ * ~ Wrappers ~
+ * ------------
+ */
+
+/**
+ * Wrapper for {@link CorjMaker.make | CorjMaker.make} with default options specified in {@link CORJ_MAKER_DEFAULT_OPTIONS_1}.
+ */
+export function makeCaughtObjectReportJson(
+  caught: unknown,
+  options?: Partial<CorjMakerOptions>,
+): CaughtObjectReportJson {
+  const effectiveOptions = {
+    ...CORJ_MAKER_DEFAULT_OPTIONS_1,
+    ...(options ?? {}),
+  };
+  const corj = new CorjMaker(effectiveOptions);
+  return corj.make(caught);
+}
+
+/**
+ * Alias for {@link makeCaughtObjectReportJson}.
+ */
+export const bakeCorj = makeCaughtObjectReportJson;
 
 /**
  * ------------------
@@ -345,9 +376,7 @@ export class CorjMaker {
       ['as_string', asString.value],
       ['as_json', asJson.value],
       ['stack', makeProp_stack(caught, this.options)],
-      ['as_string_format', asString.format],
-      ['as_json_format', asJson.format],
-      ['v', CORJ_VERSION],
+      ['_m', [CORJ_VERSION, asString.format, asJson.format]],
       ['$schema', schemaProp],
     ].filter(([, v]) => v !== undefined) as CaughtObjectReportJsonEntries;
   }
@@ -356,29 +385,3 @@ export class CorjMaker {
     return Object.fromEntries(this.entries(caught)) as CaughtObjectReportJson;
   }
 }
-
-/**
- * ------------
- * ~ Wrappers ~
- * ------------
- */
-
-/**
- * Wrapper for {@link CorjMaker.make | CorjMaker.make} with default options specified in {@link CORJ_MAKER_DEFAULT_OPTIONS_1}.
- */
-export function makeCaughtObjectReportJson(
-  caught: unknown,
-  options?: Partial<CorjMakerOptions>,
-): CaughtObjectReportJson {
-  const effectiveOptions = {
-    ...CORJ_MAKER_DEFAULT_OPTIONS_1,
-    ...(options ?? {}),
-  };
-  const corj = new CorjMaker(effectiveOptions);
-  return corj.make(caught);
-}
-
-/**
- * Alias for {@link makeCaughtObjectReportJson}.
- */
-export const bakeCorj = makeCaughtObjectReportJson;

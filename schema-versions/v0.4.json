@@ -4,15 +4,28 @@
   "description": "A JSON produced from caught object by JavaScript library. Default implementation is https://www.npmjs.com/package/caught-object-report-json.",
   "type": "object",
   "required": [
+    "instanceof_error",
     "typeof",
     "as_string",
-    "as_string_format",
     "as_json",
-    "as_json_format",
-    "instanceof_error",
-    "v"
+    "_m"
   ],
   "properties": {
+    "instanceof_error": {
+      "type": "boolean"
+    },
+    "typeof": {
+      "enum": [
+        "undefined",
+        "object",
+        "boolean",
+        "number",
+        "bigint",
+        "string",
+        "symbol",
+        "function"
+      ]
+    },
     "constructor_name": {
       "oneOf": [
         {
@@ -41,29 +54,6 @@
         {
           "type": "string"
         }
-      ]
-    },
-    "as_string_format": {
-      "type": "string"
-    },
-    "typeof": {
-      "enum": [
-        "undefined",
-        "object",
-        "boolean",
-        "number",
-        "bigint",
-        "string",
-        "symbol",
-        "function"
-      ]
-    },
-    "instanceof_error": {
-      "type": "boolean"
-    },
-    "as_json_format": {
-      "enum": [
-        "safe-stable-stringify@2.4.1"
       ]
     },
     "as_json": {
@@ -98,9 +88,27 @@
         }
       ]
     },
-    "v": {
-      "enum": [
-        "corj/v0.4"
+    "_m": {
+      "type": "array",
+      "items": false,
+      "minItems": 3,
+      "maxItems": 3,
+      "prefixItems": [
+        {
+          "enum": [
+            "v0.4"
+          ]
+        },
+        {
+          "enum": [
+            "String"
+          ]
+        },
+        {
+          "enum": [
+            "safe-stable-stringify@2.4.1"
+          ]
+        }
       ]
     }
   }

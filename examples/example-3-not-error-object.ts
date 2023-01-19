@@ -12,5 +12,5 @@ try {
   throw undefined;
 } catch (caught: unknown) {
   const report = corj.make(caught);
-  console.log(JSON.stringify(report, null, 2));
+  console.log(report);
 }

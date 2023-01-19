@@ -196,7 +196,7 @@ export const CORJ_AS_STRING_FORMAT_STRING_CONSTRUCTOR = 'String';
 export const CORJ_VERSION = 'v0.4';
 export const CORJ_JSON_SCHEMA_LINK =
   'https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/v0.4.json';
-export const CORJ_MAKER_DEFAULT_OPTIONS_1 = {
+export const CORJ_MAKER_DEFAULT_OPTIONS_1 = Object.freeze({
   addJsonSchemaLink: false,
   addMetadata: true,
   onCaughtMaking: (caught: unknown, { caughtDuring }) => {
@@ -205,7 +205,7 @@ export const CORJ_MAKER_DEFAULT_OPTIONS_1 = {
       caught,
     );
   },
-} as CorjMakerOptions;
+}) as CorjMakerOptions;
 
 /**
  * ------------

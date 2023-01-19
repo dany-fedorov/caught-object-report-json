@@ -26,7 +26,7 @@ export type CaughtObjectReportJson = {
    * ```
    * will print "TypeError".
    */
-  constructor_name?: string;
+  constructor_name?: string | null;
   /**
    * Result of
    * ```typescript
@@ -41,7 +41,7 @@ export type CaughtObjectReportJson = {
    * Links
    * - [MDN Error.prototype.message](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Error/message)
    */
-  message?: string;
+  message?: string | null;
   /**
    * - `as_string.value`<br>
    *   A string produced from caught object using `as_string.format`<br>
@@ -107,7 +107,7 @@ export type CaughtObjectReportJson = {
    * Links
    * - [MDN Error.prototype.stack](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Error/Stack)
    */
-  stack?: string;
+  stack?: string | null;
   /**
    * Indicates a version of a standard for this object.
    * Version produced by this library is {@link CORJ_VERSION}
@@ -180,7 +180,7 @@ export const CORJ_AS_JSON_FORMAT_SAFE_STABLE_STRINGIFY_2_4_1 =
 export const CORJ_AS_STRING_FORMAT_STRING_CONSTRUCTOR = 'String';
 export const CORJ_VERSION = 'corj/v0.4';
 export const CORJ_JSON_SCHEMA_LINK =
-  'https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/v0.3.json';
+  'https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.4.json';
 export const CORJ_MAKER_DEFAULT_OPTIONS_1 = {
   addJsonSchemaLink: false,
   onCaughtMaking: (caught: unknown, { caughtDuring }) => {

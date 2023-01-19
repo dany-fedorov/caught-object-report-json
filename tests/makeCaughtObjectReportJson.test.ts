@@ -4,7 +4,7 @@ import { getReportValidator } from './utils/getReportValidator';
 describe('makeCaughtObjectReportJson', function () {
   test('default', () => {
     const report = makeCaughtObjectReportJson(new Error('I am an error!'));
-    expect(getReportValidator()(report)).toMatchInlineSnapshot(`false`);
+    expect(getReportValidator()(report)).toBe(true);
     expect(typeof report.stack).toBe('string');
     delete report.stack;
     expect(report).toMatchInlineSnapshot(`
@@ -33,7 +33,7 @@ describe('makeCaughtObjectReportJson', function () {
         caughtBuildingArray.push(caught);
       },
     });
-    expect(getReportValidator()(report)).toMatchInlineSnapshot(`false`);
+    expect(getReportValidator()(report)).toBe(true);
     expect(typeof report.stack).toBe('undefined');
     delete report.stack;
     expect(report).toMatchInlineSnapshot(`

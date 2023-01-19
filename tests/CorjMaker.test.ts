@@ -13,7 +13,7 @@ describe('CorjMaker', () => {
       });
       const caught = new Error('I am an error!');
       const report = noOptionsBuilder.make(caught);
-      expect(getReportValidator()(report)).toMatchInlineSnapshot(`false`);
+      expect(getReportValidator()(report)).toBe(true);
       expect(typeof report.stack).toBe('string');
       delete report.stack;
       expect(report).toMatchInlineSnapshot(`
@@ -46,7 +46,7 @@ describe('CorjMaker', () => {
       });
       const caught = 'I am a string, but I was thrown nevertheless!';
       const report = noOptionsBuilder.make(caught);
-      expect(getReportValidator()(report)).toMatchInlineSnapshot(`false`);
+      expect(getReportValidator()(report)).toBe(true);
       expect(typeof report.stack).toBe('undefined');
       delete report.stack;
       expect(report).toMatchInlineSnapshot(`
@@ -78,7 +78,7 @@ describe('CorjMaker', () => {
       });
       const caught = undefined;
       const report = noOptionsBuilder.make(caught);
-      expect(getReportValidator()(report)).toMatchInlineSnapshot(`false`);
+      expect(getReportValidator()(report)).toBe(true);
       expect(typeof report.stack).toBe('undefined');
       delete report.stack;
       expect(report).toMatchInlineSnapshot(`
@@ -120,7 +120,7 @@ describe('CorjMaker', () => {
       });
       const caught = null;
       const report = noOptionsBuilder.make(caught);
-      expect(getReportValidator()(report)).toMatchInlineSnapshot(`false`);
+      expect(getReportValidator()(report)).toBe(true);
       expect(typeof report.stack).toBe('undefined');
       delete report.stack;
       expect(report).toMatchInlineSnapshot(`
@@ -151,7 +151,7 @@ describe('CorjMaker', () => {
       });
       const caught = BigInt(123);
       const report = noOptionsBuilder.make(caught);
-      expect(getReportValidator()(report)).toMatchInlineSnapshot(`false`);
+      expect(getReportValidator()(report)).toBe(true);
       expect(typeof report.stack).toBe('undefined');
       delete report.stack;
       expect(report).toMatchInlineSnapshot(`
@@ -183,7 +183,7 @@ describe('CorjMaker', () => {
       });
       const caught = [1234, 'string', BigInt(1234), { a: 'b' }];
       const report = noOptionsBuilder.make(caught);
-      expect(getReportValidator()(report)).toMatchInlineSnapshot(`false`);
+      expect(getReportValidator()(report)).toBe(true);
       expect(typeof report.stack).toBe('undefined');
       delete report.stack;
       expect(report).toMatchInlineSnapshot(`
@@ -225,12 +225,12 @@ describe('CorjMaker', () => {
       });
       const caught = new Error('I am an error!');
       const report = longVersionBuilder.make(caught);
-      expect(getReportValidator()(report)).toMatchInlineSnapshot(`false`);
+      expect(getReportValidator()(report)).toBe(true);
       expect(typeof report.stack).toBe('string');
       delete report.stack;
       expect(report).toMatchInlineSnapshot(`
         Object {
-          "$schema": "https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/v0.3.json",
+          "$schema": "https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.4.json",
           "as_json": Object {
             "format": "safe-stable-stringify@2.4.1",
             "value": Object {},
@@ -257,7 +257,7 @@ describe('CorjMaker', () => {
       const longVersionBuilder = new CorjMaker(CORJ_MAKER_DEFAULT_OPTIONS_1);
       const caught = undefined;
       const report = longVersionBuilder.make(caught);
-      expect(getReportValidator()(report)).toMatchInlineSnapshot(`false`);
+      expect(getReportValidator()(report)).toBe(true);
       expect(typeof report.stack).toBe('undefined');
       delete report.stack;
       expect(report).toMatchInlineSnapshot(`
@@ -296,7 +296,7 @@ describe('CorjMaker', () => {
         },
       };
       const report = longVersionBuilder.make(caught);
-      expect(getReportValidator()(report)).toMatchInlineSnapshot(`false`);
+      expect(getReportValidator()(report)).toBe(true);
       expect(typeof report.stack).toBe('undefined');
       delete report.stack;
       expect(report).toMatchInlineSnapshot(`
@@ -338,7 +338,7 @@ describe('CorjMaker', () => {
         },
       };
       const report = longVersionBuilder.make(caught);
-      expect(getReportValidator()(report)).toMatchInlineSnapshot(`false`);
+      expect(getReportValidator()(report)).toBe(true);
       expect(typeof report.stack).toBe('undefined');
       delete report.stack;
       expect(report).toMatchInlineSnapshot(`

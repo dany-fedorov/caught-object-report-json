@@ -7,5 +7,5 @@ try {
     addMetadata: false,
     addJsonSchemaLink: true,
   });
-  console.log(report);
+  console.log(JSON.stringify(report, null, 2));
 }

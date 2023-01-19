@@ -9,5 +9,5 @@ try {
       console.log('onCaughtMaking::', { caught });
     },
   });
-  console.log(report);
+  console.log(JSON.stringify(report, null, 2));
 }

@@ -258,6 +258,41 @@ prints
 }
 ```
 
+## 5. [Using CorjMaker instance](./examples/example-5-using-corj-maker-instance.ts)
+
+Create `CorjMaker` instance to configure error reporting once.
+
+<sub>(Run with `npm run ts-file ./examples/example-5-using-corj-maker-instance.ts`)</sub>
+
+```typescript
+const corj = CorjMaker.withDefaults({
+  addMetadata: false,
+});
+
+try {
+  throw new Error(`Hi, I'm a regular Error object.`);
+} catch (caught: unknown) {
+  const report = corj.make(caught);
+  console.log(report);
+}
+```
+
+prints
+
+```text
+{
+  instanceof_error: true,
+  typeof: 'object',
+  constructor_name: 'Error',
+  message: "Hi, I'm a regular Error object.",
+  as_string: "Error: Hi, I'm a regular Error object.",
+  as_json: {},
+  stack: "Error: Hi, I'm a regular Error object.\n" +
+    '    at Object.<anonymous> (/home/df/hdd/wd/caught-object-report-json/examples/example-5-using-corj-maker-instance.ts:8:9)\n' +
+    '    at Module._compile (node:internal/modules/cjs/loader:1120:14)'
+}
+```
+
 # [API](https://dany-fedorov.github.io/caught-object-report-json/modules.html)
 
 #### [makeCaughtObjectReportJson(caught)](https://dany-fedorov.github.io/caught-object-report-json/functions/makeCaughtObjectReportJson.html)
@@ -266,7 +301,8 @@ A wrapper for `CorjMaker#make` with default options.
 
 #### [new CorjMaker(options)](https://dany-fedorov.github.io/caught-object-report-json/classes/CorjMaker.html)
 
-Use `CorjMaker#make` to produce `CaughtObjectReportJson`.
+Use `CorjMaker.withDefaults` static method to construct a `CorjMaker` with default options.<br>
+Use `CorjMaker#make` instance method to produce `CaughtObjectReportJson`.
 
 #### [type CaughtObjectReportJson](https://dany-fedorov.github.io/caught-object-report-json/types/CaughtObjectReportJson.html)
 

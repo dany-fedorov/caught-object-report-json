@@ -1,10 +1,8 @@
 import { configure as configureJsonStringify } from 'safe-stable-stringify';
 
-/**
- * ---------
- * ~ Types ~
- * ---------
- */
+// ---------
+// ~ Types ~
+// ---------
 
 export type CaughtObjectReportJson = {
   /**
@@ -184,11 +182,9 @@ export type CorjMakerOptions = {
   onCaughtMaking: CorjMakerOnCaughtBuildingCallbackFn;
 };
 
-/**
- * -------------
- * ~ Constants ~
- * -------------
- */
+// -------------
+// ~ Constants ~
+// -------------
 
 export const CORJ_AS_JSON_FORMAT_SAFE_STABLE_STRINGIFY_2_4_1 =
   'safe-stable-stringify@2.4.1';
@@ -210,11 +206,9 @@ export const CORJ_MAKER_DEFAULT_OPTIONS_1 = Object.freeze({
   },
 }) as CorjMakerOptions;
 
-/**
- * ------------
- * ~ Wrappers ~
- * ------------
- */
+// ------------
+// ~ Wrappers ~
+// ------------
 
 /**
  * Wrapper for {@link CorjMaker.make | CorjMaker.make} with default options specified in {@link CORJ_MAKER_DEFAULT_OPTIONS_1}.
@@ -223,12 +217,7 @@ export function makeCaughtObjectReportJson(
   caught: unknown,
   options?: Partial<CorjMakerOptions>,
 ): CaughtObjectReportJson {
-  const effectiveOptions = {
-    ...CORJ_MAKER_DEFAULT_OPTIONS_1,
-    ...(options ?? {}),
-  };
-  const corj = new CorjMaker(effectiveOptions);
-  return corj.make(caught);
+  return CorjMaker.withDefaults(options).make(caught);
 }
 
 /**
@@ -236,11 +225,9 @@ export function makeCaughtObjectReportJson(
  */
 export const bakeCorj = makeCaughtObjectReportJson;
 
-/**
- * ------------------
- * ~ Implementation ~
- * ------------------
- */
+// ------------------
+// ~ Implementation ~
+// ------------------
 
 const jsonStringify = configureJsonStringify({
   circularValue: '[caught-object-report-json: Circular]',
@@ -430,5 +417,13 @@ export class CorjMaker {
 
   make(caught: unknown): CaughtObjectReportJson {
     return Object.fromEntries(this.entries(caught)) as CaughtObjectReportJson;
+  }
+
+  static withDefaults(options?: Partial<CorjMakerOptions>): CorjMaker {
+    const effectiveOptions = {
+      ...CORJ_MAKER_DEFAULT_OPTIONS_1,
+      ...(options ?? {}),
+    };
+    return new CorjMaker(effectiveOptions);
   }
 }

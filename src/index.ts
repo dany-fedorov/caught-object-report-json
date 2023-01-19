@@ -192,8 +192,11 @@ export type CorjMakerOptions = {
 
 export const CORJ_AS_JSON_FORMAT_SAFE_STABLE_STRINGIFY_2_4_1 =
   'safe-stable-stringify@2.4.1';
+
 export const CORJ_AS_STRING_FORMAT_STRING_CONSTRUCTOR = 'String';
+
 export const CORJ_VERSION = 'v0.4';
+
 export const CORJ_JSON_SCHEMA_LINK =
   'https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/v0.4.json';
 export const CORJ_MAKER_DEFAULT_OPTIONS_1 = Object.freeze({

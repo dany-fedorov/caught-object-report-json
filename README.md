@@ -29,7 +29,7 @@ Please don't hesitate to open an issue if your use case for this type of library
 - [Links](#links)
     * [GitHub](#github)
     * [Npm](#npm)
-    * [CORJ JSON Schema v0.3](#corj-json-schema-v02)
+    * [CORJ JSON Schema v0.4](#corj-json-schema-v04)
 
 # Examples
 
@@ -58,15 +58,7 @@ prints
   as_json: {},
   stack: 'SyntaxError: Unexpected token u in JSON at position 0\n' +
   '    at JSON.parse (<anonymous>)\n' +
-  '    at Object.<anonymous> (/home/df/hdd/wd/caught-object-report-json/examples/example-1-syntax-error.ts:6:8)\n' +
-  '    at Module._compile (node:internal/modules/cjs/loader:1120:14)\n' +
-  '    at Module.m._compile (/home/df/hdd/wd/caught-object-report-json/node_modules/ts-node/src/index.ts:1618:23)\n' +
-  '    at Module._extensions..js (node:internal/modules/cjs/loader:1174:10)\n' +
-  '    at Object.require.extensions.<computed> [as .ts] (/home/df/hdd/wd/caught-object-report-json/node_modules/ts-node/src/index.ts:1621:12)\n' +
-  '    at Module.load (node:internal/modules/cjs/loader:998:32)\n' +
-  '    at Function.Module._load (node:internal/modules/cjs/loader:839:12)\n' +
-  '    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:81:12)\n' +
-  '    at phase4 (/home/df/hdd/wd/caught-object-report-json/node_modules/ts-node/src/bin.ts:649:14)',
+  '    at Object.<anonymous> (/home/df/hdd/wd/caught-object-report-json/examples/example-1-syntax-error.ts:6:8)'
   _m: [ 'v0.4', 'String', 'safe-stable-stringify@2.4.1' ]
 }
 
@@ -140,11 +132,7 @@ prints
     name: 'AxiosError',
     stack: 'AxiosError: Request failed with status code 404\n' +
       '    at settle (/home/df/hdd/wd/caught-object-report-json/node_modules/axios/lib/core/settle.js:19:12)\n' +
-      '    at IncomingMessage.handleStreamEnd (/home/df/hdd/wd/caught-object-report-json/node_modules/axios/lib/adapters/http.js:505:11)\n' +
-      '    at IncomingMessage.emit (node:events:525:35)\n' +
-      '    at IncomingMessage.emit (node:domain:489:12)\n' +
-      '    at endReadableNT (node:internal/streams/readable:1359:12)\n' +
-      '    at processTicksAndRejections (node:internal/process/task_queues:82:21)',
+      '    at IncomingMessage.handleStreamEnd (/home/df/hdd/wd/caught-object-report-json/node_modules/axios/lib/adapters/http.js:505:11)'
     config: {
       transitional: [Object],
       adapter: [Array],
@@ -194,24 +182,20 @@ If you do not provide `onCaughtMaking` callback, then any errors are muffled.
 <sub>(Run with `npm run ts-file ./examples/example-3-not-error-object.ts`)</sub>
 
 ```typescript
-const corj = new CorjMaker({
-  addJsonSchemaLink: true,
-  addMetadata: false,
-  onCaughtMaking: (caught, { caughtDuring }) => {
-    console.log("onCaughtMaking::", { caughtDuring });
-    console.log("onCaughtMaking::", { caught });
-  }
-});
-
 try {
   throw undefined;
 } catch (caught: unknown) {
-  const report = corj.make(caught);
+  const report = makeCaughtObjectReportJson(caught, {
+    onCaughtMaking: (caught, { caughtDuring }) => {
+      console.log("onCaughtMaking::", { caughtDuring });
+      console.log("onCaughtMaking::", { caught });
+    }
+  });
   console.log(report);
 }
 ```
 
-prints form onCaughtMaking callback
+prints form `onCaughtMaking` callback
 
 ```
 onCaughtMaking:: { caughtDuring: { key: 'as_json' } }
@@ -231,6 +215,44 @@ and then prints form catch block
   typeof: 'undefined',
   as_string: 'undefined',
   as_json: null,
+  _m: [ 'v0.4', 'String', 'safe-stable-stringify@2.4.1' ]
+}
+```
+
+## 4. [Options](./examples/example-4-options.ts)
+
+You can control adding `$schema` and `_m` (metadata) properties to report using `addJsonSchemaLink`
+and `addMetadata` options. By default `addJsonSchemaLink` is false and `addMetadata` is true. Read about `_m` property
+in report object
+docs - [type CaughtObjectReportJson](https://dany-fedorov.github.io/caught-object-report-json/types/CaughtObjectReportJson.html).
+
+<sub>(Run with `npm run ts-file ./examples/example-4-options.ts`)</sub>
+
+```typescript
+try {
+  throw new Error(`Hi, I'm a regular Error object.`);
+} catch (caught: unknown) {
+  const report = makeCaughtObjectReportJson(caught, {
+    addMetadata: false,
+    addJsonSchemaLink: true,
+  });
+  console.log(report);
+}
+```
+
+prints
+
+```text
+{
+  instanceof_error: true,
+  typeof: 'object',
+  constructor_name: 'Error',
+  message: "Hi, I'm a regular Error object.",
+  as_string: "Error: Hi, I'm a regular Error object.",
+  as_json: {},
+  stack: "Error: Hi, I'm a regular Error object.\n" +
+    '    at Object.<anonymous> (/home/df/hdd/wd/caught-object-report-json/examples/example-4-options.ts:4:9)\n' +
+    '    at Module._compile (node:internal/modules/cjs/loader:1120:14)'
   '$schema': 'https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/v0.4.json'
 }
 ```

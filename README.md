@@ -221,12 +221,10 @@ and then prints form catch block
 
 ## 4. [Options](./examples/example-4-options.ts)
 
-Apart from using the `onCaughtMaking` callback from the previous example to listen for thrown things during the making
-of report, you can also use
-options `addJsonSchemaLink`
-and `addMetadata` to control adding `$schema` and `_m` (metadata) properties to report JSON. By
-default `addJsonSchemaLink` is false and `addMetadata` is true. Read about `_m` property
-in report object
+Apart from using the `onCaughtMaking` callback from the previous example to listen for exceptions thrown during the
+making of report, you can also use options `addJsonSchemaLink` and `addMetadata` to control adding `$schema` and `_m` (
+metadata) properties to report JSON. By default `addJsonSchemaLink` is false and `addMetadata` is true. Read about `_m`
+property in report object
 docs - [type CaughtObjectReportJson](https://dany-fedorov.github.io/caught-object-report-json/types/CaughtObjectReportJson.html).
 
 <sub>(Run with `npm run ts-file ./examples/example-4-options.ts`)</sub>

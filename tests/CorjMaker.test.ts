@@ -1,4 +1,4 @@
-import { CorjMaker, CORJ_MAKER_DEFAULT_OPTIONS_1 } from '../src';
+import { CORJ_MAKER_DEFAULT_OPTIONS_1, CorjMaker } from '../src';
 import { getReportValidator } from './utils/getReportValidator';
 
 describe('CorjMaker', () => {
@@ -216,7 +216,7 @@ describe('CorjMaker', () => {
   describe('Long version', function () {
     test('Error object', () => {
       const caughtBuildingArray: unknown[] = [];
-      const longVersionBuilder = new CorjMaker({
+      const corj = new CorjMaker({
         ...CORJ_MAKER_DEFAULT_OPTIONS_1,
         onCaughtMaking: (caught, options) => {
           caughtBuildingArray.push({ caught, options });
@@ -224,7 +224,7 @@ describe('CorjMaker', () => {
         addJsonSchemaLink: true,
       });
       const caught = new Error('I am an error!');
-      const report = longVersionBuilder.make(caught);
+      const report = corj.make(caught);
       expect(getReportValidator()(report)).toBe(true);
       expect(typeof report.stack).toBe('string');
       delete report.stack;
@@ -250,13 +250,13 @@ describe('CorjMaker', () => {
     });
   });
 
-  describe('Default onCaughtMaking', function () {
+  describe('Default onCaughtDuring', function () {
     test('undefined', () => {
       const warnSpy = jest.spyOn(console, 'warn');
       warnSpy.mockImplementation(() => null);
-      const longVersionBuilder = new CorjMaker(CORJ_MAKER_DEFAULT_OPTIONS_1);
+      const corj = new CorjMaker(CORJ_MAKER_DEFAULT_OPTIONS_1);
       const caught = undefined;
-      const report = longVersionBuilder.make(caught);
+      const report = corj.make(caught);
       expect(getReportValidator()(report)).toBe(true);
       expect(typeof report.stack).toBe('undefined');
       delete report.stack;
@@ -289,13 +289,13 @@ describe('CorjMaker', () => {
     test('.toString throws', () => {
       const warnSpy = jest.spyOn(console, 'warn');
       warnSpy.mockImplementation(() => null);
-      const longVersionBuilder = new CorjMaker(CORJ_MAKER_DEFAULT_OPTIONS_1);
+      const corj = new CorjMaker(CORJ_MAKER_DEFAULT_OPTIONS_1);
       const caught = {
         toString: () => {
           throw new Error('I am a nasty error!');
         },
       };
-      const report = longVersionBuilder.make(caught);
+      const report = corj.make(caught);
       expect(getReportValidator()(report)).toBe(true);
       expect(typeof report.stack).toBe('undefined');
       delete report.stack;
@@ -326,10 +326,10 @@ describe('CorjMaker', () => {
       jest.restoreAllMocks();
     });
 
-    test('.toString returns not string', () => {
+    test('.toString returns not string and it causes applying String() to throw', () => {
       const warnSpy = jest.spyOn(console, 'warn');
       warnSpy.mockImplementation(() => null);
-      const longVersionBuilder = new CorjMaker(CORJ_MAKER_DEFAULT_OPTIONS_1);
+      const corj = new CorjMaker(CORJ_MAKER_DEFAULT_OPTIONS_1);
       const caught = {
         toString: () => {
           return {
@@ -337,7 +337,7 @@ describe('CorjMaker', () => {
           };
         },
       };
-      const report = longVersionBuilder.make(caught);
+      const report = corj.make(caught);
       expect(getReportValidator()(report)).toBe(true);
       expect(typeof report.stack).toBe('undefined');
       delete report.stack;
@@ -362,6 +362,201 @@ describe('CorjMaker', () => {
           Array [
             "caught-object-report-json: Caught when building key \\"as_string\\" for report json.",
             [TypeError: Cannot convert object to primitive value],
+          ],
+        ]
+      `);
+      jest.restoreAllMocks();
+    });
+
+    test('.constructor throws', () => {
+      const warnSpy = jest.spyOn(console, 'warn');
+      warnSpy.mockImplementation(() => null);
+      const corj = new CorjMaker(CORJ_MAKER_DEFAULT_OPTIONS_1);
+      const caught = {
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        // @ts-ignore
+        get constructor() {
+          throw new Error(
+            `(in .constructor) Yes, I'm a piece of shit for throwing here and I know it`,
+          );
+        },
+      };
+      const report = corj.make(caught);
+      expect(getReportValidator()(report)).toBe(true);
+      expect(typeof report.stack).toBe('undefined');
+      delete report.stack;
+      expect(report).toMatchInlineSnapshot(`
+        Object {
+          "as_json": Object {
+            "format": null,
+            "value": null,
+          },
+          "as_string": Object {
+            "format": "String",
+            "value": "[object Object]",
+          },
+          "constructor_name": null,
+          "instanceof_error": false,
+          "typeof": "object",
+          "v": "corj/v0.4",
+        }
+      `);
+      expect(warnSpy.mock.calls).toMatchInlineSnapshot(`
+        Array [
+          Array [
+            "caught-object-report-json: Caught when building key \\"constructor_name\\" for report json.",
+            [Error: (in .constructor) Yes, I'm a piece of shit for throwing here and I know it],
+          ],
+          Array [
+            "caught-object-report-json: Caught when building key \\"as_json\\" for report json.",
+            [Error: (in .constructor) Yes, I'm a piece of shit for throwing here and I know it],
+          ],
+        ]
+      `);
+      jest.restoreAllMocks();
+    });
+
+    test('.constructor.name throws', () => {
+      const warnSpy = jest.spyOn(console, 'warn');
+      warnSpy.mockImplementation(() => null);
+      const corj = new CorjMaker(CORJ_MAKER_DEFAULT_OPTIONS_1);
+      const caught = {
+        constructor: {
+          // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+          // @ts-ignore
+          get name() {
+            throw new Error(
+              `(in .constructor.name) Yes, I'm a piece of shit for throwing here and I know it`,
+            );
+          },
+        },
+      };
+      const report = corj.make(caught);
+      expect(getReportValidator()(report)).toBe(true);
+      expect(typeof report.stack).toBe('undefined');
+      delete report.stack;
+      expect(report).toMatchInlineSnapshot(`
+        Object {
+          "as_json": Object {
+            "format": null,
+            "value": null,
+          },
+          "as_string": Object {
+            "format": "String",
+            "value": "[object Object]",
+          },
+          "constructor_name": null,
+          "instanceof_error": false,
+          "typeof": "object",
+          "v": "corj/v0.4",
+        }
+      `);
+      expect(warnSpy.mock.calls).toMatchInlineSnapshot(`
+        Array [
+          Array [
+            "caught-object-report-json: Caught when building key \\"constructor_name\\" for report json.",
+            [Error: (in .constructor.name) Yes, I'm a piece of shit for throwing here and I know it],
+          ],
+          Array [
+            "caught-object-report-json: Caught when building key \\"as_json\\" for report json.",
+            [Error: (in .constructor.name) Yes, I'm a piece of shit for throwing here and I know it],
+          ],
+        ]
+      `);
+      jest.restoreAllMocks();
+    });
+
+    test('.message throws', () => {
+      const warnSpy = jest.spyOn(console, 'warn');
+      warnSpy.mockImplementation(() => null);
+      const corj = new CorjMaker(CORJ_MAKER_DEFAULT_OPTIONS_1);
+      const caught = {
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        // @ts-ignore
+        get message() {
+          throw new Error(
+            `(in .message) Yes, I'm a piece of shit for throwing here and I know it`,
+          );
+        },
+      };
+      const report = corj.make(caught);
+      expect(getReportValidator()(report)).toBe(true);
+      expect(typeof report.stack).toBe('undefined');
+      delete report.stack;
+      expect(report).toMatchInlineSnapshot(`
+        Object {
+          "as_json": Object {
+            "format": null,
+            "value": null,
+          },
+          "as_string": Object {
+            "format": "String",
+            "value": "[object Object]",
+          },
+          "constructor_name": "Object",
+          "instanceof_error": false,
+          "message": null,
+          "typeof": "object",
+          "v": "corj/v0.4",
+        }
+      `);
+      expect(warnSpy.mock.calls).toMatchInlineSnapshot(`
+        Array [
+          Array [
+            "caught-object-report-json: Caught when building key \\"as_json\\" for report json.",
+            [Error: (in .message) Yes, I'm a piece of shit for throwing here and I know it],
+          ],
+          Array [
+            "caught-object-report-json: Caught when building key \\"message\\" for report json.",
+            [Error: (in .message) Yes, I'm a piece of shit for throwing here and I know it],
+          ],
+        ]
+      `);
+      jest.restoreAllMocks();
+    });
+
+    test('.stack throws', () => {
+      const warnSpy = jest.spyOn(console, 'warn');
+      warnSpy.mockImplementation(() => null);
+      const corj = new CorjMaker(CORJ_MAKER_DEFAULT_OPTIONS_1);
+      const caught = {
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        // @ts-ignore
+        get stack() {
+          throw new Error(
+            `(in .stack) Yes, I'm a piece of shit for throwing here and I know it`,
+          );
+        },
+      };
+      const report = corj.make(caught);
+      expect(getReportValidator()(report)).toBe(true);
+      expect(report.stack).toBe(null);
+      delete report.stack;
+      expect(report).toMatchInlineSnapshot(`
+        Object {
+          "as_json": Object {
+            "format": null,
+            "value": null,
+          },
+          "as_string": Object {
+            "format": "String",
+            "value": "[object Object]",
+          },
+          "constructor_name": "Object",
+          "instanceof_error": false,
+          "typeof": "object",
+          "v": "corj/v0.4",
+        }
+      `);
+      expect(warnSpy.mock.calls).toMatchInlineSnapshot(`
+        Array [
+          Array [
+            "caught-object-report-json: Caught when building key \\"as_json\\" for report json.",
+            [Error: (in .stack) Yes, I'm a piece of shit for throwing here and I know it],
+          ],
+          Array [
+            "caught-object-report-json: Caught when building key \\"stack\\" for report json.",
+            [Error: (in .stack) Yes, I'm a piece of shit for throwing here and I know it],
           ],
         ]
       `);

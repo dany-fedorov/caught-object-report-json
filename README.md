@@ -196,6 +196,7 @@ If you do not provide `onCaughtMaking` callback, then any errors are muffled.
 ```typescript
 const corj = new CorjMaker({
   addJsonSchemaLink: true,
+  addMetadata: false,
   onCaughtMaking: (caught, { caughtDuring }) => {
     console.log("onCaughtMaking::", { caughtDuring });
     console.log("onCaughtMaking::", { caught });
@@ -230,7 +231,6 @@ and then prints form catch block
   typeof: 'undefined',
   as_string: 'undefined',
   as_json: null,
-  _m: [ 'v0.4', 'String', 'safe-stable-stringify@2.4.1' ],
   '$schema': 'https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/v0.4.json'
 }
 ```

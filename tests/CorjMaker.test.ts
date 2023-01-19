@@ -382,11 +382,11 @@ describe('CorjMaker', () => {
       expect(warnSpy.mock.calls).toMatchInlineSnapshot(`
         Array [
           Array [
-            "caught-object-report-json: Caught when building key \\"as_json\\" for report json.",
+            "caught-object-report-json: Caught when building key \\"constructor_name\\" for report json.",
             [Error: (in .constructor) Yes, I'm a piece of shit for throwing here and I know it],
           ],
           Array [
-            "caught-object-report-json: Caught when building key \\"constructor_name\\" for report json.",
+            "caught-object-report-json: Caught when building key \\"as_json\\" for report json.",
             [Error: (in .constructor) Yes, I'm a piece of shit for throwing here and I know it],
           ],
         ]
@@ -430,11 +430,11 @@ describe('CorjMaker', () => {
       expect(warnSpy.mock.calls).toMatchInlineSnapshot(`
         Array [
           Array [
-            "caught-object-report-json: Caught when building key \\"as_json\\" for report json.",
+            "caught-object-report-json: Caught when building key \\"constructor_name\\" for report json.",
             [Error: (in .constructor.name) Yes, I'm a piece of shit for throwing here and I know it],
           ],
           Array [
-            "caught-object-report-json: Caught when building key \\"constructor_name\\" for report json.",
+            "caught-object-report-json: Caught when building key \\"as_json\\" for report json.",
             [Error: (in .constructor.name) Yes, I'm a piece of shit for throwing here and I know it],
           ],
         ]
@@ -477,11 +477,11 @@ describe('CorjMaker', () => {
       expect(warnSpy.mock.calls).toMatchInlineSnapshot(`
         Array [
           Array [
-            "caught-object-report-json: Caught when building key \\"as_json\\" for report json.",
+            "caught-object-report-json: Caught when building key \\"message\\" for report json.",
             [Error: (in .message) Yes, I'm a piece of shit for throwing here and I know it],
           ],
           Array [
-            "caught-object-report-json: Caught when building key \\"message\\" for report json.",
+            "caught-object-report-json: Caught when building key \\"as_json\\" for report json.",
             [Error: (in .message) Yes, I'm a piece of shit for throwing here and I know it],
           ],
         ]

@@ -20,15 +20,7 @@ export type CaughtObjectReportJson = {
    * typeof caught
    * ```
    */
-  typeof:
-    | 'undefined'
-    | 'object'
-    | 'boolean'
-    | 'number'
-    | 'bigint'
-    | 'string'
-    | 'symbol'
-    | 'function';
+  typeof: CaughtObjectTypeof;
   /**
    * Result of
    * ```typescript
@@ -124,6 +116,16 @@ export type CaughtObjectReportJson = {
   $schema?: typeof CORJ_JSON_SCHEMA_LINK;
 };
 
+export type CaughtObjectTypeof =
+  | 'undefined'
+  | 'object'
+  | 'boolean'
+  | 'number'
+  | 'bigint'
+  | 'string'
+  | 'symbol'
+  | 'function';
+
 export type CaughtObjectReportJsonEntries = [
   keyof CaughtObjectReportJson,
   CaughtObjectReportJson[keyof CaughtObjectReportJson],
@@ -173,6 +175,10 @@ export type CorjMakerOptions = {
    */
   addJsonSchemaLink: boolean;
   /**
+   * Adds an `_m` property with metadata.
+   */
+  addMetadata: boolean;
+  /**
    * This function is called when {@link CorjMaker.make | CorjMaker.make} fails to produce `as_json` or `as_string` fields of report json.
    */
   onCaughtMaking: CorjMakerOnCaughtBuildingCallbackFn;
@@ -192,6 +198,7 @@ export const CORJ_JSON_SCHEMA_LINK =
   'https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/v0.4.json';
 export const CORJ_MAKER_DEFAULT_OPTIONS_1 = {
   addJsonSchemaLink: false,
+  addMetadata: true,
   onCaughtMaking: (caught: unknown, { caughtDuring }) => {
     console.warn(
       `caught-object-report-json: Caught when building key "${caughtDuring.key}" for report json.`,
@@ -363,21 +370,58 @@ export class CorjMaker {
    * This exists to produce entires in dependable order.
    */
   entries(caught: unknown): CaughtObjectReportJsonEntries {
-    const schemaProp = !this.options.addJsonSchemaLink
-      ? undefined
-      : CORJ_JSON_SCHEMA_LINK;
-    const asString = makeProp_as_string(caught, this.options);
-    const asJson = makeProp_as_json(caught, this.options);
+    let instanceof_error: CaughtObjectReportJson['instanceof_error'];
+    let typeof_prop: CaughtObjectReportJson['typeof'] | undefined;
+    let constructor_name:
+      | CaughtObjectReportJson['constructor_name']
+      | undefined;
+    let message: CaughtObjectReportJson['message'] | undefined;
+    let as_string: CaughtObjectReportJson['as_string'];
+    let as_json: CaughtObjectReportJson['as_json'];
+    let stack: CaughtObjectReportJson['stack'] | undefined;
+    let _m: CaughtObjectReportJson['_m'] | undefined;
+    let $schema: CaughtObjectReportJson['$schema'] | undefined;
+    try {
+      instanceof_error = caught instanceof Error;
+      typeof_prop = typeof caught;
+      constructor_name = makeProp_constructor_name(caught, this.options);
+      message = makeProp_message(caught, this.options);
+      const asString = makeProp_as_string(caught, this.options);
+      as_string = asString.value;
+      const asJson = makeProp_as_json(caught, this.options);
+      as_json = asJson.value;
+      stack = makeProp_stack(caught, this.options);
+      _m = !this.options.addMetadata
+        ? undefined
+        : [CORJ_VERSION, asString.format, asJson.format];
+      $schema = !this.options.addJsonSchemaLink
+        ? undefined
+        : CORJ_JSON_SCHEMA_LINK;
+    } catch (caughtNew: unknown) {
+      console.error(
+        'caught-object-report-json:',
+        'Caught somewhere along the way of producing report.',
+        'Resulting report JSON is not going to be complete, but will include all fields produced before error.',
+        'Caught:',
+        caughtNew,
+      );
+    }
     return [
-      ['instanceof_error', caught instanceof Error],
-      ['typeof', typeof caught],
-      ['constructor_name', makeProp_constructor_name(caught, this.options)],
-      ['message', makeProp_message(caught, this.options)],
-      ['as_string', asString.value],
-      ['as_json', asJson.value],
-      ['stack', makeProp_stack(caught, this.options)],
-      ['_m', [CORJ_VERSION, asString.format, asJson.format]],
-      ['$schema', schemaProp],
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-expect-error
+      ['instanceof_error', instanceof_error],
+      ['typeof', typeof_prop],
+      ['constructor_name', constructor_name],
+      ['message', message],
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-expect-error
+      ['as_string', as_string],
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-expect-error
+      ['as_json', as_json],
+      ['stack', stack],
+      ['_m', _m],
+      ['$schema', $schema],
     ].filter(([, v]) => v !== undefined) as CaughtObjectReportJsonEntries;
   }
 

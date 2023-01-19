@@ -34,6 +34,7 @@ describe('Assertions about package exports', function () {
     expect(CORJ_MAKER_DEFAULT_OPTIONS_1).toMatchInlineSnapshot(`
       Object {
         "addJsonSchemaLink": false,
+        "addMetadata": true,
         "onCaughtMaking": [Function],
       }
     `);

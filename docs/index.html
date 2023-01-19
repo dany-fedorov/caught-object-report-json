@@ -163,8 +163,11 @@ data (<a href="https://github.com/axios/axios/issues/4836">issue</a>), so you&#3
 <a href="#4-options" id="4-options" style="color: inherit; text-decoration: none;">
   <h2>4. <a href="./examples/example-4-options.ts">Options</a></h2>
 </a>
-<p>You can control adding <code>$schema</code> and <code>_m</code> (metadata) properties to report using <code>addJsonSchemaLink</code>
-and <code>addMetadata</code> options. By default <code>addJsonSchemaLink</code> is false and <code>addMetadata</code> is true. Read about <code>_m</code> property
+<p>Apart from using the <code>onCaughtMaking</code> callback from the previous example to listen for thrown things during the making
+of report, you can also use
+options <code>addJsonSchemaLink</code>
+and <code>addMetadata</code> to control adding <code>$schema</code> and <code>_m</code> (metadata) properties to report JSON. By
+default <code>addJsonSchemaLink</code> is false and <code>addMetadata</code> is true. Read about <code>_m</code> property
 in report object
 docs - <a href="https://dany-fedorov.github.io/caught-object-report-json/types/CaughtObjectReportJson.html">type CaughtObjectReportJson</a>.</p>
 <p><sub>(Run with <code>npm run ts-file ./examples/example-4-options.ts</code>)</sub></p>

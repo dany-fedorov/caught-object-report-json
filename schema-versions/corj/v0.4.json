@@ -6,7 +6,9 @@
   "required": [
     "typeof",
     "as_string",
+    "as_string_format",
     "as_json",
+    "as_json_format",
     "instanceof_error",
     "v"
   ],
@@ -32,35 +34,17 @@
       ]
     },
     "as_string": {
-      "type": "object",
-      "required": [
-        "format",
-        "value"
-      ],
-      "properties": {
-        "value": {
-          "oneOf": [
-            {
-              "type": "null"
-            },
-            {
-              "type": "string"
-            }
-          ]
+      "oneOf": [
+        {
+          "type": "null"
         },
-        "format": {
-          "oneOf": [
-            {
-              "type": "null"
-            },
-            {
-              "enum": [
-                "String"
-              ]
-            }
-          ]
+        {
+          "type": "string"
         }
-      }
+      ]
+    },
+    "as_string_format": {
+      "type": "string"
     },
     "typeof": {
       "enum": [
@@ -77,48 +61,32 @@
     "instanceof_error": {
       "type": "boolean"
     },
+    "as_json_format": {
+      "enum": [
+        "safe-stable-stringify@2.4.1"
+      ]
+    },
     "as_json": {
-      "type": "object",
-      "required": [
-        "format",
-        "value"
-      ],
-      "properties": {
-        "value": {
-          "oneOf": [
-            {
-              "type": "null"
-            },
-            {
-              "type": "number"
-            },
-            {
-              "type": "string"
-            },
-            {
-              "type": "boolean"
-            },
-            {
-              "type": "array"
-            },
-            {
-              "type": "object"
-            }
-          ]
+      "oneOf": [
+        {
+          "type": "null"
         },
-        "format": {
-          "oneOf": [
-            {
-              "type": "null"
-            },
-            {
-              "enum": [
-                "safe-stable-stringify@2.4.1"
-              ]
-            }
-          ]
+        {
+          "type": "number"
+        },
+        {
+          "type": "string"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "array"
+        },
+        {
+          "type": "object"
         }
-      }
+      ]
     },
     "stack": {
       "oneOf": [

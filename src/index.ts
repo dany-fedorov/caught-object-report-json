@@ -43,19 +43,18 @@ export type CaughtObjectReportJson = {
    */
   message?: string | null;
   /**
-   * - `as_string.value`<br>
-   *   A string produced from caught object using `as_string.format`<br>
-   *
-   * - `as_string.format`<br>
-   *   Indicates a method used to obtain `as_string.value`.<br>
-   *   - "String" means value was obtained with `as_string.value = String(caught)`.<br>
-   *
-   * If code that produces `as_string` throws, both `as_string.value` and `as_string.format` are set to `null`.
+   * A string produced from caught object using `as_string_format`<br>
+   * If code that produces `as_string` throws, `as_string` is set to `null`.
+   */
+  as_string: string | null;
+  /**
+   * Indicates a method used to obtain `as_string.value`.<br>
+   * - "String" means value was obtained with `as_string.value = String(caught)`.<br>
    *
    * Links
    * - [MDN String() constructor](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/String)
    */
-  as_string: CaughtObjectAsString;
+  as_string_format: typeof CORJ_AS_STRING_FORMAT_STRING_CONSTRUCTOR;
   /**
    * Result of
    * ```typescript
@@ -79,19 +78,19 @@ export type CaughtObjectReportJson = {
    */
   instanceof_error: boolean;
   /**
-   * - `as_json.value`<br>
-   *   A JSON object produced from caught object using `as_json.format`<br>
+   * A JSON object produced from caught object using `as_json.format`<br>
    *
-   * - `as_string.format`<br>
-   *   Indicates a method used to obtain `as_json.value`.<br>
-   *   - "safe-stable-stringify@2.4.1" means value was obtained with safe-stable-stringify library.`<br>
-   *
-   * If code that produces `as_json` throws, both `as_json.value` and `as_json.format` are set to `null`.
+   * If code that produces `as_json` throws, both `as_json` is set to `null`.
    *
    * Links
    * - [safe-stable-stringify@2.4.1 on NPM](https://www.npmjs.com/package/safe-stable-stringify)
    */
-  as_json: CaughtObjectAsJson;
+  as_json: CorjJsonValue<CorjJsonPrimitive>;
+  /**
+   * Indicates a method used to obtain `as_json.value`.<br>
+   * - "safe-stable-stringify@2.4.1" means value was obtained with safe-stable-stringify library.`
+   */
+  as_json_format: typeof CORJ_AS_JSON_FORMAT_SAFE_STABLE_STRINGIFY_2_4_1;
   /**
    * Result of
    * ```typescript
@@ -140,14 +139,14 @@ export type CorjJsonValue<P extends CorjJsonPrimitive> =
   | CorjJsonObject<P>
   | CorjJsonArray<P>;
 
-export type CaughtObjectAsJson = {
-  format: typeof CORJ_AS_JSON_FORMAT_SAFE_STABLE_STRINGIFY_2_4_1 | null;
-  value: CorjJsonValue<CorjJsonPrimitive>;
+export type CaughtObjectAsJsonReport = {
+  format: CaughtObjectReportJson['as_json_format'];
+  value: CaughtObjectReportJson['as_json'];
 };
 
-export type CaughtObjectAsString = {
-  format: typeof CORJ_AS_STRING_FORMAT_STRING_CONSTRUCTOR | null;
-  value: string | null;
+export type CaughtObjectAsStringReport = {
+  format: CaughtObjectReportJson['as_string_format'];
+  value: CaughtObjectReportJson['as_string'];
 };
 
 export type CorjMakerOnCaughtBuildingCallbackFnOptionsDuring = {
@@ -210,10 +209,11 @@ const jsonStringify = configureJsonStringify({
 function makeProp_as_string(
   caught: unknown,
   options: CorjMakerOptions,
-): CaughtObjectAsString {
+): CaughtObjectAsStringReport {
+  const format = CORJ_AS_STRING_FORMAT_STRING_CONSTRUCTOR;
   try {
     return {
-      format: CORJ_AS_STRING_FORMAT_STRING_CONSTRUCTOR,
+      format,
       value: String(caught),
     };
   } catch (caughtNew: unknown) {
@@ -225,7 +225,7 @@ function makeProp_as_string(
       });
     }
     return {
-      format: null,
+      format,
       value: null,
     };
   }
@@ -234,19 +234,20 @@ function makeProp_as_string(
 function makeProp_as_json(
   caught: unknown,
   options: CorjMakerOptions,
-): CaughtObjectAsJson {
+): CaughtObjectAsJsonReport {
+  const format = CORJ_AS_JSON_FORMAT_SAFE_STABLE_STRINGIFY_2_4_1;
   try {
     const jsonString = jsonStringify(caught);
     if (typeof jsonString !== 'string') {
       const err = new Error(
-        `Could not convert caught object to json string using ${CORJ_AS_JSON_FORMAT_SAFE_STABLE_STRINGIFY_2_4_1}.`,
+        `Could not convert caught object to json string using ${format}.`,
       );
       (err as any).originalCaught = caught;
       (err as any).originalCaughtStringifyResult = jsonString;
       throw err;
     }
     return {
-      format: CORJ_AS_JSON_FORMAT_SAFE_STABLE_STRINGIFY_2_4_1,
+      format,
       value: JSON.parse(jsonString),
     };
   } catch (caughtNew: unknown) {
@@ -258,7 +259,7 @@ function makeProp_as_json(
       });
     }
     return {
-      format: null,
+      format,
       value: null,
     };
   }
@@ -334,14 +335,18 @@ export class CorjMaker {
     const schemaProp = !this.options.addJsonSchemaLink
       ? undefined
       : CORJ_JSON_SCHEMA_LINK;
+    const asString = makeProp_as_string(caught, this.options);
+    const asJson = makeProp_as_json(caught, this.options);
     return [
       ['instanceof_error', caught instanceof Error],
       ['typeof', typeof caught],
       ['constructor_name', makeProp_constructor_name(caught, this.options)],
       ['message', makeProp_message(caught, this.options)],
-      ['as_string', makeProp_as_string(caught, this.options)],
-      ['as_json', makeProp_as_json(caught, this.options)],
+      ['as_string', asString.value],
+      ['as_json', asJson.value],
       ['stack', makeProp_stack(caught, this.options)],
+      ['as_string_format', asString.format],
+      ['as_json_format', asJson.format],
       ['v', CORJ_VERSION],
       ['$schema', schemaProp],
     ].filter(([, v]) => v !== undefined) as CaughtObjectReportJsonEntries;
@@ -369,8 +374,8 @@ export function makeCaughtObjectReportJson(
     ...CORJ_MAKER_DEFAULT_OPTIONS_1,
     ...(options ?? {}),
   };
-  const builder = new CorjMaker(effectiveOptions);
-  return builder.make(caught);
+  const corj = new CorjMaker(effectiveOptions);
+  return corj.make(caught);
 }
 
 /**

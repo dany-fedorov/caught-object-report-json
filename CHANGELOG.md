@@ -1,3 +1,22 @@
+# [4.0.0](https://github.com/dany-fedorov/caught-object-report-json/compare/v3.0.3...v4.0.0) (2023-01-19)
+
+
+### Features
+
+* Add `| null` to report type ([6893e6b](https://github.com/dany-fedorov/caught-object-report-json/commit/6893e6b8fa9c1154396b666d99b5b90b9730f891))
+* Be paranoid about user input ([b9034c6](https://github.com/dany-fedorov/caught-object-report-json/commit/b9034c67a3e55242bb5baf0e22cbb243945b1936))
+* Go full paranoid expecting caught?.constructor?.name can throw ([4c5962f](https://github.com/dany-fedorov/caught-object-report-json/commit/4c5962fbb3cf16ef6b814530fbb3a0d7aa297765))
+* Make a flat json ([602baf2](https://github.com/dany-fedorov/caught-object-report-json/commit/602baf209b2a1cbafe0ca9081613d11b7b1ebeb0))
+* Move schema-versions to a nested dir (technically a breaking change, but I doubt it will actually break something) ([050cd21](https://github.com/dany-fedorov/caught-object-report-json/commit/050cd2105d41233a3d1ddfe840e6b40defaf5150))
+
+
+### BREAKING CHANGES
+
+* Make json flat
+* Now schema for constructor_name, message and stack
+includes possibility of null, because accessing this info on unknown
+error can potentially throw.
+
 ## [3.0.3](https://github.com/dany-fedorov/caught-object-report-json/compare/v3.0.2...v3.0.3) (2023-01-16)
 
 ## [3.0.2](https://github.com/dany-fedorov/caught-object-report-json/compare/v3.0.1...v3.0.2) (2023-01-14)

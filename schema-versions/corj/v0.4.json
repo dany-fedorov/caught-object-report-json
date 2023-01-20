@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Caught Object Report JSON",
-  "description": "A JSON produced from caught object by JavaScript library. Default implementation is https://www.npmjs.com/package/caught-object-report-json.",
+  "description": "A JS caught object representation. Default implementation is https://www.npmjs.com/package/caught-object-report-json.",
   "type": "object",
   "required": [
     "instanceof_error",

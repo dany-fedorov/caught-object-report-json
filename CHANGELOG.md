@@ -1,3 +1,10 @@
+# [4.1.0](https://github.com/dany-fedorov/caught-object-report-json/compare/v4.0.5...v4.1.0) (2023-01-20)
+
+
+### Features
+
+* Bring back corj/ prefix ([8389588](https://github.com/dany-fedorov/caught-object-report-json/commit/8389588b02b99fd08a9e1087f3bd532d5c9f7ee8))
+
 ## [4.0.5](https://github.com/dany-fedorov/caught-object-report-json/compare/v4.0.4...v4.0.5) (2023-01-20)
 
 ## [4.0.4](https://github.com/dany-fedorov/caught-object-report-json/compare/v4.0.3...v4.0.4) (2023-01-19)

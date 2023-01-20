@@ -34,7 +34,10 @@ export type CaughtObjectReportJson = {
    *    ? undefined
    *    : caught?.constructor?.name;
    * ```
-   * Undefined result is not included in result object.
+   * `undefined` result is not included in result object.
+   *
+   * `null` value means that accessing `constructor.name` on `caught` object failed.<br>
+   * Use `onCaughtMaking` option to access objects thrown when report JSON was being created.
    *
    * Links
    * - [MDN on .constructor field on an instance](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Classes/constructor)
@@ -54,23 +57,29 @@ export type CaughtObjectReportJson = {
    *   ? undefined
    *   : (caught as any)?.message;
    * ```
-   * Undefined result is not included in result object.
+   * `undefined` result is not included in result object.
    *
    * Normally JS Error instances include a `message` property with a string.
+   *
+   * `null` value means that accessing `message` property on `caught` object failed.<br>
+   * Use `onCaughtMaking` option to access objects thrown when report JSON was being created.
    *
    * Links
    * - [MDN Error.prototype.message](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Error/message)
    */
   message?: string | null;
   /**
-   * A string produced from caught object using `as_string_format`<br>
-   * If code that produces `as_string` throws, `as_string` is set to `null`.
+   * A string produced from caught object using format at `_m[1]`<br>
+   *
+   * `null` value means that producing `as_string` property  failed.<br>
+   * Use `onCaughtMaking` option to access objects thrown when report JSON was being created.
    */
   as_string: string | null;
   /**
-   * A JSON object produced from caught object using `as_json.format`<br>
+   * A JSON object produced from caught object using format at `_m[2]`<br>
    *
-   * If code that produces `as_json` throws, both `as_json` is set to `null`.
+   * `null` value means that producing `as_json` property  failed.<br>
+   * Use `onCaughtMaking` option to access objects thrown when report JSON was being created.
    *
    * Links
    * - [safe-stable-stringify@2.4.1 on NPM](https://www.npmjs.com/package/safe-stable-stringify)
@@ -83,41 +92,45 @@ export type CaughtObjectReportJson = {
    *   ? undefined
    *   : (caught as any)?.stack;
    * ```
-   * Undefined result is not included in result object.
+   * `undefined` result is not included in result object.
    *
    * Normally JS Error instances include a `stack` property with a string,
    * although the property is non-standard.
+   *
+   * `null` value means that accessing `stack` property on `caught` object failed.<br>
+   * Use `onCaughtMaking` option to access objects thrown when report JSON was being created.
    *
    * Links
    * - [MDN Error.prototype.stack](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Error/Stack)
    */
   stack?: string | null;
   /**
-   * Metadata field.
+   * Optional metadata field, consists of a length 3 tuple.<br>
+   * Adding this field is controlled by {@link CorjMakerOptions | CorjMakerOptions['addMetadata']}.
    *
-   * Element 0:
+   * Element [0]:
    * Indicates a version of a standard for this object.
    * Version produced by this library is {@link CORJ_VERSION}
    *
-   * Element 1:
+   * Element [1]:
    * Indicates a method used to obtain the value of `as_string`.<br>
    * - "String" means value was obtained with `as_string = String(caught)`.<br>
    *
-   * Element 2:
+   * Element [2]:
    * Indicates a method used to obtain the value of `as_json`.<br>
    * - "safe-stable-stringify@2.4.1" means value was obtained with safe-stable-stringify library.`
    *
    * Links
    * - [MDN String() constructor](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/String)
    */
-  _m: [
+  _m?: [
     typeof CORJ_VERSION,
     typeof CORJ_AS_STRING_FORMAT_STRING_CONSTRUCTOR,
     typeof CORJ_AS_JSON_FORMAT_SAFE_STABLE_STRINGIFY_2_4_1,
   ];
   /**
-   * Optionally include a link to JSON schema this object conforms to - {@link CORJ_JSON_SCHEMA_LINK}.<br>
-   * This is controlled by {@link CorjMakerOptions}
+   * Optional link to JSON schema this object conforms to - {@link CORJ_JSON_SCHEMA_LINK}.<br>
+   * Adding this field is controlled by {@link CorjMakerOptions | CorjMakerOptions['addJsonSchemaLink']}).
    */
   $schema?: typeof CORJ_JSON_SCHEMA_LINK;
 };
@@ -153,12 +166,12 @@ export type CorjJsonValue<P extends CorjJsonPrimitive> =
   | CorjJsonArray<P>;
 
 export type CaughtObjectAsJsonReport = {
-  format: CaughtObjectReportJson['_m'][2];
+  format: Required<CaughtObjectReportJson>['_m'][2];
   value: CaughtObjectReportJson['as_json'];
 };
 
 export type CaughtObjectAsStringReport = {
-  format: CaughtObjectReportJson['_m'][1];
+  format: Required<CaughtObjectReportJson>['_m'][1];
   value: CaughtObjectReportJson['as_string'];
 };
 

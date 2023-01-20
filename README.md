@@ -31,7 +31,7 @@ Please don't hesitate to open an issue if your use case for this type of library
 - [Links](#links)
     - [GitHub](#github)
     - [Npm](#npm)
-    - [CORJ JSON Schema corj/v0.4](#corj-json-schema-v04)
+    - [CORJ JSON Schema - corj/v0.4](#corj-json-schema-corjv04)
 
 # Examples
 
@@ -341,6 +341,6 @@ https://github.com/dany-fedorov/caught-object-report-json.git
 
 https://www.npmjs.com/package/caught-object-report-json
 
-##### CORJ JSON Schema corj/v0.4
+##### CORJ JSON Schema - corj/v0.4
 
 https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.4.json

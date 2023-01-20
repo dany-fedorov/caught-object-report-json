@@ -31,7 +31,7 @@ Please don't hesitate to open an issue if your use case for this type of library
 - [Links](#links)
     - [GitHub](#github)
     - [Npm](#npm)
-    - [CORJ JSON Schema v0.4](#corj-json-schema-v04)
+    - [CORJ JSON Schema corj/v0.4](#corj-json-schema-v04)
 
 # Examples
 
@@ -60,7 +60,7 @@ prints
   "as_json": {},
   "stack": "SyntaxError: Unexpected token u in JSON at position 0\n    at JSON.parse (<anonymous>)\n    at Object.<anonymous> (/home/user/work-dir/caught-object-report-json/examples/example-1-syntax-error.ts:6:8)\n    at Module._compile (node:internal/modules/cjs/loader:1120:14)\n    at Module.m._compile (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/index.ts:1618:23)\n    at Module._extensions..js (node:internal/modules/cjs/loader:1174:10)\n    at Object.require.extensions.<computed> [as .ts] (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/index.ts:1621:12)\n    at Module.load (node:internal/modules/cjs/loader:998:32)\n    at Function.Module._load (node:internal/modules/cjs/loader:839:12)\n    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:81:12)\n    at phase4 (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/bin.ts:649:14)",
   "_m": [
-    "v0.4",
+    "corj/v0.4",
     "String",
     "safe-stable-stringify@2.4.1"
   ]
@@ -187,7 +187,7 @@ prints
   },
   "stack": "AxiosError: Request failed with status code 404\n    at /home/user/work-dir/caught-object-report-json/examples/example-2-axios-error.ts:35:27\n    at processTicksAndRejections (node:internal/process/task_queues:95:5)",
   "_m": [
-    "v0.4",
+    "corj/v0.4",
     "String",
     "safe-stable-stringify@2.4.1"
   ]
@@ -235,7 +235,7 @@ and then prints form catch block
   "as_string": "undefined",
   "as_json": null,
   "_m": [
-    "v0.4",
+    "corj/v0.4",
     "String",
     "safe-stable-stringify@2.4.1"
   ]
@@ -341,6 +341,6 @@ https://github.com/dany-fedorov/caught-object-report-json.git
 
 https://www.npmjs.com/package/caught-object-report-json
 
-##### CORJ JSON Schema v0.4
+##### CORJ JSON Schema corj/v0.4
 
 https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.4.json

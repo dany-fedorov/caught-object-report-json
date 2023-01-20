@@ -95,7 +95,7 @@
       "prefixItems": [
         {
           "enum": [
-            "v0.4"
+            "corj/v0.4"
           ]
         },
         {

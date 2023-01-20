@@ -23,7 +23,7 @@ describe('CorjMaker', () => {
       expect(report).toMatchInlineSnapshot(`
         Object {
           "_m": Array [
-            "v0.4",
+            "corj/v0.4",
             "String",
             "safe-stable-stringify@2.4.1",
           ],
@@ -54,7 +54,7 @@ describe('CorjMaker', () => {
       expect(report).toMatchInlineSnapshot(`
         Object {
           "_m": Array [
-            "v0.4",
+            "corj/v0.4",
             "String",
             "safe-stable-stringify@2.4.1",
           ],
@@ -84,7 +84,7 @@ describe('CorjMaker', () => {
       expect(report).toMatchInlineSnapshot(`
         Object {
           "_m": Array [
-            "v0.4",
+            "corj/v0.4",
             "String",
             "safe-stable-stringify@2.4.1",
           ],
@@ -124,7 +124,7 @@ describe('CorjMaker', () => {
       expect(report).toMatchInlineSnapshot(`
         Object {
           "_m": Array [
-            "v0.4",
+            "corj/v0.4",
             "String",
             "safe-stable-stringify@2.4.1",
           ],
@@ -153,7 +153,7 @@ describe('CorjMaker', () => {
       expect(report).toMatchInlineSnapshot(`
         Object {
           "_m": Array [
-            "v0.4",
+            "corj/v0.4",
             "String",
             "safe-stable-stringify@2.4.1",
           ],
@@ -183,7 +183,7 @@ describe('CorjMaker', () => {
       expect(report).toMatchInlineSnapshot(`
         Object {
           "_m": Array [
-            "v0.4",
+            "corj/v0.4",
             "String",
             "safe-stable-stringify@2.4.1",
           ],
@@ -222,9 +222,9 @@ describe('CorjMaker', () => {
       delete report.stack;
       expect(report).toMatchInlineSnapshot(`
         Object {
-          "$schema": "https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/v0.4.json",
+          "$schema": "https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.4.json",
           "_m": Array [
-            "v0.4",
+            "corj/v0.4",
             "String",
             "safe-stable-stringify@2.4.1",
           ],
@@ -279,7 +279,7 @@ describe('CorjMaker', () => {
       expect(report).toMatchInlineSnapshot(`
         Object {
           "_m": Array [
-            "v0.4",
+            "corj/v0.4",
             "String",
             "safe-stable-stringify@2.4.1",
           ],
@@ -316,7 +316,7 @@ describe('CorjMaker', () => {
       expect(report).toMatchInlineSnapshot(`
         Object {
           "_m": Array [
-            "v0.4",
+            "corj/v0.4",
             "String",
             "safe-stable-stringify@2.4.1",
           ],
@@ -356,7 +356,7 @@ describe('CorjMaker', () => {
       expect(report).toMatchInlineSnapshot(`
         Object {
           "_m": Array [
-            "v0.4",
+            "corj/v0.4",
             "String",
             "safe-stable-stringify@2.4.1",
           ],
@@ -398,7 +398,7 @@ describe('CorjMaker', () => {
       expect(report).toMatchInlineSnapshot(`
         Object {
           "_m": Array [
-            "v0.4",
+            "corj/v0.4",
             "String",
             "safe-stable-stringify@2.4.1",
           ],
@@ -446,7 +446,7 @@ describe('CorjMaker', () => {
       expect(report).toMatchInlineSnapshot(`
         Object {
           "_m": Array [
-            "v0.4",
+            "corj/v0.4",
             "String",
             "safe-stable-stringify@2.4.1",
           ],
@@ -492,7 +492,7 @@ describe('CorjMaker', () => {
       expect(report).toMatchInlineSnapshot(`
         Object {
           "_m": Array [
-            "v0.4",
+            "corj/v0.4",
             "String",
             "safe-stable-stringify@2.4.1",
           ],
@@ -539,7 +539,7 @@ describe('CorjMaker', () => {
       expect(report).toMatchInlineSnapshot(`
         Object {
           "_m": Array [
-            "v0.4",
+            "corj/v0.4",
             "String",
             "safe-stable-stringify@2.4.1",
           ],
@@ -607,7 +607,7 @@ describe('CorjMaker', () => {
         Array [
           "_m",
           Array [
-            "v0.4",
+            "corj/v0.4",
             "String",
             "safe-stable-stringify@2.4.1",
           ],
@@ -641,7 +641,7 @@ describe('CorjMaker', () => {
       expect(report).toMatchInlineSnapshot(`
         Object {
           "_m": Array [
-            "v0.4",
+            "corj/v0.4",
             "String",
             "safe-stable-stringify@2.4.1",
           ],

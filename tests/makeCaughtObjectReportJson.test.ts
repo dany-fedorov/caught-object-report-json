@@ -10,7 +10,7 @@ describe('makeCaughtObjectReportJson', function () {
     expect(report).toMatchInlineSnapshot(`
       Object {
         "_m": Array [
-          "v0.4",
+          "corj/v0.4",
           "String",
           "safe-stable-stringify@2.4.1",
         ],
@@ -37,7 +37,7 @@ describe('makeCaughtObjectReportJson', function () {
     expect(report).toMatchInlineSnapshot(`
       Object {
         "_m": Array [
-          "v0.4",
+          "corj/v0.4",
           "String",
           "safe-stable-stringify@2.4.1",
         ],

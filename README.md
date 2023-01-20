@@ -343,4 +343,4 @@ https://www.npmjs.com/package/caught-object-report-json
 
 ##### CORJ JSON Schema v0.4
 
-https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/v0.4.json
+https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.4.json

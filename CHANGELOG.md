@@ -1,3 +1,10 @@
+## [4.1.1](https://github.com/dany-fedorov/caught-object-report-json/compare/v4.1.0...v4.1.1) (2023-01-20)
+
+
+### Bug Fixes
+
+* Make _m optional in the type + fix docs ([62b60d7](https://github.com/dany-fedorov/caught-object-report-json/commit/62b60d7c1bee97d49dff94f0074a6dde5d419422))
+
 # [4.1.0](https://github.com/dany-fedorov/caught-object-report-json/compare/v4.0.5...v4.1.0) (2023-01-20)
 
 

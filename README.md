@@ -35,7 +35,7 @@ Please don't hesitate to open an issue if your use case for this type of library
 
 # Examples
 
-## 1. [Syntax error](https://github.com/dany-fedorov/caught-object-report-json/examples/example-1-syntax-error.ts)
+## 1. [Syntax error](https://github.com/dany-fedorov/caught-object-report-json/blob/main/examples/example-1-syntax-error.ts)
 
 <sub>(Run with `npm run ts-file ./examples/example-1-syntax-error.ts`)</sub>
 
@@ -67,7 +67,7 @@ prints
 }
 ```
 
-## 2. [Axios error](https://github.com/dany-fedorov/caught-object-report-json/examples/example-2-axios-error.ts)
+## 2. [Axios error](https://github.com/dany-fedorov/caught-object-report-json/blob/main/examples/example-2-axios-error.ts)
 
 `AxiosError#toJSON` does not include response headers and response
 data ([issue](https://github.com/axios/axios/issues/4836)), so you'll have to add it yourself.
@@ -194,7 +194,7 @@ prints
 }
 ```
 
-## 3. [Not an error object thrown](https://github.com/dany-fedorov/caught-object-report-json/examples/example-3-not-error-object.ts)
+## 3. [Not an error object thrown](https://github.com/dany-fedorov/caught-object-report-json/blob/main/examples/example-3-not-error-object.ts)
 
 If you do not provide `onCaughtMaking` callback, then any errors are muffled.
 
@@ -243,13 +243,13 @@ and then prints form catch block
 
 ```
 
-## 4. [Options](https://github.com/dany-fedorov/caught-object-report-json/examples/example-4-options.ts)
+## 4. [Options](https://github.com/dany-fedorov/caught-object-report-json/blob/main/examples/example-4-options.ts)
 
 Apart from using the `onCaughtMaking` callback from the previous example to listen for exceptions thrown during the
 making of report, you can also use `addJsonSchemaLink` and `addMetadata` options to control adding `$schema` and `_m`
 properties to JSON report. By default `addJsonSchemaLink` is `false` and `addMetadata` is `true`. Read about `_m`
 property
-in [report object docs](https://dany-fedorov.github.io/caught-object-report-json/types/CaughtObjectReportJson.html).
+in [report object docs](https://dany-fedorov.github.io/caught-object-report-json/blob/main/types/CaughtObjectReportJson.html).
 
 <sub>(Run with `npm run ts-file ./examples/example-4-options.ts`)</sub>
 
@@ -280,7 +280,7 @@ prints
 }
 ```
 
-## 5. [Using CorjMaker instance](https://github.com/dany-fedorov/caught-object-report-json/examples/example-5-using-corj-maker-instance.ts)
+## 5. [Using CorjMaker instance](https://github.com/dany-fedorov/caught-object-report-json/blob/main/examples/example-5-using-corj-maker-instance.ts)
 
 Create `CorjMaker` instance to configure error reporting once.
 

@@ -31,7 +31,7 @@ Please don't hesitate to open an issue if your use case for this type of library
 - [Links](#links)
     - [GitHub](#github)
     - [Npm](#npm)
-    - [CORJ JSON Schema - corj/v0.4](#corj-json-schema-corjv04)
+    - [CORJ JSON Schema - corj/v0.4](#corj-json-schema---corjv04)
 
 # Examples
 

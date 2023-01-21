@@ -1,3 +1,5 @@
+## [4.1.3](https://github.com/dany-fedorov/caught-object-report-json/compare/v4.1.2...v4.1.3) (2023-01-21)
+
 ## [4.1.2](https://github.com/dany-fedorov/caught-object-report-json/compare/v4.1.1...v4.1.2) (2023-01-21)
 
 ## [4.1.1](https://github.com/dany-fedorov/caught-object-report-json/compare/v4.1.0...v4.1.1) (2023-01-20)

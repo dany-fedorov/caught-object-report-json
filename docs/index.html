@@ -59,7 +59,7 @@ This library attempts to provide a useful JSON representation for any JS object 
 </a>
 
 <a href="#1-syntax-error" id="1-syntax-error" style="color: inherit; text-decoration: none;">
-  <h2>1. <a href="./examples/example-1-syntax-error.ts">Syntax error</a></h2>
+  <h2>1. <a href="https://github.com/dany-fedorov/caught-object-report-json/examples/example-1-syntax-error.ts">Syntax error</a></h2>
 </a>
 <p><sub>(Run with <code>npm run ts-file ./examples/example-1-syntax-error.ts</code>)</sub></p>
 <pre><code class="language-typescript"><span class="hl-0">try</span><span class="hl-1"> {</span><br/><span class="hl-1">  </span><span class="hl-2">JSON</span><span class="hl-1">.</span><span class="hl-3">parse</span><span class="hl-1">(</span><span class="hl-4">undefined</span><span class="hl-1">);</span><br/><span class="hl-1">} </span><span class="hl-0">catch</span><span class="hl-1"> (</span><span class="hl-5">caught</span><span class="hl-1">: </span><span class="hl-6">unknown</span><span class="hl-1">) {</span><br/><span class="hl-1">  </span><span class="hl-4">const</span><span class="hl-1"> </span><span class="hl-2">report</span><span class="hl-1"> = </span><span class="hl-3">makeCaughtObjectReportJson</span><span class="hl-1">(</span><span class="hl-5">caught</span><span class="hl-1">);</span><br/><span class="hl-1">  </span><span class="hl-5">console</span><span class="hl-1">.</span><span class="hl-3">log</span><span class="hl-1">(</span><span class="hl-2">JSON</span><span class="hl-1">.</span><span class="hl-3">stringify</span><span class="hl-1">(</span><span class="hl-5">report</span><span class="hl-1">, </span><span class="hl-4">null</span><span class="hl-1">, </span><span class="hl-7">2</span><span class="hl-1">));</span><br/><span class="hl-1">}</span>
@@ -69,7 +69,7 @@ This library attempts to provide a useful JSON representation for any JS object 
 </code></pre>
 
 <a href="#2-axios-error" id="2-axios-error" style="color: inherit; text-decoration: none;">
-  <h2>2. <a href="./examples/example-2-axios-error.ts">Axios error</a></h2>
+  <h2>2. <a href="https://github.com/dany-fedorov/caught-object-report-json/examples/example-2-axios-error.ts">Axios error</a></h2>
 </a>
 <p><code>AxiosError#toJSON</code> does not include response headers and response
 data (<a href="https://github.com/axios/axios/issues/4836">issue</a>), so you&#39;ll have to add it yourself.</p>
@@ -81,7 +81,7 @@ data (<a href="https://github.com/axios/axios/issues/4836">issue</a>), so you&#3
 </code></pre>
 
 <a href="#3-not-an-error-object-thrown" id="3-not-an-error-object-thrown" style="color: inherit; text-decoration: none;">
-  <h2>3. <a href="./examples/example-3-not-error-object.ts">Not an error object thrown</a></h2>
+  <h2>3. <a href="https://github.com/dany-fedorov/caught-object-report-json/examples/example-3-not-error-object.ts">Not an error object thrown</a></h2>
 </a>
 <p>If you do not provide <code>onCaughtMaking</code> callback, then any errors are muffled.</p>
 <p><sub>(Run with <code>npm run ts-file ./examples/example-3-not-error-object.ts</code>)</sub></p>
@@ -95,7 +95,7 @@ data (<a href="https://github.com/axios/axios/issues/4836">issue</a>), so you&#3
 </code></pre>
 
 <a href="#4-options" id="4-options" style="color: inherit; text-decoration: none;">
-  <h2>4. <a href="./examples/example-4-options.ts">Options</a></h2>
+  <h2>4. <a href="https://github.com/dany-fedorov/caught-object-report-json/examples/example-4-options.ts">Options</a></h2>
 </a>
 <p>Apart from using the <code>onCaughtMaking</code> callback from the previous example to listen for exceptions thrown during the
 making of report, you can also use <code>addJsonSchemaLink</code> and <code>addMetadata</code> options to control adding <code>$schema</code> and <code>_m</code>
@@ -110,7 +110,7 @@ in <a href="https://dany-fedorov.github.io/caught-object-report-json/types/Caugh
 </code></pre>
 
 <a href="#5-using-corjmaker-instance" id="5-using-corjmaker-instance" style="color: inherit; text-decoration: none;">
-  <h2>5. <a href="./examples/example-5-using-corj-maker-instance.ts">Using CorjMaker instance</a></h2>
+  <h2>5. <a href="https://github.com/dany-fedorov/caught-object-report-json/examples/example-5-using-corj-maker-instance.ts">Using CorjMaker instance</a></h2>
 </a>
 <p>Create <code>CorjMaker</code> instance to configure error reporting once.</p>
 <p><sub>(Run with <code>npm run ts-file ./examples/example-5-using-corj-maker-instance.ts</code>)</sub></p>

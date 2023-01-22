@@ -18,6 +18,7 @@
     "type": "git",
     "url": "git://github.com/dany-fedorov/caught-object-report-json.git"
   },
+  "homepage": "https://dany-fedorov.github.io/caught-object-report-json/",
   "publishConfig": {
     "access": "public"
   },

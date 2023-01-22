@@ -11,9 +11,11 @@
   ],
   "properties": {
     "instanceof_error": {
+      "description": "Result of `caught instanceof Error`",
       "type": "boolean"
     },
     "typeof": {
+      "description": "Result of `typeof caught`",
       "enum": [
         "undefined",
         "object",
@@ -26,6 +28,7 @@
       ]
     },
     "constructor_name": {
+      "description": "Result of `caught.constructor.name`. Not set if `caught` does not have a `constructor.name`. Set to `null` if accessing `caught.constructor.name` throws.",
       "oneOf": [
         {
           "type": "null"
@@ -36,6 +39,7 @@
       ]
     },
     "message": {
+      "description": "Result of `caught.message`. Not set if `caught` does not have a `message`. Set to `null` if accessing `caught.message` throws.",
       "oneOf": [
         {
           "type": "null"
@@ -46,6 +50,7 @@
       ]
     },
     "as_string": {
+      "description": "String representation of `caught` created using the format in field `_m[1]` described in this schema. Set to `null` if creating string representation throws.",
       "oneOf": [
         {
           "type": "null"
@@ -56,6 +61,7 @@
       ]
     },
     "as_json": {
+      "description": "JSON representation of `caught` created using the format in field `_m[2]` described in this schema. Set to `null` if creating JSON representation throws.",
       "oneOf": [
         {
           "type": "null"
@@ -78,6 +84,7 @@
       ]
     },
     "stack": {
+      "description": "Result of `caught.stack`. Not set if `caught` does not have a `stack`. Set to `null` if accessing `caught.stack` throws.",
       "oneOf": [
         {
           "type": "null"
@@ -88,6 +95,7 @@
       ]
     },
     "_m": {
+      "description": "Metadata. A tuple: [0] - Report version, [1] - `as_string` format, [2] - `as_json` format. Can be optionally omitted.",
       "type": "array",
       "items": false,
       "minItems": 3,

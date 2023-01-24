@@ -213,7 +213,10 @@ describe('CorjMaker', () => {
         onCaughtMaking: (caught, options) => {
           caughtBuildingArray.push({ caught, options });
         },
-        addJsonSchemaLink: true,
+        metadataFields: {
+          ...CORJ_MAKER_DEFAULT_OPTIONS_1.metadataFields,
+          $schema: true,
+        },
       });
       const caught = new Error('I am an error!');
       const report = corj.make(caught);
@@ -238,14 +241,14 @@ describe('CorjMaker', () => {
       `);
       expect(caughtBuildingArray).toMatchInlineSnapshot(`Array []`);
     });
-    test('addMetadata: false', () => {
+    test('metadataFields: false', () => {
       const caughtBuildingArray: unknown[] = [];
       const corj = new CorjMaker({
         ...CORJ_MAKER_DEFAULT_OPTIONS_1,
         onCaughtMaking: (caught, options) => {
           caughtBuildingArray.push({ caught, options });
         },
-        addMetadata: false,
+        metadataFields: false,
       });
       const caught = new Error('I am an error!');
       const report = corj.make(caught);
@@ -625,45 +628,21 @@ describe('CorjMaker', () => {
       const badField = {
         // eslint-disable-next-line @typescript-eslint/ban-ts-comment
         // @ts-ignore
-        get addJsonSchemaLink() {
+        get metadataFields() {
           throw new Error('oh wow');
         },
       };
       const opts = { ...CORJ_MAKER_DEFAULT_OPTIONS_1 };
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore
-      delete opts['addJsonSchemaLink'];
+      delete opts['metadataFields'];
       Object.setPrototypeOf(opts, badField);
       const corj = new CorjMaker(opts);
       const caught = new Error(`I'm just a regular Error`);
       const report = corj.make(caught);
       delete report.stack;
-      expect(report).toMatchInlineSnapshot(`
-        Object {
-          "_m": Array [
-            "corj/v0.4",
-            "String",
-            "safe-stable-stringify@2.4.1",
-          ],
-          "as_json": Object {},
-          "as_string": "Error: I'm just a regular Error",
-          "constructor_name": "Error",
-          "instanceof_error": true,
-          "message": "I'm just a regular Error",
-          "typeof": "object",
-        }
-      `);
-      expect(consoleErrorSpy.mock.calls).toMatchInlineSnapshot(`
-        Array [
-          Array [
-            "caught-object-report-json:",
-            "Caught somewhere along the way of producing report.",
-            "Resulting report JSON is not going to be complete, but will include all fields produced before error.",
-            "Caught:",
-            [Error: oh wow],
-          ],
-        ]
-      `);
+      expect(report).toMatchInlineSnapshot();
+      expect(consoleErrorSpy.mock.calls).toMatchInlineSnapshot();
     });
 
     test('onCaughtMaking throws', () => {

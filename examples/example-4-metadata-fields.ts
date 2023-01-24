@@ -4,8 +4,12 @@ try {
   throw new Error(`Hi, I'm a regular Error object.`);
 } catch (caught: unknown) {
   const report = makeCaughtObjectReportJson(caught, {
-    addMetadata: false,
-    addJsonSchemaLink: true,
+    metadataFields: {
+      $schema: true,
+      as_json_format: false,
+      as_string_format: false,
+      v: false
+    },
   });
   console.log(JSON.stringify(report, null, 2));
 }

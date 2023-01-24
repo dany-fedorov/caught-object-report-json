@@ -1,7 +1,7 @@
 import { CorjMaker } from '../src';
 
 const corj = CorjMaker.withDefaults({
-  addMetadata: false,
+  metadataFields: false,
 });
 
 try {

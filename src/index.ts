@@ -69,14 +69,14 @@ export type CaughtObjectReportJson = {
    */
   message?: string | null;
   /**
-   * A string produced from caught object using format at `_m[1]`<br>
+   * A string produced from caught object using format at `as_string_format`<br>
    *
    * `null` value means that producing `as_string` property  failed.<br>
    * Use `onCaughtMaking` option to access objects thrown when report JSON was being created.
    */
   as_string: string | null;
   /**
-   * A JSON object produced from caught object using format at `_m[2]`<br>
+   * A JSON object produced from caught object using format at `as_json_format`<br>
    *
    * `null` value means that producing `as_json` property  failed.<br>
    * Use `onCaughtMaking` option to access objects thrown when report JSON was being created.
@@ -85,6 +85,24 @@ export type CaughtObjectReportJson = {
    * - [safe-stable-stringify@2.4.1 on NPM](https://www.npmjs.com/package/safe-stable-stringify)
    */
   as_json: CorjJsonValue<CorjJsonPrimitive>;
+  /**
+   * Result of `caught.cause` formatted to report JSON.
+   */
+  cause?: CaughtObjectReportJson;
+  /**
+   * Result of `caught.errors` formatted to report JSON.
+   */
+  errors?: (CaughtObjectReportJson | null)[];
+  /**
+   * When `caught` object has a `cause` field, but it was not included, this field is set.
+   * Reasons provided by this implementation - {@link CORJ_CAUSE_OMITTED_REASONS}
+   */
+  cause_omitted_reason?: string;
+  /**
+   * When `caught` object has a `cause` field, but it was not included, this field is set.
+   * Reasons provided by this implementation - {@link CORJ_ERRORS_OMITTED_REASONS}
+   */
+  errors_omitted_reason?: string;
   /**
    * Result of
    * ```typescript
@@ -105,32 +123,30 @@ export type CaughtObjectReportJson = {
    */
   stack?: string | null;
   /**
-   * Optional metadata field, consists of a length 3 tuple.<br>
-   * Adding this field is controlled by {@link CorjMakerOptions | CorjMakerOptions['addMetadata']}.
-   *
-   * Element [0]:
-   * Indicates a version of a standard for this object.
-   * Version produced by this library is {@link CORJ_VERSION}
-   *
-   * Element [1]:
+   * A version of report.<br>
+   * Adding this field is controlled by {@link CorjMakerOptions | CorjMakerOptions['metadataFields']['v']}).
+   */
+  v?: typeof CORJ_VERSION;
+  /**
    * Indicates a method used to obtain the value of `as_string`.<br>
    * - "String" means value was obtained with `as_string = String(caught)`.<br>
    *
-   * Element [2]:
-   * Indicates a method used to obtain the value of `as_json`.<br>
-   * - "safe-stable-stringify@2.4.1" means value was obtained with safe-stable-stringify library.`
+   * Adding this field is controlled by {@link CorjMakerOptions | CorjMakerOptions['metadataFields']['as_string_format']}).
    *
    * Links
    * - [MDN String() constructor](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/String)
    */
-  _m?: [
-    typeof CORJ_VERSION,
-    typeof CORJ_AS_STRING_FORMAT_STRING_CONSTRUCTOR,
-    typeof CORJ_AS_JSON_FORMAT_SAFE_STABLE_STRINGIFY_2_4_1,
-  ];
+  as_string_format?: typeof CORJ_AS_STRING_FORMAT_STRING_CONSTRUCTOR;
+  /**
+   * Indicates a method used to obtain the value of `as_json`.<br>
+   * - "safe-stable-stringify@2.4.1" means value was obtained with safe-stable-stringify library.`
+   *
+   * Adding this field is controlled by {@link CorjMakerOptions | CorjMakerOptions['metadataFields']['as_json_format']}).
+   */
+  as_json_format: typeof CORJ_AS_JSON_FORMAT_SAFE_STABLE_STRINGIFY_2_4_1;
   /**
    * Optional link to JSON schema this object conforms to - {@link CORJ_JSON_SCHEMA_LINK}.<br>
-   * Adding this field is controlled by {@link CorjMakerOptions | CorjMakerOptions['addJsonSchemaLink']}).
+   * Adding this field is controlled by {@link CorjMakerOptions | CorjMakerOptions['metadataFields']['$schema']}).
    */
   $schema?: typeof CORJ_JSON_SCHEMA_LINK;
 };
@@ -166,21 +182,17 @@ export type CorjJsonValue<P extends CorjJsonPrimitive> =
   | CorjJsonArray<P>;
 
 export type CaughtObjectAsJsonReport = {
-  format: Required<CaughtObjectReportJson>['_m'][2];
+  format: Required<CaughtObjectReportJson>['as_json_format'];
   value: CaughtObjectReportJson['as_json'];
 };
 
 export type CaughtObjectAsStringReport = {
-  format: Required<CaughtObjectReportJson>['_m'][1];
+  format: Required<CaughtObjectReportJson>['as_string_format'];
   value: CaughtObjectReportJson['as_string'];
 };
 
-export type CorjMakerOnCaughtBuildingCallbackFnOptionsDuring = {
-  key: keyof CaughtObjectReportJson;
-};
-
 export type CorjMakerOnCaughtBuildingCallbackFnOptions = {
-  caughtDuring: CorjMakerOnCaughtBuildingCallbackFnOptionsDuring;
+  key: keyof CaughtObjectReportJson;
 };
 
 export type CorjMakerOnCaughtBuildingCallbackFn = (
@@ -190,19 +202,35 @@ export type CorjMakerOnCaughtBuildingCallbackFn = (
 
 export type CorjMakerOptions = {
   /**
-   * Adds a `$schema` property to result json with a link to appropriate JSON Schema.
+   * Controls adding metadata fields to report.
    */
-  addJsonSchemaLink: boolean;
+  metadataFields:
+    | boolean
+    | {
+        $schema: boolean;
+        v: boolean;
+        as_string_format: boolean;
+        as_json_format: boolean;
+      };
   /**
-   * Adds an `_m` property with metadata.
+   * Controls how much levels of nested `cause` or `errors` props will be included.
+   * - 1 means `caught.cause` is included, but `caught.cause.cause` is not.
+   * - 2 means `caught.cause.cause` is included, but `caught.cause.cause.cause` is not.
    */
-  addMetadata: boolean;
+  maxNestingLevels: number;
   /**
    * This function is called when {@link CorjMaker.make | CorjMaker.make} fails to produce `as_json` or `as_string` fields of report json.
    */
   onCaughtMaking: CorjMakerOnCaughtBuildingCallbackFn;
 };
-
+type DeepPartial<T> = T extends object
+  ? // eslint-disable-next-line @typescript-eslint/ban-types
+    T extends Function
+    ? T
+    : {
+        [P in keyof T]?: DeepPartial<T[P]>;
+      }
+  : T;
 //   /$$$$$$                                  /$$                           /$$
 //  /$$__  $$                                | $$                          | $$
 // | $$  \__/  /$$$$$$  /$$$$$$$   /$$$$$$$ /$$$$$$    /$$$$$$  /$$$$$$$  /$$$$$$   /$$$$$$$
@@ -212,25 +240,40 @@ export type CorjMakerOptions = {
 // |  $$$$$$/|  $$$$$$/| $$  | $$ /$$$$$$$/  |  $$$$/|  $$$$$$$| $$  | $$  |  $$$$//$$$$$$$/
 //  \______/  \______/ |__/  |__/|_______/    \___/   \_______/|__/  |__/   \___/ |_______/
 
+export const CORJ_CAUSE_OMITTED_REASONS = {
+  RECURSIVE_CALL_FAILED: 'Recursive call failed',
+  REACHED_MAX_DEPTH: (maxDepth: number) => `Reached max depth - ${maxDepth}`,
+};
+
+export const CORJ_ERRORS_OMITTED_REASONS = {
+  REACHED_MAX_DEPTH: (maxDepth: number) => `Reached max depth - ${maxDepth}`,
+};
+
 export const CORJ_AS_JSON_FORMAT_SAFE_STABLE_STRINGIFY_2_4_1 =
   'safe-stable-stringify@2.4.1';
 
 export const CORJ_AS_STRING_FORMAT_STRING_CONSTRUCTOR = 'String';
 
-export const CORJ_VERSION = 'corj/v0.4';
+export const CORJ_VERSION = 'corj/v0.5';
 
 export const CORJ_JSON_SCHEMA_LINK =
-  'https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.4.json';
+  'https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.5.json';
+
 export const CORJ_MAKER_DEFAULT_OPTIONS_1 = Object.freeze({
-  addJsonSchemaLink: false,
-  addMetadata: true,
-  onCaughtMaking: (caught: unknown, { caughtDuring }) => {
+  metadataFields: {
+    $schema: false,
+    as_json_format: true,
+    as_string_format: true,
+    v: true,
+  },
+  maxNestingLevels: 5,
+  onCaughtMaking: (caught: unknown, { key }) => {
     console.warn(
-      `caught-object-report-json: Caught when building key "${caughtDuring.key}" for report json.`,
+      `caught-object-report-json: Caught when building key "${key}" for report json.`,
       caught,
     );
   },
-}) as CorjMakerOptions;
+}) satisfies CorjMakerOptions;
 
 //  /$$      /$$
 // | $$  /$ | $$
@@ -245,11 +288,11 @@ export const CORJ_MAKER_DEFAULT_OPTIONS_1 = Object.freeze({
 //                                 |__/      |__/
 
 /**
- * Wrapper for {@link CorjMaker.make | CorjMaker.make} with default options specified in {@link CORJ_MAKER_DEFAULT_OPTIONS_1}.
+ * Wrapper for {@link CorjMaker#make | CorjMaker.make} with default options specified in {@link CORJ_MAKER_DEFAULT_OPTIONS_1}.
  */
 export function makeCaughtObjectReportJson(
   caught: unknown,
-  options?: Partial<CorjMakerOptions>,
+  options?: DeepPartial<CorjMakerOptions>,
 ): CaughtObjectReportJson {
   return CorjMaker.withDefaults(options).make(caught);
 }
@@ -289,9 +332,7 @@ function makeProp_as_string(
   } catch (caughtNew: unknown) {
     if (typeof options.onCaughtMaking === 'function') {
       options.onCaughtMaking(caughtNew, {
-        caughtDuring: {
-          key: 'as_string',
-        },
+        key: 'as_string',
       });
     }
     return {
@@ -323,9 +364,7 @@ function makeProp_as_json(
   } catch (caughtNew: unknown) {
     if (typeof options.onCaughtMaking === 'function') {
       options.onCaughtMaking(caughtNew, {
-        caughtDuring: {
-          key: 'as_json',
-        },
+        key: 'as_json',
       });
     }
     return {
@@ -333,6 +372,96 @@ function makeProp_as_json(
       value: null,
     };
   }
+}
+
+function makeProp_cause(
+  caught: unknown,
+  maker: CorjMaker,
+  level: number,
+): {
+  cause: undefined | null | CaughtObjectReportJson;
+  cause_omitted_reason: string | undefined;
+} {
+  try {
+    if (!caught || typeof caught !== 'object' || !('cause' in caught)) {
+      return {
+        cause: undefined,
+        cause_omitted_reason: undefined,
+      };
+    }
+    if (level > maker.options.maxNestingLevels) {
+      return {
+        cause: undefined,
+        cause_omitted_reason: CORJ_CAUSE_OMITTED_REASONS.REACHED_MAX_DEPTH(
+          maker.options.maxNestingLevels,
+        ),
+      };
+    }
+    const causeFormatted = Object.fromEntries(
+      maker.entriesForLevel(caught.cause, level),
+    );
+    return {
+      cause: causeFormatted as CaughtObjectReportJson,
+      cause_omitted_reason: undefined,
+    };
+  } catch (caughtNew) {
+    if (typeof maker.options.onCaughtMaking === 'function') {
+      maker.options.onCaughtMaking(caughtNew, {
+        key: 'cause',
+      });
+    }
+    return {
+      cause: undefined,
+      cause_omitted_reason: CORJ_CAUSE_OMITTED_REASONS.RECURSIVE_CALL_FAILED,
+    };
+  }
+}
+
+function makeProp_errors(
+  caught: unknown,
+  maker: CorjMaker,
+  level: number,
+): {
+  errors: undefined | (CaughtObjectReportJson | null)[];
+  errors_omitted_reason: string | undefined;
+} {
+  if (!caught || typeof caught !== 'object' || !('errors' in caught)) {
+    return {
+      errors: undefined,
+      errors_omitted_reason: undefined,
+    };
+  }
+  if (level > maker.options.maxNestingLevels) {
+    return {
+      errors: undefined,
+      errors_omitted_reason: CORJ_ERRORS_OMITTED_REASONS.REACHED_MAX_DEPTH(
+        maker.options.maxNestingLevels,
+      ),
+    };
+  }
+  const errorsArray = !Array.isArray(caught.errors)
+    ? [caught.errors]
+    : caught.errors;
+  const errorsReport = [];
+  for (const error of errorsArray) {
+    try {
+      const errorFormatted = Object.fromEntries(
+        maker.entriesForLevel(error, level),
+      ) as CaughtObjectReportJson;
+      errorsReport.push(errorFormatted);
+    } catch (caughtNew) {
+      if (typeof maker.options.onCaughtMaking === 'function') {
+        maker.options.onCaughtMaking(caughtNew, {
+          key: 'cause',
+        });
+      }
+      errorsReport.push(null);
+    }
+  }
+  return {
+    errors: errorsReport,
+    errors_omitted_reason: undefined,
+  };
 }
 
 function makeProp_message(
@@ -346,9 +475,7 @@ function makeProp_message(
   } catch (caughtNew: unknown) {
     if (typeof options.onCaughtMaking === 'function') {
       options.onCaughtMaking(caughtNew, {
-        caughtDuring: {
-          key: 'message',
-        },
+        key: 'message',
       });
     }
     return null;
@@ -366,9 +493,7 @@ function makeProp_stack(
   } catch (caughtNew: unknown) {
     if (typeof options.onCaughtMaking === 'function') {
       options.onCaughtMaking(caughtNew, {
-        caughtDuring: {
-          key: 'stack',
-        },
+        key: 'stack',
       });
     }
     return null;
@@ -386,9 +511,7 @@ function makeProp_constructor_name(
   } catch (caught) {
     if (typeof options.onCaughtMaking === 'function') {
       options.onCaughtMaking(caught, {
-        caughtDuring: {
-          key: 'constructor_name',
-        },
+        key: 'constructor_name',
       });
     }
     return null;
@@ -398,43 +521,86 @@ function makeProp_constructor_name(
 export class CorjMaker {
   constructor(public readonly options: CorjMakerOptions) {}
 
-  /**
-   * This exists to produce entires in dependable order.
-   */
-  entries(caught: unknown): CaughtObjectReportJsonEntries {
+  entriesForLevel(
+    caught: unknown,
+    level: number,
+  ): CaughtObjectReportJsonEntries {
     let instanceof_error: CaughtObjectReportJson['instanceof_error'];
     let typeof_prop: CaughtObjectReportJson['typeof'] | undefined;
     let constructor_name:
       | CaughtObjectReportJson['constructor_name']
       | undefined;
     let message: CaughtObjectReportJson['message'] | undefined;
+    let as_string_format:
+      | CaughtObjectReportJson['as_string_format']
+      | undefined;
     let as_string: CaughtObjectReportJson['as_string'];
+    let as_json_format: CaughtObjectReportJson['as_json_format'] | undefined;
     let as_json: CaughtObjectReportJson['as_json'];
+    let cause: CaughtObjectReportJson['cause'] | null | undefined;
+    let cause_omitted_reason:
+      | CaughtObjectReportJson['cause_omitted_reason']
+      | undefined;
+    let errors: CaughtObjectReportJson['errors'] | undefined;
+    let errors_omitted_reason:
+      | CaughtObjectReportJson['errors_omitted_reason']
+      | undefined;
     let stack: CaughtObjectReportJson['stack'] | undefined;
-    let _m: CaughtObjectReportJson['_m'] | undefined;
+    let v: CaughtObjectReportJson['v'] | undefined;
     let $schema: CaughtObjectReportJson['$schema'] | undefined;
     try {
+      // Less likely to throw in onCaughtMaking
       instanceof_error = caught instanceof Error;
       typeof_prop = typeof caught;
       constructor_name = makeProp_constructor_name(caught, this.options);
       message = makeProp_message(caught, this.options);
+      stack = makeProp_stack(caught, this.options);
+
+      // More likely to throw in onCaughtMaking
       const asString = makeProp_as_string(caught, this.options);
+      as_string_format =
+        !this.options.metadataFields ||
+        (typeof this.options.metadataFields === 'object' &&
+          !this.options.metadataFields?.as_string_format)
+          ? undefined
+          : asString.format;
       as_string = asString.value;
       const asJson = makeProp_as_json(caught, this.options);
+      as_json_format =
+        !this.options.metadataFields ||
+        (typeof this.options.metadataFields === 'object' &&
+          !this.options.metadataFields?.as_json_format)
+          ? undefined
+          : asJson.format;
       as_json = asJson.value;
-      stack = makeProp_stack(caught, this.options);
-      _m = !this.options.addMetadata
-        ? undefined
-        : [CORJ_VERSION, asString.format, asJson.format];
-      $schema = !this.options.addJsonSchemaLink
-        ? undefined
-        : CORJ_JSON_SCHEMA_LINK;
+      const causeReport = makeProp_cause(caught, this, level + 1);
+      cause = causeReport.cause;
+      cause_omitted_reason = causeReport.cause_omitted_reason;
+      const errorsReport = makeProp_errors(caught, this, level + 1);
+      errors = errorsReport.errors;
+      errors_omitted_reason = errorsReport.errors_omitted_reason;
+
+      // Metadata
+      v =
+        !this.options.metadataFields ||
+        (typeof this.options.metadataFields === 'object' &&
+          !this.options.metadataFields?.v)
+          ? undefined
+          : CORJ_VERSION;
+      $schema =
+        !this.options.metadataFields ||
+        (typeof this.options.metadataFields === 'object' &&
+          !this.options.metadataFields?.$schema)
+          ? undefined
+          : CORJ_JSON_SCHEMA_LINK;
     } catch (caughtNew: unknown) {
       console.error(
         'caught-object-report-json:',
-        'Caught somewhere along the way of producing report.',
+        'Caught somewhere along the way of producing report completely unexpectedly!',
         'Resulting report JSON is not going to be complete, but will include all fields produced before error.',
-        'Caught:',
+        'Level:',
+        level,
+        'Caught New:',
         caughtNew,
       );
     }
@@ -451,20 +617,40 @@ export class CorjMaker {
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-expect-error
       ['as_json', as_json],
+      ['cause', cause],
+      ['cause_omitted_reason', cause_omitted_reason],
+      ['errors', errors],
+      ['errors_omitted_reason', errors_omitted_reason],
       ['stack', stack],
-      ['_m', _m],
+      ['as_string_format', as_string_format],
+      ['as_json_format', as_json_format],
+      ['v', v],
       ['$schema', $schema],
     ].filter(([, v]) => v !== undefined) as CaughtObjectReportJsonEntries;
+  }
+
+  /**
+   * This exists to produce entries in dependable order.
+   */
+  entries(caught: unknown): CaughtObjectReportJsonEntries {
+    return this.entriesForLevel(caught, 0);
   }
 
   make(caught: unknown): CaughtObjectReportJson {
     return Object.fromEntries(this.entries(caught)) as CaughtObjectReportJson;
   }
 
-  static withDefaults(options?: Partial<CorjMakerOptions>): CorjMaker {
-    const effectiveOptions = {
+  static withDefaults(options?: DeepPartial<CorjMakerOptions>): CorjMaker {
+    const effectiveOptions: CorjMakerOptions = {
       ...CORJ_MAKER_DEFAULT_OPTIONS_1,
       ...(options ?? {}),
+      metadataFields:
+        typeof options?.metadataFields === 'boolean'
+          ? options.metadataFields
+          : {
+              ...CORJ_MAKER_DEFAULT_OPTIONS_1.metadataFields,
+              ...(options?.metadataFields ?? {}),
+            },
     };
     return new CorjMaker(effectiveOptions);
   }

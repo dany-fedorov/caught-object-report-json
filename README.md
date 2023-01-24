@@ -59,12 +59,11 @@ prints
   "as_string": "SyntaxError: Unexpected token u in JSON at position 0",
   "as_json": {},
   "stack": "SyntaxError: Unexpected token u in JSON at position 0\n    at JSON.parse (<anonymous>)\n    at Object.<anonymous> (/home/user/work-dir/caught-object-report-json/examples/example-1-syntax-error.ts:6:8)\n    at Module._compile (node:internal/modules/cjs/loader:1120:14)\n    at Module.m._compile (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/index.ts:1618:23)\n    at Module._extensions..js (node:internal/modules/cjs/loader:1174:10)\n    at Object.require.extensions.<computed> [as .ts] (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/index.ts:1621:12)\n    at Module.load (node:internal/modules/cjs/loader:998:32)\n    at Function.Module._load (node:internal/modules/cjs/loader:839:12)\n    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:81:12)\n    at phase4 (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/bin.ts:649:14)",
-  "_m": [
-    "corj/v0.4",
-    "String",
-    "safe-stable-stringify@2.4.1"
-  ]
+  "as_string_format": "String",
+  "as_json_format": "safe-stable-stringify@2.4.1",
+  "v": "corj/v0.5"
 }
+
 ```
 
 ## 2. [Axios error](https://github.com/dany-fedorov/caught-object-report-json/blob/main/examples/example-2-axios-error.ts)
@@ -168,7 +167,7 @@ prints
     "status": 404,
     "response_data": {},
     "response_headers": {
-      "date": "Thu, 19 Jan 2023 23:42:50 GMT",
+      "date": "Tue, 24 Jan 2023 21:55:00 GMT",
       "content-type": "application/json; charset=utf-8",
       "content-length": "2",
       "connection": "close",
@@ -177,21 +176,20 @@ prints
       "etag": "W/\"2-vyGp6PvFo4RvsFtPoIWeCReyIC8\"",
       "via": "1.1 vegur",
       "cache-control": "max-age=14400",
-      "cf-cache-status": "MISS",
-      "report-to": "{\"endpoints\":[{\"url\":\"https:\\/\\/a.nel.cloudflare.com\\/report\\/v3?s=UspFJBPsaWBU%2Fq%2BKfLkfLHZG5OZyKYbY8kPitmrP20rqrSbWexVqz3TcGmoIvVRVLzgITKj8C3WEvTvPtAkC%2FHgwllF2tAVJmtiOtk%2BFwRNPi0kP4SQeVvpTug%3D%3D\"}],\"group\":\"cf-nel\",\"max_age\":604800}",
+      "cf-cache-status": "EXPIRED",
+      "report-to": "{\"endpoints\":[{\"url\":\"https:\\/\\/a.nel.cloudflare.com\\/report\\/v3?s=kXswf0XkiRswPCRCasQ09nw%2BJ1ce1uRgY4q%2Fbu0a%2FEhkfyR3uWyzwn9T1U8M%2FneiB0udnwdioFR3OC6%2F1eDb%2FFun%2BrsP2py0hcZCIOoMr0Je5YAACZVcatoaHA%3D%3D\"}],\"group\":\"cf-nel\",\"max_age\":604800}",
       "nel": "{\"success_fraction\":0,\"report_to\":\"cf-nel\",\"max_age\":604800}",
       "vary": "Accept-Encoding",
       "server": "cloudflare",
-      "cf-ray": "78c36ddbaed224a1-KBP"
+      "cf-ray": "78ec02c5190f289d-AMS"
     }
   },
   "stack": "AxiosError: Request failed with status code 404\n    at /home/user/work-dir/caught-object-report-json/examples/example-2-axios-error.ts:35:27\n    at processTicksAndRejections (node:internal/process/task_queues:95:5)",
-  "_m": [
-    "corj/v0.4",
-    "String",
-    "safe-stable-stringify@2.4.1"
-  ]
+  "as_string_format": "String",
+  "as_json_format": "safe-stable-stringify@2.4.1",
+  "v": "corj/v0.5"
 }
+
 ```
 
 ## 3. [Not an error object thrown](https://github.com/dany-fedorov/caught-object-report-json/blob/main/examples/example-3-not-error-object.ts)
@@ -234,32 +232,29 @@ and then prints form catch block
   "typeof": "undefined",
   "as_string": "undefined",
   "as_json": null,
-  "_m": [
-    "corj/v0.4",
-    "String",
-    "safe-stable-stringify@2.4.1"
-  ]
+  "as_string_format": "String",
+  "as_json_format": "safe-stable-stringify@2.4.1",
+  "v": "corj/v0.5"
 }
-
 ```
 
-## 4. [Options](https://github.com/dany-fedorov/caught-object-report-json/blob/main/examples/example-4-options.ts)
+## 4. [Metadata fields](https://github.com/dany-fedorov/caught-object-report-json/blob/main/examples/example-4-metadata-fields.ts)
 
-Apart from using the `onCaughtMaking` callback from the previous example to listen for exceptions thrown during the
-making of report, you can also use `addJsonSchemaLink` and `addMetadata` options to control adding `$schema` and `_m`
-properties to JSON report. By default `addJsonSchemaLink` is `false` and `addMetadata` is `true`. Read about `_m`
-property
-in [report object docs](https://dany-fedorov.github.io/caught-object-report-json/blob/main/types/CaughtObjectReportJson.html).
+Use `metadataFields` option to control what metadata to add to report.
 
-<sub>(Run with `npm run ts-file ./examples/example-4-options.ts`)</sub>
+<sub>(Run with `npm run ts-file ./examples/example-4-metadata-fields.ts`)</sub>
 
 ```typescript
 try {
   throw new Error(`Hi, I'm a regular Error object.`);
 } catch (caught: unknown) {
   const report = makeCaughtObjectReportJson(caught, {
-    addMetadata: false,
-    addJsonSchemaLink: true,
+    metadataFields: {
+      $schema: true,
+      as_json_format: false,
+      as_string_format: false,
+      v: false
+    },
   });
   console.log(JSON.stringify(report, null, 2));
 }
@@ -275,16 +270,75 @@ prints
   "message": "Hi, I'm a regular Error object.",
   "as_string": "Error: Hi, I'm a regular Error object.",
   "as_json": {},
-  "stack": "Error: Hi, I'm a regular Error object.\n    at Object.<anonymous> (/home/user/work-dir/caught-object-report-json/examples/example-4-options.ts:4:9)\n    at Module._compile (node:internal/modules/cjs/loader:1120:14)\n    at Module.m._compile (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/index.ts:1618:23)\n    at Module._extensions..js (node:internal/modules/cjs/loader:1174:10)\n    at Object.require.extensions.<computed> [as .ts] (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/index.ts:1621:12)\n    at Module.load (node:internal/modules/cjs/loader:998:32)\n    at Function.Module._load (node:internal/modules/cjs/loader:839:12)\n    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:81:12)\n    at phase4 (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/bin.ts:649:14)\n    at bootstrap (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/bin.ts:95:10)",
-  "$schema": "https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.4.json"
+  "stack": "Error: Hi, I'm a regular Error object.\n    at Object.<anonymous> (/home/df/hdd/wd/caught-object-report-json/examples/example-4-metadata-fields.ts:4:9)\n    at Module._compile (node:internal/modules/cjs/loader:1120:14)\n    at Module.m._compile (/home/df/hdd/wd/caught-object-report-json/node_modules/ts-node/src/index.ts:1618:23)\n    at Module._extensions..js (node:internal/modules/cjs/loader:1174:10)\n    at Object.require.extensions.<computed> [as .ts] (/home/df/hdd/wd/caught-object-report-json/node_modules/ts-node/src/index.ts:1621:12)\n    at Module.load (node:internal/modules/cjs/loader:998:32)\n    at Function.Module._load (node:internal/modules/cjs/loader:839:12)\n    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:81:12)\n    at phase4 (/home/df/hdd/wd/caught-object-report-json/node_modules/ts-node/src/bin.ts:649:14)\n    at bootstrap (/home/df/hdd/wd/caught-object-report-json/node_modules/ts-node/src/bin.ts:95:10)",
+  "$schema": "https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.5.json"
 }
 ```
 
-## 5. [Using CorjMaker instance](https://github.com/dany-fedorov/caught-object-report-json/blob/main/examples/example-5-using-corj-maker-instance.ts)
+## 5. [Nested errors](https://github.com/dany-fedorov/caught-object-report-json/blob/main/examples/example-5-nested-errors.ts)
+
+Data found in `cause` property or `errors`  property (for `AggregateError`) are converted to JSON the same way as
+top-level object. Control max nesing level with `maxNestingLevels` option.
+
+<sub>(Run with `npm run ts-file ./examples/example-5-nested-errors.ts`)</sub>
+
+```typescript
+const caught = new AggregateError(
+  [
+    new Error('message from regular Error', {
+      cause: new Error(`message from regular Error's cause`),
+    }),
+  ],
+  'message from AggregateError',
+);
+console.log(
+  JSON.stringify(
+    makeCaughtObjectReportJson(caught, { metadataFields: false }),
+    null,
+    2,
+  ),
+);
+```
+
+prints
+
+```json
+{
+  "instanceof_error": true,
+  "typeof": "object",
+  "constructor_name": "AggregateError",
+  "message": "message from AggregateError",
+  "as_string": "AggregateError: message from AggregateError",
+  "as_json": {},
+  "errors": [
+    {
+      "instanceof_error": true,
+      "typeof": "object",
+      "constructor_name": "Error",
+      "message": "message from regular Error",
+      "as_string": "Error: message from regular Error",
+      "as_json": {},
+      "cause": {
+        "instanceof_error": true,
+        "typeof": "object",
+        "constructor_name": "Error",
+        "message": "message from regular Error's cause",
+        "as_string": "Error: message from regular Error's cause",
+        "as_json": {},
+        "stack": "Error: message from regular Error's cause\n    at Object.<anonymous> (/home/df/hdd/wd/caught-object-report-json/examples/example-5-nested-errors.ts:12:14)\n    at Module._compile (node:internal/modules/cjs/loader:1120:14)\n    at Module.m._compile (/home/df/hdd/wd/caught-object-report-json/node_modules/ts-node/src/index.ts:1618:23)\n    at Module._extensions..js (node:internal/modules/cjs/loader:1174:10)\n    at Object.require.extensions.<computed> [as .ts] (/home/df/hdd/wd/caught-object-report-json/node_modules/ts-node/src/index.ts:1621:12)\n    at Module.load (node:internal/modules/cjs/loader:998:32)\n    at Function.Module._load (node:internal/modules/cjs/loader:839:12)\n    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:81:12)\n    at phase4 (/home/df/hdd/wd/caught-object-report-json/node_modules/ts-node/src/bin.ts:649:14)\n    at bootstrap (/home/df/hdd/wd/caught-object-report-json/node_modules/ts-node/src/bin.ts:95:10)"
+      },
+      "stack": "Error: message from regular Error\n    at Object.<anonymous> (/home/df/hdd/wd/caught-object-report-json/examples/example-5-nested-errors.ts:11:5)\n    at Module._compile (node:internal/modules/cjs/loader:1120:14)\n    at Module.m._compile (/home/df/hdd/wd/caught-object-report-json/node_modules/ts-node/src/index.ts:1618:23)\n    at Module._extensions..js (node:internal/modules/cjs/loader:1174:10)\n    at Object.require.extensions.<computed> [as .ts] (/home/df/hdd/wd/caught-object-report-json/node_modules/ts-node/src/index.ts:1621:12)\n    at Module.load (node:internal/modules/cjs/loader:998:32)\n    at Function.Module._load (node:internal/modules/cjs/loader:839:12)\n    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:81:12)\n    at phase4 (/home/df/hdd/wd/caught-object-report-json/node_modules/ts-node/src/bin.ts:649:14)\n    at bootstrap (/home/df/hdd/wd/caught-object-report-json/node_modules/ts-node/src/bin.ts:95:10)"
+    }
+  ],
+  "stack": "AggregateError: message from AggregateError\n    at Object.<anonymous> (/home/df/hdd/wd/caught-object-report-json/examples/example-5-nested-errors.ts:7:16)\n    at Module._compile (node:internal/modules/cjs/loader:1120:14)\n    at Module.m._compile (/home/df/hdd/wd/caught-object-report-json/node_modules/ts-node/src/index.ts:1618:23)\n    at Module._extensions..js (node:internal/modules/cjs/loader:1174:10)\n    at Object.require.extensions.<computed> [as .ts] (/home/df/hdd/wd/caught-object-report-json/node_modules/ts-node/src/index.ts:1621:12)\n    at Module.load (node:internal/modules/cjs/loader:998:32)\n    at Function.Module._load (node:internal/modules/cjs/loader:839:12)\n    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:81:12)\n    at phase4 (/home/df/hdd/wd/caught-object-report-json/node_modules/ts-node/src/bin.ts:649:14)\n    at bootstrap (/home/df/hdd/wd/caught-object-report-json/node_modules/ts-node/src/bin.ts:95:10)"
+}
+```
+
+## 6. [Using CorjMaker instance](https://github.com/dany-fedorov/caught-object-report-json/blob/main/examples/example-6-using-corj-maker-instance.ts)
 
 Create `CorjMaker` instance to configure error reporting once.
 
-<sub>(Run with `npm run ts-file ./examples/example-5-using-corj-maker-instance.ts`)</sub>
+<sub>(Run with `npm run ts-file ./examples/example-6-using-corj-maker-instance.ts`)</sub>
 
 ```typescript
 const corj = CorjMaker.withDefaults({
@@ -309,7 +363,7 @@ prints
   "message": "Hi, I'm a regular Error object.",
   "as_string": "Error: Hi, I'm a regular Error object.",
   "as_json": {},
-  "stack": "Error: Hi, I'm a regular Error object.\n    at Object.<anonymous> (/home/user/work-dir/caught-object-report-json/examples/example-5-using-corj-maker-instance.ts:8:9)\n    at Module._compile (node:internal/modules/cjs/loader:1120:14)\n    at Module.m._compile (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/index.ts:1618:23)\n    at Module._extensions..js (node:internal/modules/cjs/loader:1174:10)\n    at Object.require.extensions.<computed> [as .ts] (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/index.ts:1621:12)\n    at Module.load (node:internal/modules/cjs/loader:998:32)\n    at Function.Module._load (node:internal/modules/cjs/loader:839:12)\n    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:81:12)\n    at phase4 (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/bin.ts:649:14)\n    at bootstrap (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/bin.ts:95:10)"
+  "stack": "Error: Hi, I'm a regular Error object.\n    at Object.<anonymous> (/home/df/hdd/wd/caught-object-report-json/examples/example-5-using-corj-maker-instance.ts:8:9)\n    at Module._compile (node:internal/modules/cjs/loader:1120:14)\n    at Module.m._compile (/home/df/hdd/wd/caught-object-report-json/node_modules/ts-node/src/index.ts:1618:23)\n    at Module._extensions..js (node:internal/modules/cjs/loader:1174:10)\n    at Object.require.extensions.<computed> [as .ts] (/home/df/hdd/wd/caught-object-report-json/node_modules/ts-node/src/index.ts:1621:12)\n    at Module.load (node:internal/modules/cjs/loader:998:32)\n    at Function.Module._load (node:internal/modules/cjs/loader:839:12)\n    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:81:12)\n    at phase4 (/home/df/hdd/wd/caught-object-report-json/node_modules/ts-node/src/bin.ts:649:14)\n    at bootstrap (/home/df/hdd/wd/caught-object-report-json/node_modules/ts-node/src/bin.ts:95:10)"
 }
 ```
 

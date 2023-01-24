@@ -1,3 +1,15 @@
+# [5.0.0](https://github.com/dany-fedorov/caught-object-report-json/compare/v4.1.5...v5.0.0) (2023-01-24)
+
+
+### Features
+
+* Add `errors` and `cause` fields, add separate metadata fields ([674cab4](https://github.com/dany-fedorov/caught-object-report-json/commit/674cab4662eae02de3ac7c258ae0333487dedf39))
+
+
+### BREAKING CHANGES
+
+* Changed options type, removed _m from report
+
 ## [4.1.5](https://github.com/dany-fedorov/caught-object-report-json/compare/v4.1.4...v4.1.5) (2023-01-22)
 
 ## [4.1.4](https://github.com/dany-fedorov/caught-object-report-json/compare/v4.1.3...v4.1.4) (2023-01-21)

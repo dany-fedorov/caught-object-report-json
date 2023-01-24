@@ -22,17 +22,15 @@ describe('CorjMaker', () => {
       delete report.stack;
       expect(report).toMatchInlineSnapshot(`
         Object {
-          "_m": Array [
-            "corj/v0.4",
-            "String",
-            "safe-stable-stringify@2.4.1",
-          ],
           "as_json": Object {},
+          "as_json_format": "safe-stable-stringify@2.4.1",
           "as_string": "Error: I am an error!",
+          "as_string_format": "String",
           "constructor_name": "Error",
           "instanceof_error": true,
           "message": "I am an error!",
           "typeof": "object",
+          "v": "corj/v0.5",
         }
       `);
       expect(caughtBuildingArray).toMatchInlineSnapshot(`Array []`);
@@ -53,16 +51,14 @@ describe('CorjMaker', () => {
       delete report.stack;
       expect(report).toMatchInlineSnapshot(`
         Object {
-          "_m": Array [
-            "corj/v0.4",
-            "String",
-            "safe-stable-stringify@2.4.1",
-          ],
           "as_json": "I am a string, but I was thrown nevertheless!",
+          "as_json_format": "safe-stable-stringify@2.4.1",
           "as_string": "I am a string, but I was thrown nevertheless!",
+          "as_string_format": "String",
           "constructor_name": "String",
           "instanceof_error": false,
           "typeof": "string",
+          "v": "corj/v0.5",
         }
       `);
       expect(caughtBuildingArray).toMatchInlineSnapshot(`Array []`);
@@ -83,15 +79,13 @@ describe('CorjMaker', () => {
       delete report.stack;
       expect(report).toMatchInlineSnapshot(`
         Object {
-          "_m": Array [
-            "corj/v0.4",
-            "String",
-            "safe-stable-stringify@2.4.1",
-          ],
           "as_json": null,
+          "as_json_format": "safe-stable-stringify@2.4.1",
           "as_string": "undefined",
+          "as_string_format": "String",
           "instanceof_error": false,
           "typeof": "undefined",
+          "v": "corj/v0.5",
         }
       `);
       expect(caughtBuildingArray).toMatchInlineSnapshot(`
@@ -99,9 +93,7 @@ describe('CorjMaker', () => {
           Object {
             "caught": [Error: Could not convert caught object to json string using safe-stable-stringify@2.4.1.],
             "options": Object {
-              "caughtDuring": Object {
-                "key": "as_json",
-              },
+              "key": "as_json",
             },
           },
         ]
@@ -123,15 +115,13 @@ describe('CorjMaker', () => {
       delete report.stack;
       expect(report).toMatchInlineSnapshot(`
         Object {
-          "_m": Array [
-            "corj/v0.4",
-            "String",
-            "safe-stable-stringify@2.4.1",
-          ],
           "as_json": null,
+          "as_json_format": "safe-stable-stringify@2.4.1",
           "as_string": "null",
+          "as_string_format": "String",
           "instanceof_error": false,
           "typeof": "object",
+          "v": "corj/v0.5",
         }
       `);
       expect(caughtBuildingArray).toMatchInlineSnapshot(`Array []`);
@@ -152,16 +142,14 @@ describe('CorjMaker', () => {
       delete report.stack;
       expect(report).toMatchInlineSnapshot(`
         Object {
-          "_m": Array [
-            "corj/v0.4",
-            "String",
-            "safe-stable-stringify@2.4.1",
-          ],
           "as_json": 123,
+          "as_json_format": "safe-stable-stringify@2.4.1",
           "as_string": "123",
+          "as_string_format": "String",
           "constructor_name": "BigInt",
           "instanceof_error": false,
           "typeof": "bigint",
+          "v": "corj/v0.5",
         }
       `);
       expect(caughtBuildingArray).toMatchInlineSnapshot(`Array []`);
@@ -182,11 +170,6 @@ describe('CorjMaker', () => {
       delete report.stack;
       expect(report).toMatchInlineSnapshot(`
         Object {
-          "_m": Array [
-            "corj/v0.4",
-            "String",
-            "safe-stable-stringify@2.4.1",
-          ],
           "as_json": Array [
             1234,
             "string",
@@ -195,10 +178,13 @@ describe('CorjMaker', () => {
               "a": "b",
             },
           ],
+          "as_json_format": "safe-stable-stringify@2.4.1",
           "as_string": "1234,string,1234,[object Object]",
+          "as_string_format": "String",
           "constructor_name": "Array",
           "instanceof_error": false,
           "typeof": "object",
+          "v": "corj/v0.5",
         }
       `);
       expect(caughtBuildingArray).toMatchInlineSnapshot(`Array []`);
@@ -225,18 +211,16 @@ describe('CorjMaker', () => {
       delete report.stack;
       expect(report).toMatchInlineSnapshot(`
         Object {
-          "$schema": "https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.4.json",
-          "_m": Array [
-            "corj/v0.4",
-            "String",
-            "safe-stable-stringify@2.4.1",
-          ],
+          "$schema": "https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.5.json",
           "as_json": Object {},
+          "as_json_format": "safe-stable-stringify@2.4.1",
           "as_string": "Error: I am an error!",
+          "as_string_format": "String",
           "constructor_name": "Error",
           "instanceof_error": true,
           "message": "I am an error!",
           "typeof": "object",
+          "v": "corj/v0.5",
         }
       `);
       expect(caughtBuildingArray).toMatchInlineSnapshot(`Array []`);
@@ -281,15 +265,13 @@ describe('CorjMaker', () => {
       delete report.stack;
       expect(report).toMatchInlineSnapshot(`
         Object {
-          "_m": Array [
-            "corj/v0.4",
-            "String",
-            "safe-stable-stringify@2.4.1",
-          ],
           "as_json": null,
+          "as_json_format": "safe-stable-stringify@2.4.1",
           "as_string": "undefined",
+          "as_string_format": "String",
           "instanceof_error": false,
           "typeof": "undefined",
+          "v": "corj/v0.5",
         }
       `);
       expect(consoleWarnSpy.mock.calls).toMatchInlineSnapshot(`
@@ -318,16 +300,14 @@ describe('CorjMaker', () => {
       delete report.stack;
       expect(report).toMatchInlineSnapshot(`
         Object {
-          "_m": Array [
-            "corj/v0.4",
-            "String",
-            "safe-stable-stringify@2.4.1",
-          ],
           "as_json": Object {},
+          "as_json_format": "safe-stable-stringify@2.4.1",
           "as_string": null,
+          "as_string_format": "String",
           "constructor_name": "Object",
           "instanceof_error": false,
           "typeof": "object",
+          "v": "corj/v0.5",
         }
       `);
       expect(consoleWarnSpy.mock.calls).toMatchInlineSnapshot(`
@@ -358,16 +338,14 @@ describe('CorjMaker', () => {
       delete report.stack;
       expect(report).toMatchInlineSnapshot(`
         Object {
-          "_m": Array [
-            "corj/v0.4",
-            "String",
-            "safe-stable-stringify@2.4.1",
-          ],
           "as_json": Object {},
+          "as_json_format": "safe-stable-stringify@2.4.1",
           "as_string": null,
+          "as_string_format": "String",
           "constructor_name": "Object",
           "instanceof_error": false,
           "typeof": "object",
+          "v": "corj/v0.5",
         }
       `);
       expect(consoleWarnSpy.mock.calls).toMatchInlineSnapshot(`
@@ -400,16 +378,14 @@ describe('CorjMaker', () => {
       delete report.stack;
       expect(report).toMatchInlineSnapshot(`
         Object {
-          "_m": Array [
-            "corj/v0.4",
-            "String",
-            "safe-stable-stringify@2.4.1",
-          ],
           "as_json": null,
+          "as_json_format": "safe-stable-stringify@2.4.1",
           "as_string": "[object Object]",
+          "as_string_format": "String",
           "constructor_name": null,
           "instanceof_error": false,
           "typeof": "object",
+          "v": "corj/v0.5",
         }
       `);
       expect(consoleWarnSpy.mock.calls).toMatchInlineSnapshot(`
@@ -448,16 +424,14 @@ describe('CorjMaker', () => {
       delete report.stack;
       expect(report).toMatchInlineSnapshot(`
         Object {
-          "_m": Array [
-            "corj/v0.4",
-            "String",
-            "safe-stable-stringify@2.4.1",
-          ],
           "as_json": null,
+          "as_json_format": "safe-stable-stringify@2.4.1",
           "as_string": "[object Object]",
+          "as_string_format": "String",
           "constructor_name": null,
           "instanceof_error": false,
           "typeof": "object",
+          "v": "corj/v0.5",
         }
       `);
       expect(consoleWarnSpy.mock.calls).toMatchInlineSnapshot(`
@@ -494,17 +468,15 @@ describe('CorjMaker', () => {
       delete report.stack;
       expect(report).toMatchInlineSnapshot(`
         Object {
-          "_m": Array [
-            "corj/v0.4",
-            "String",
-            "safe-stable-stringify@2.4.1",
-          ],
           "as_json": null,
+          "as_json_format": "safe-stable-stringify@2.4.1",
           "as_string": "[object Object]",
+          "as_string_format": "String",
           "constructor_name": "Object",
           "instanceof_error": false,
           "message": null,
           "typeof": "object",
+          "v": "corj/v0.5",
         }
       `);
       expect(consoleWarnSpy.mock.calls).toMatchInlineSnapshot(`
@@ -541,26 +513,24 @@ describe('CorjMaker', () => {
       delete report.stack;
       expect(report).toMatchInlineSnapshot(`
         Object {
-          "_m": Array [
-            "corj/v0.4",
-            "String",
-            "safe-stable-stringify@2.4.1",
-          ],
           "as_json": null,
+          "as_json_format": "safe-stable-stringify@2.4.1",
           "as_string": "[object Object]",
+          "as_string_format": "String",
           "constructor_name": "Object",
           "instanceof_error": false,
           "typeof": "object",
+          "v": "corj/v0.5",
         }
       `);
       expect(consoleWarnSpy.mock.calls).toMatchInlineSnapshot(`
         Array [
           Array [
-            "caught-object-report-json: Caught when building key \\"as_json\\" for report json.",
+            "caught-object-report-json: Caught when building key \\"stack\\" for report json.",
             [Error: (in .stack) Yes, I'm a piece of shit for throwing here and I know it],
           ],
           Array [
-            "caught-object-report-json: Caught when building key \\"stack\\" for report json.",
+            "caught-object-report-json: Caught when building key \\"as_json\\" for report json.",
             [Error: (in .stack) Yes, I'm a piece of shit for throwing here and I know it],
           ],
         ]
@@ -608,12 +578,16 @@ describe('CorjMaker', () => {
           ,
         ],
         Array [
-          "_m",
-          Array [
-            "corj/v0.4",
-            "String",
-            "safe-stable-stringify@2.4.1",
-          ],
+          "as_string_format",
+          "String",
+        ],
+        Array [
+          "as_json_format",
+          "safe-stable-stringify@2.4.1",
+        ],
+        Array [
+          "v",
+          "corj/v0.5",
         ],
       ]
     `);
@@ -641,8 +615,27 @@ describe('CorjMaker', () => {
       const caught = new Error(`I'm just a regular Error`);
       const report = corj.make(caught);
       delete report.stack;
-      expect(report).toMatchInlineSnapshot();
-      expect(consoleErrorSpy.mock.calls).toMatchInlineSnapshot();
+      expect(report).toMatchInlineSnapshot(`
+        Object {
+          "constructor_name": "Error",
+          "instanceof_error": true,
+          "message": "I'm just a regular Error",
+          "typeof": "object",
+        }
+      `);
+      expect(consoleErrorSpy.mock.calls).toMatchInlineSnapshot(`
+        Array [
+          Array [
+            "caught-object-report-json:",
+            "Caught somewhere along the way of producing report completely unexpectedly!",
+            "Resulting report JSON is not going to be complete, but will include all fields produced before error.",
+            "Level:",
+            0,
+            "Caught New:",
+            [Error: oh wow],
+          ],
+        ]
+      `);
     });
 
     test('onCaughtMaking throws', () => {
@@ -660,6 +653,7 @@ describe('CorjMaker', () => {
       expect(report).toMatchInlineSnapshot(`
         Object {
           "as_string": "undefined",
+          "as_string_format": "String",
           "instanceof_error": false,
           "typeof": "undefined",
         }
@@ -668,9 +662,11 @@ describe('CorjMaker', () => {
         Array [
           Array [
             "caught-object-report-json:",
-            "Caught somewhere along the way of producing report.",
+            "Caught somewhere along the way of producing report completely unexpectedly!",
             "Resulting report JSON is not going to be complete, but will include all fields produced before error.",
-            "Caught:",
+            "Level:",
+            0,
+            "Caught New:",
             [Error: I was supposed to handle errors not throw them ...],
           ],
         ]

@@ -216,7 +216,7 @@ try {
 prints form `onCaughtMaking` callback
 
 ```
-onCaughtMaking:: { caughtDuring: { key: 'as_json' } }
+onCaughtMaking:: { context: { key: 'as_json' } }
 onCaughtMaking:: {
   caught: Error: Could not convert caught object to json string using safe-stable-stringify@2.4.1.
       at makeProp_as_json (/home/user/work-dir/caught-object-report-json/src/index.ts:273:19)

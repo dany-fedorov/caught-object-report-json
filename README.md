@@ -204,8 +204,8 @@ try {
   throw undefined;
 } catch (caught: unknown) {
   const report = makeCaughtObjectReportJson(caught, {
-    onCaughtMaking: (caught, { caughtDuring }) => {
-      console.log("onCaughtMaking::", { caughtDuring });
+    onCaughtMaking: (caught, context) => {
+      console.log("onCaughtMaking::", { context });
       console.log("onCaughtMaking::", { caught });
     }
   });

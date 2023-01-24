@@ -278,7 +278,7 @@ prints
 
 ## 5. [Nested errors](https://github.com/dany-fedorov/caught-object-report-json/blob/main/examples/example-5-nested-errors.ts)
 
-Data found in `cause` property or `errors`  property (for `AggregateError`) are converted to JSON the same way as
+Data found in `cause` property or `errors`  property (for `AggregateError`) is converted to JSON the same way as
 top-level object. Control max nesing level with `maxNestingLevels` option.
 
 <sub>(Run with `npm run ts-file ./examples/example-5-nested-errors.ts`)</sub>

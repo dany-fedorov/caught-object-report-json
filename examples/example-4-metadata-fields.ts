@@ -8,6 +8,7 @@ try {
       $schema: true,
       as_json_format: false,
       as_string_format: false,
+      children_sources: false,
       v: false
     },
   });

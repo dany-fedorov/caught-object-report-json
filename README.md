@@ -18,21 +18,22 @@ Intended use cases are
 
 Please don't hesitate to open an issue if your use case for this type of library is not met.
 
-- [Examples](#examples)
-    - [1. Syntax error](#1-syntax-error)
-    - [2. Axios error](#2-axios-error)
-    - [3. Not an error object thrown](#3-not-an-error-object-thrown)
-    - [4. Options](#4-options)
-    - [5. Nested errors](#5-nested-errors)
-    - [6. Using CorjMaker instance](#6-using-corjmaker-instance)
-- [API](#api)
-    - [makeCaughtObjectReportJson(caught)](#makecaughtobjectreportjsoncaught)
-    - [new CorjMaker(options)](#new-corjmakeroptions)
-    - [type CaughtObjectReportJson](#type-caughtobjectreportjson)
-- [Links](#links)
-    - [GitHub](#github)
-    - [Npm](#npm)
-    - [CORJ JSON Schema - corj/v0.5](#corj-json-schema---corjv05)
+* [Examples](#examples)
+    * [1. Syntax error](#1-syntax-error)
+    * [2. Axios error](#2-axios-error)
+    * [3. Not an error object thrown](#3-not-an-error-object-thrown)
+    * [4. Metadata fields](#4-metadata-fields)
+    * [5. Nested errors: Basic](#5-nested-errors--basic)
+    * [6. Nested errors: Nesting levels](#6-nested-errors--nesting-levels)
+    * [7. Using CorjMaker instance to provide options just once](#7-using-corjmaker-instance-to-provide-options-just-once)
+* [API](#api)
+  * [makeCaughtObjectReportJson(caught)](#makecaughtobjectreportjson--caught-)
+  * [new CorjMaker(options)](#new-corjmaker--options-)
+  * [type CaughtObjectReportJson](#type-caughtobjectreportjson)
+* [Links](#links)
+  * [GitHub](#github)
+  * [Npm](#npm)
+  * [CORJ JSON Schema - corj/v0.5](#corj-json-schema---corjv05)
 
 # Examples
 

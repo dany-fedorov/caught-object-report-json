@@ -1,3 +1,5 @@
+## [6.0.1](https://github.com/dany-fedorov/caught-object-report-json/compare/v6.0.0...v6.0.1) (2023-01-28)
+
 # [6.0.0](https://github.com/dany-fedorov/caught-object-report-json/compare/v5.0.0...v6.0.0) (2023-01-28)
 
 

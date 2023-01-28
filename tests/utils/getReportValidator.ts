@@ -8,7 +8,7 @@ ajv.addSchema(
   JSON.parse(
     String(
       fs.readFileSync(
-        path.join(__dirname, '../../schema-versions/corj/v0.4.json'),
+        path.join(__dirname, '../../schema-versions/corj/v0.6.json'),
       ),
     ),
   ),

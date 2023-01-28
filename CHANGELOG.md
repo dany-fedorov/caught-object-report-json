@@ -1,3 +1,20 @@
+# [6.0.0](https://github.com/dany-fedorov/caught-object-report-json/compare/v5.0.0...v6.0.0) (2023-01-28)
+
+
+### Bug Fixes
+
+* Fix and decompose schema ([6894c89](https://github.com/dany-fedorov/caught-object-report-json/commit/6894c89aca560d8fb3aff29bcaa826325db3b9a8))
+
+
+### Features
+
+* Flatten nested error objects ([c88f7fd](https://github.com/dany-fedorov/caught-object-report-json/commit/c88f7fd4814bc01ab6cbf24a126a692cc92882fb))
+
+
+### BREAKING CHANGES
+
+* Overhaul of all APIs
+
 # [5.0.0](https://github.com/dany-fedorov/caught-object-report-json/compare/v4.1.5...v5.0.0) (2023-01-24)
 
 

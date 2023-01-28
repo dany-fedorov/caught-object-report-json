@@ -80,8 +80,21 @@ export type CaughtObjectReportJson = {
    * - [safe-stable-stringify@2.4.1 on NPM](https://www.npmjs.com/package/safe-stable-stringify)
    */
   as_json: CorjJsonValue<CorjJsonPrimitive>;
+  /**
+   * A flattened representation of tree of nested error objects, collected from properties listed in `children_sources`.
+   */
   children?: (CaughtObjectReportJsonChildren | null)[];
+  /**
+   * Is set if this `caught` object has fields reported in `children_sources`, but they were omitted by implementation.
+   */
   children_omitted_reason?: string;
+  /**
+   * Array of property names of caught object to collect into `children` property.
+   *
+   * Content of this field corresponds to a setting {@link CorjMakerOptions | CorjMakerOptions['childrenSources']}.
+   * Adding this field is controlled by {@link CorjMakerOptions | CorjMakerOptions['metadataFields']['children_sources']}.
+   */
+  children_sources: string[];
   /**
    * Result of
    * ```typescript
@@ -223,6 +236,9 @@ export type CorjMakerOptions = {
    * - 2 means `caught.cause.cause` is included, but `caught.cause.cause.cause` is not.
    */
   maxChildrenLevel: number;
+  /**
+   * Fields to use as children.
+   */
   childrenSources: string[];
   /**
    * This function is called when {@link CorjMaker.make | CorjMaker.make} fails to produce `as_json` or `as_string` fields of report json.

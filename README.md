@@ -1,11 +1,11 @@
 # Caught Object Report JSON
 
-![Jest coverage](https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/badges/coverage-jest%20coverage.svg)
-[![semantic-release: angular](https://img.shields.io/badge/semantic--release-angular-e10079?logo=semantic-release)](https://github.com/semantic-release/semantic-release)
-[![Code Style by Prettier](https://img.shields.io/badge/code_style-prettier-ff69b4.svg)](https://github.com/prettier/prettier)
+![Jest coverage](https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/badges/coverage-jest%20coverage.svg "Jest coverage")
+[![semantic-release: angular](https://img.shields.io/badge/semantic--release-angular-e10079?logo=semantic-release "semantic-release: angular")](https://github.com/semantic-release/semantic-release)
+[![Code Style by Prettier](https://img.shields.io/badge/code_style-prettier-ff69b4.svg "Code Style by Prettier")](https://github.com/prettier/prettier)
 [![Strictest TypeScript Config](https://img.shields.io/badge/typescript-strictest-blue "Strictest TypeScript Config")](https://www.npmjs.com/package/@tsconfig/strictest)
-[![Package License MIT](https://img.shields.io/npm/l/caught-object-report-json.svg)](https://www.npmjs.org/package/caught-object-report-json)
-[![Npm Version](https://img.shields.io/npm/v/caught-object-report-json.svg)](https://www.npmjs.org/package/caught-object-report-json)
+[![Package License MIT](https://img.shields.io/npm/l/caught-object-report-json.svg "Package License MIT")](https://www.npmjs.org/package/caught-object-report-json)
+[![Npm Version](https://img.shields.io/npm/v/caught-object-report-json.svg "Npm Version")](https://www.npmjs.org/package/caught-object-report-json)
 
 In JavaScript, you can apply `throw` statement to any object, not just to `Error` instances. For
 example `throw Infinity` is valid JS code.
@@ -27,13 +27,13 @@ Please don't hesitate to open an issue if your use case for this type of library
     * [6. Nested errors: Nesting levels](#6-nested-errors-nesting-levels)
     * [7. Using CorjMaker instance to provide options just once](#7-using-corjmaker-instance-to-provide-options-just-once)
 * [API](#api)
-  * [makeCaughtObjectReportJson(caught)](#makecaughtobjectreportjson-caught)
-  * [new CorjMaker(options)](#new-corjmaker-options)
-  * [type CaughtObjectReportJson](#type-caughtobjectreportjson)
+    * [makeCaughtObjectReportJson(caught)](#makecaughtobjectreportjson-caught)
+    * [new CorjMaker(options)](#new-corjmaker-options)
+    * [type CaughtObjectReportJson](#type-caughtobjectreportjson)
 * [Links](#links)
-  * [GitHub](#github)
-  * [Npm](#npm)
-  * [CORJ JSON Schema - corj/v0.6](#corj-json-schema---corjv06)
+    * [GitHub](#github)
+    * [Npm](#npm)
+    * [CORJ JSON Schema - corj/v0.6](#corj-json-schema---corjv06)
 
 # Examples
 

@@ -27,13 +27,13 @@ Please don't hesitate to open an issue if your use case for this type of library
     * [6. Nested errors: Nesting levels](#6-nested-errors--nesting-levels)
     * [7. Using CorjMaker instance to provide options just once](#7-using-corjmaker-instance-to-provide-options-just-once)
 * [API](#api)
-  * [makeCaughtObjectReportJson(caught)](#makecaughtobjectreportjson--caught-)
-  * [new CorjMaker(options)](#new-corjmaker--options-)
+  * [makeCaughtObjectReportJson(caught)](#makecaughtobjectreportjson-caught)
+  * [new CorjMaker(options)](#new-corjmaker-options)
   * [type CaughtObjectReportJson](#type-caughtobjectreportjson)
 * [Links](#links)
   * [GitHub](#github)
   * [Npm](#npm)
-  * [CORJ JSON Schema - corj/v0.5](#corj-json-schema---corjv05)
+  * [CORJ JSON Schema - corj/v0.6](#corj-json-schema---corjv06)
 
 # Examples
 
@@ -560,6 +560,6 @@ https://github.com/dany-fedorov/caught-object-report-json.git
 
 https://www.npmjs.com/package/caught-object-report-json
 
-##### CORJ JSON Schema - corj/v0.5
+##### CORJ JSON Schema - corj/v0.6
 
-https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.5.json
+https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.6.json

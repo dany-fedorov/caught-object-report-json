@@ -1,3 +1,10 @@
+# [6.1.0](https://github.com/dany-fedorov/caught-object-report-json/compare/v6.0.5...v6.1.0) (2023-01-29)
+
+
+### Features
+
+* Conditionally print "Muffling error" message ([20a1cc6](https://github.com/dany-fedorov/caught-object-report-json/commit/20a1cc68ef283a73c355c54c13d96acd609528d7))
+
 ## [6.0.5](https://github.com/dany-fedorov/caught-object-report-json/compare/v6.0.4...v6.0.5) (2023-01-29)
 
 ## [6.0.4](https://github.com/dany-fedorov/caught-object-report-json/compare/v6.0.3...v6.0.4) (2023-01-29)

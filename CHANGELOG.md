@@ -1,3 +1,10 @@
+## [6.0.3](https://github.com/dany-fedorov/caught-object-report-json/compare/v6.0.2...v6.0.3) (2023-01-29)
+
+
+### Bug Fixes
+
+* Fix children_omitted_reason field ([86914aa](https://github.com/dany-fedorov/caught-object-report-json/commit/86914aa2e16c33cc411af2bd3c8a2d98d7c404de))
+
 ## [6.0.2](https://github.com/dany-fedorov/caught-object-report-json/compare/v6.0.1...v6.0.2) (2023-01-28)
 
 ## [6.0.1](https://github.com/dany-fedorov/caught-object-report-json/compare/v6.0.0...v6.0.1) (2023-01-28)

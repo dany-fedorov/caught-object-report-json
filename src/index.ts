@@ -728,8 +728,8 @@ function makeChildrenEntries(
   }
   const baseChildrenEntries = [
     ['children_sources', makeProp_children_sources(maker.options)],
-    ['children_omitted', (root as any).omittedReason],
-  ].filter(([_, v]) => v !== undefined) as [string, unknown][];
+    ['children_omitted_reason', (root as any).omittedReason],
+  ].filter(([, v]) => v !== undefined) as [string, unknown][];
   if (childrenObject.length === 0) {
     return baseChildrenEntries;
   }
@@ -746,21 +746,23 @@ function makeChildrenEntries(
             id: no.id,
           },
         );
-        return Object.fromEntries([
-          ['child_id', no.id],
-          ['child_path', no.path],
-          ['child_level', no.level],
-          ...mainEntries,
-          // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-          // @ts-ignore
-          ['children', no.nestedIds.length > 0 ? no.nestedIds : undefined],
-          ['children_omitted', (no as any).omittedReason],
-          ...metadataEntries,
-        ]);
+        return Object.fromEntries(
+          [
+            ['child_id', no.id],
+            ['child_path', no.path],
+            ['child_level', no.level],
+            ...mainEntries,
+            // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+            // @ts-ignore
+            ['children', no.nestedIds.length > 0 ? no.nestedIds : undefined],
+            ['children_omitted_reason', (no as any).omittedReason],
+            ...metadataEntries,
+          ].filter(([, v]) => v !== undefined),
+        );
       }),
     ],
     ...baseChildrenEntries,
-  ].filter(([_, v]) => v !== undefined) as [string, unknown][];
+  ].filter(([, v]) => v !== undefined) as [string, unknown][];
 }
 
 function makeParentObjectSelfEntries(

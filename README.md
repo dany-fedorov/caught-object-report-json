@@ -397,7 +397,7 @@ prints
 The following example showcases some nuances of processing nested errors.
 
 - Because of `maxChildrenLevel` set to `2`, "lvl 3" errors are not included
-- When there are nested error object detected, but level is greater than `maxChildrenLevel` setting, `children_omitted`
+- When there are nested error object detected, but level is greater than `maxChildrenLevel` setting, `children_omitted_reason`
   field is added
 - Because `childrenSources` option includes `nestedErrors` field, it is included in `children` array
 - Because nested objects are flattened, `children` prop for nested objects includes list of `child_id`s and not objects
@@ -480,7 +480,7 @@ prints
       "as_string": "Error: lvl 2; obj 0.0",
       "as_json": {},
       "stack": "Error: lvl 2; obj 0.0\n    at Object.<anonymous> (/home/user/work-dir/caught-object-report-json/examples/example-6-nested-errors-2-nesting-levels.ts:13:9)\n    at Module._compile (node:internal/modules/cjs/loader:1120:14)\n    at Module.m._compile (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/index.ts:1618:23)\n    at Module._extensions..js (node:internal/modules/cjs/loader:1174:10)\n    at Object.require.extensions.<computed> [as .ts] (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/index.ts:1621:12)\n    at Module.load (node:internal/modules/cjs/loader:998:32)\n    at Function.Module._load (node:internal/modules/cjs/loader:839:12)\n    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:81:12)\n    at phase4 (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/bin.ts:649:14)\n    at bootstrap (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/bin.ts:95:10)",
-      "children_omitted": "Reached max depth - 2"
+      "children_omitted_reason": "Reached max depth - 2"
     },
     {
       "child_id": 3,
@@ -548,7 +548,7 @@ Use `CorjMaker#make` instance method to produce `CaughtObjectReportJson`.
 #### [type CaughtObjectReportJson](https://dany-fedorov.github.io/caught-object-report-json/types/CaughtObjectReportJson.html)
 
 Report object produced by `CorjMaker#make`.
-See the link for details about properties.
+See the link for details about properties or check out JSON Schema - all properties have descriptions.
 
 # Links
 

@@ -32,6 +32,8 @@ Intended use cases are
 
 Please don't hesitate to open an issue if your use case for this type of library is not met.
 
+[![asciicast](https://asciinema.org/a/555407.svg =300x300)](https://asciinema.org/a/555407)
+
 * [Examples](#examples)
     * [1. Syntax error](#1-syntax-error)
     * [2. Axios error](#2-axios-error)

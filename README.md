@@ -32,9 +32,7 @@ Intended use cases are
 
 Please don't hesitate to open an issue if your use case for this type of library is not met.
 
-[![asciicast](https://asciinema.org/a/555407.svg width=100 height=100)](https://asciinema.org/a/555407)
-![asciicast](https://asciinema.org/a/555407.svg width=100 height=100)
-<a href="https://asciinema.org/a/555407"><img src="https://asciinema.org/a/555407.svg" align="left" height="48" width="48" ></a>
+<a href="https://asciinema.org/a/555407"><img src="https://asciinema.org/a/555407.svg" align="left" height="349" width="349" ></a>
 
 * [Examples](#examples)
     * [1. Syntax error](#1-syntax-error)

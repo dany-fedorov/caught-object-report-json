@@ -1,3 +1,10 @@
+# [6.2.0](https://github.com/dany-fedorov/caught-object-report-json/compare/v6.1.1...v6.2.0) (2023-01-29)
+
+
+### Features
+
+* Exclude children sources from as_json ([460cc45](https://github.com/dany-fedorov/caught-object-report-json/commit/460cc45ba7f59ee718366c0acfcfe9943601e875))
+
 ## [6.1.1](https://github.com/dany-fedorov/caught-object-report-json/compare/v6.1.0...v6.1.1) (2023-01-29)
 
 # [6.1.0](https://github.com/dany-fedorov/caught-object-report-json/compare/v6.0.5...v6.1.0) (2023-01-29)

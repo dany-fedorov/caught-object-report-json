@@ -7,14 +7,28 @@
 [![Package License MIT](https://img.shields.io/npm/l/caught-object-report-json.svg "Package License MIT")](https://www.npmjs.org/package/caught-object-report-json)
 [![Npm Version](https://img.shields.io/npm/v/caught-object-report-json.svg "Npm Version")](https://www.npmjs.org/package/caught-object-report-json)
 
-In JavaScript, you can apply `throw` statement to any object, not just to `Error` instances. For
-example `throw Infinity` is valid JS code.
+- JavaScript does not have a default way to represent `Error` object as JSON.
+- No standard way to extend error object with custom properties. It is natural to augment thrown error with details, but
+  everybody is going to do it
+  their own way. There is not standard `details` field.
+- `Error` object can have nested errors,
+  see [`AggregateError`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/AggregateError)
+  and [`cause` property](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Error/cause#specifications).
+  This can be a custom property of course like `rootCauses`. This means that occasionally an error you catch is a deeply
+  nested tree.
+- Even worse, in JavaScript, you can apply `throw` statement to any object, not just to `Error` instances. For
+  example `throw Infinity` is valid JS code.
+- TypeScript does not attempt to make throwing errors type-safe. Every time you catch, the best you can say about caught
+  object is that it is `unknown`.
+
+All these things make serializing caught object to JSON a non-trivial problem.
+
 This library attempts to provide a useful JSON representation for any JS object thrown and caught.
 
 Intended use cases are
 
 - Structured logging
-- Communicating thrown objects through network, e.g. REST API or GraphQL response
+- Sending caught objects through network, e.g. REST API or GraphQL response
 
 Please don't hesitate to open an issue if your use case for this type of library is not met.
 
@@ -397,7 +411,8 @@ prints
 The following example showcases some nuances of processing nested errors.
 
 - Because of `maxChildrenLevel` set to `2`, "lvl 3" errors are not included
-- When there are nested error object detected, but level is greater than `maxChildrenLevel` setting, `children_omitted_reason`
+- When there are nested error object detected, but level is greater than `maxChildrenLevel`
+  setting, `children_omitted_reason`
   field is added
 - Because `childrenSources` option includes `nestedErrors` field, it is included in `children` array
 - Because nested objects are flattened, `children` prop for nested objects includes list of `child_id`s and not objects

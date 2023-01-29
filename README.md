@@ -36,6 +36,8 @@ Intended use cases are
 
 Please don't hesitate to open an issue if your use case for this type of library is not met.
 
+# Table Of Contents
+
 * [Motivation](#motivation)
 * [Examples](#examples)
     * [1. Syntax error](#1-syntax-error)

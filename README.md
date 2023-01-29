@@ -7,6 +7,8 @@
 [![Package License MIT](https://img.shields.io/npm/l/caught-object-report-json.svg "Package License MIT")](https://www.npmjs.org/package/caught-object-report-json)
 [![Npm Version](https://img.shields.io/npm/v/caught-object-report-json.svg "Npm Version")](https://www.npmjs.org/package/caught-object-report-json)
 
+<a href="https://asciinema.org/a/555407"><img src="https://asciinema.org/a/555407.svg" height="749" width="749" ></a>
+
 - JavaScript does not have a default way to represent `Error` object as JSON.
 - No standard way to extend error object with custom properties. It is natural to augment thrown error with details, but
   everybody is going to do it
@@ -31,8 +33,6 @@ Intended use cases are
 - Sending caught objects through network, e.g. REST API or GraphQL response
 
 Please don't hesitate to open an issue if your use case for this type of library is not met.
-
-<a href="https://asciinema.org/a/555407"><img src="https://asciinema.org/a/555407.svg" height="549" width="549" ></a>
 
 * [Examples](#examples)
     * [1. Syntax error](#1-syntax-error)

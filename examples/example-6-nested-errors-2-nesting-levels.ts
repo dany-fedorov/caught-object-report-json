@@ -19,10 +19,13 @@ const caught = new Error('lvl 0', {
 });
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
-caught.nestedErrors = 'lvl 1; obj 1';
+caught.nestedError = 'lvl 1; obj 1';
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore
+caught.extraField = 'error info';
 const report = makeCaughtObjectReportJson(caught, {
   maxChildrenLevel: 2,
-  childrenSources: ['cause', 'errors', 'nestedErrors'],
+  childrenSources: ['cause', 'errors', 'nestedError'],
   metadataFields: {
     $schema: false,
     as_json_format: false,

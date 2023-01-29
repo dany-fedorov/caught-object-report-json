@@ -7,6 +7,8 @@
 [![Package License MIT](https://img.shields.io/npm/l/caught-object-report-json.svg "Package License MIT")](https://www.npmjs.org/package/caught-object-report-json)
 [![Npm Version](https://img.shields.io/npm/v/caught-object-report-json.svg "Npm Version")](https://www.npmjs.org/package/caught-object-report-json)
 
+Intro to this lib's purpose in 02:08
+
 <a href="https://asciinema.org/a/555407"><img src="https://asciinema.org/a/555407.svg" height="749" width="749" ></a>
 
 # Motivation
@@ -421,9 +423,10 @@ The following example showcases some nuances of processing nested errors.
 - When there are nested error object detected, but level is greater than `maxChildrenLevel`
   setting, `children_omitted_reason`
   field is added
-- Because `childrenSources` option includes `nestedErrors` field, it is included in `children` array
+- Because `childrenSources` option includes `nestedError` field, it is included in `children` array
+- Because `childrenSources` option includes `nestedError` field, it is excluded from `as_json` field
 - Because nested objects are flattened, `children` prop for nested objects includes list of `child_id`s and not objects
-- If children source is an array, report is made for each element
+- If children source value is an array, report is made for each element
 
 <sub>(Run with `npm run ts-file ./examples/example-6-nested-errors-2-nesting-levels.ts`)</sub>
 
@@ -437,6 +440,7 @@ const caught = new Error("lvl 0", {
   })
 });
 caught.nestedErrors = 'lvl 1; obj 1';
+caught.extraField = 'error info';
 const report = makeCaughtObjectReportJson(caught, {
   maxChildrenLevel: 2,
   childrenSources: ['cause', 'errors', 'nestedErrors'],
@@ -461,7 +465,7 @@ prints
   "message": "lvl 0",
   "as_string": "Error: lvl 0",
   "as_json": {
-    "nestedErrors": "lvl 1; obj 1"
+    "extraField": "error info"
   },
   "stack": "Error: lvl 0\n    at Object.<anonymous> (/home/user/work-dir/caught-object-report-json/examples/example-6-nested-errors-2-nesting-levels.ts:5:16)\n    at Module._compile (node:internal/modules/cjs/loader:1120:14)\n    at Module.m._compile (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/index.ts:1618:23)\n    at Module._extensions..js (node:internal/modules/cjs/loader:1174:10)\n    at Object.require.extensions.<computed> [as .ts] (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/index.ts:1621:12)\n    at Module.load (node:internal/modules/cjs/loader:998:32)\n    at Function.Module._load (node:internal/modules/cjs/loader:839:12)\n    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:81:12)\n    at phase4 (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/bin.ts:649:14)\n    at bootstrap (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/bin.ts:95:10)",
   "children": [
@@ -483,7 +487,7 @@ prints
     },
     {
       "child_id": 1,
-      "child_path": "$.nestedErrors",
+      "child_path": "$.nestedError",
       "child_level": 1,
       "instanceof_error": false,
       "typeof": "string",

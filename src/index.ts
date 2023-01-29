@@ -556,7 +556,15 @@ function makeProp_as_json(
 ): CaughtObjectAsJsonReport {
   const format = CORJ_AS_JSON_FORMAT_SAFE_STABLE_STRINGIFY_2_4_1;
   try {
-    const jsonString = jsonStringify(caught);
+    const jsonString = jsonStringify(
+      caught,
+      function (this: object, key: string, value: unknown) {
+        if (this === caught && options.childrenSources.includes(key)) {
+          return undefined;
+        }
+        return value;
+      },
+    );
     if (typeof jsonString !== 'string') {
       const err = new Error(
         `Could not convert caught object to json string using ${format}.`,

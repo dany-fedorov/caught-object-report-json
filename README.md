@@ -32,7 +32,7 @@ Intended use cases are
 
 Please don't hesitate to open an issue if your use case for this type of library is not met.
 
-<a href="https://asciinema.org/a/555407"><img src="https://asciinema.org/a/555407.svg" height="349" width="349" ></a>
+<a href="https://asciinema.org/a/555407"><img src="https://asciinema.org/a/555407.svg" height="549" width="549" ></a>
 
 * [Examples](#examples)
     * [1. Syntax error](#1-syntax-error)

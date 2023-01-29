@@ -22,15 +22,30 @@
 <a href="https://www.npmjs.com/package/@tsconfig/strictest"><img src="https://img.shields.io/badge/typescript-strictest-blue" alt="Strictest TypeScript Config" title="Strictest TypeScript Config"></a>
 <a href="https://www.npmjs.org/package/caught-object-report-json"><img src="https://img.shields.io/npm/l/caught-object-report-json.svg" alt="Package License MIT" title="Package License MIT"></a>
 <a href="https://www.npmjs.org/package/caught-object-report-json"><img src="https://img.shields.io/npm/v/caught-object-report-json.svg" alt="Npm Version" title="Npm Version"></a></p>
-<p>In JavaScript, you can apply <code>throw</code> statement to any object, not just to <code>Error</code> instances. For
-example <code>throw Infinity</code> is valid JS code.
-This library attempts to provide a useful JSON representation for any JS object thrown and caught.</p>
+<ul>
+<li>JavaScript does not have a default way to represent <code>Error</code> object as JSON.</li>
+<li>No standard way to extend error object with custom properties. It is natural to augment thrown error with details, but
+everybody is going to do it
+their own way. There is not standard <code>details</code> field.</li>
+<li><code>Error</code> object can have nested errors,
+see <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/AggregateError"><code>AggregateError</code></a>
+and <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Error/cause#specifications"><code>cause</code> property</a>.
+This can be a custom property of course like <code>rootCauses</code>. This means that occasionally an error you catch is a deeply
+nested tree.</li>
+<li>Even worse, in JavaScript, you can apply <code>throw</code> statement to any object, not just to <code>Error</code> instances. For
+example <code>throw Infinity</code> is valid JS code.</li>
+<li>TypeScript does not attempt to make throwing errors type-safe. Every time you catch, the best you can say about caught
+object is that it is <code>unknown</code>.</li>
+</ul>
+<p>All these things make serializing caught object to JSON a non-trivial problem.</p>
+<p>This library attempts to provide a useful JSON representation for any JS object thrown and caught.</p>
 <p>Intended use cases are</p>
 <ul>
 <li>Structured logging</li>
-<li>Communicating thrown objects through network, e.g. REST API or GraphQL response</li>
+<li>Sending caught objects through network, e.g. REST API or GraphQL response</li>
 </ul>
 <p>Please don&#39;t hesitate to open an issue if your use case for this type of library is not met.</p>
+<p><a href="https://asciinema.org/a/555407">![asciicast](https://asciinema.org/a/555407.svg =300x300)</a></p>
 <ul>
 <li><a href="#examples">Examples</a><ul>
 <li><a href="#1-syntax-error">1. Syntax error</a></li>
@@ -137,7 +152,8 @@ Caught Object Report JSON abstracts this into <code>children</code> property.</p
 <p>The following example showcases some nuances of processing nested errors.</p>
 <ul>
 <li>Because of <code>maxChildrenLevel</code> set to <code>2</code>, &quot;lvl 3&quot; errors are not included</li>
-<li>When there are nested error object detected, but level is greater than <code>maxChildrenLevel</code> setting, <code>children_omitted_reason</code>
+<li>When there are nested error object detected, but level is greater than <code>maxChildrenLevel</code>
+setting, <code>children_omitted_reason</code>
 field is added</li>
 <li>Because <code>childrenSources</code> option includes <code>nestedErrors</code> field, it is included in <code>children</code> array</li>
 <li>Because nested objects are flattened, <code>children</code> prop for nested objects includes list of <code>child_id</code>s and not objects</li>

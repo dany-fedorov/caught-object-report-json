@@ -231,7 +231,8 @@ export type CorjMakerOptions = {
         children_sources: boolean;
       };
   /**
-   * Controls how much levels of nested `cause` or `errors` props will be included.
+   * Controls how much levels of nested errors will be included.
+   * For example
    * - 1 means `caught.cause` is included, but `caught.cause.cause` is not.
    * - 2 means `caught.cause.cause` is included, but `caught.cause.cause.cause` is not.
    */
@@ -241,11 +242,11 @@ export type CorjMakerOptions = {
    */
   childrenSources: string[];
   /**
-   * This function is called when {@link CorjMaker.make | CorjMaker.make} fails to produce `as_json` or `as_string` fields of report json.
+   * This function is called when {@link CorjMaker.make | CorjMaker.make} fails to produce along the way of producing a report.
    */
   onCaughtMaking: CorjMakerOnCaughtMakingCallbackFn;
   /**
-   *
+   * Print warning when `onCaughtMaking` is not set, or when `onCaughtMaking` itself threw an error.
    */
   printWarningsOnUnhandledErrors: boolean;
 };
@@ -368,9 +369,11 @@ function handleCaught(
       }
     }
   } else {
-    console.warn(
-      '[caught-object-report-json] Muffling error because `onCaughtMaking` is not set.',
-    );
+    if (options.printWarningsOnUnhandledErrors) {
+      console.warn(
+        '[caught-object-report-json] Muffling error because `onCaughtMaking` is not set.',
+      );
+    }
   }
 }
 

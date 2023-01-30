@@ -7,7 +7,7 @@
 [![Package License MIT](https://img.shields.io/npm/l/caught-object-report-json.svg "Package License MIT")](https://www.npmjs.org/package/caught-object-report-json)
 [![Npm Version](https://img.shields.io/npm/v/caught-object-report-json.svg "Npm Version")](https://www.npmjs.org/package/caught-object-report-json)
 
-Intro to this lib's purpose in 02:08
+02:08 intro
 
 <a href="https://asciinema.org/a/555407"><img src="https://asciinema.org/a/555407.svg" height="749" width="749" ></a>
 

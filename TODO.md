@@ -1,0 +1,7 @@
+- [ ] Try to use safe-json-values instead. I think it is better (look more into this). The challenge is to convert it to cjs fist.
+- [ ] Try cucumber testing to better maintain the list of test cases. Maybe the list can serve (or be converted to) a list of edge cases that this lib handles for the user.
+- [ ] Refactor to use better TypeScript, make code more readable.
+- [ ] Mention JSON.stringify(e, Object.getOwnPropertyNames(e), 2) as a relatively good quick workaround, but point out edge cases with nested errors.
+- [ ] Decide on a single source of truth when documenting separate properties of the report + behavior of the library. Should it be same source of truth or not?
+- [ ] Reread and fix the docs
+- [ ] Write more tests, maybe completely refactor existing tests, get to ~99% coverage.

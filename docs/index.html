@@ -101,18 +101,19 @@ slap <code>caught-object-report-json</code> on anything.</li>
 <li>Logs errors that happen when producing JSON report (configurable). This means that even
 when <code>caught-object-report-json</code> fails to produce complete report, it will tell you why.</li>
 <li>Handles nested errors<ol>
-<li><code>Object.getOwnPropertyNames(err)</code> will not apply to nested errors, but <code>caught-object-report-json</code> will process
-all found nested objects the same way.</li>
+<li>Replacer array obtained by <code>Object.getOwnPropertyNames</code> will apply to nested errors, but they can have a
+different set of property names, and you can miss on something important.
+<code>caught-object-report-json</code> will process all found nested objects the same way.</li>
 <li><code>caught-object-report-json</code> flattens nested errors. Array is more suitable for processing than
 nested object. For example, you can write a pseudocode search condition like this with JSONPath
 query - <code>$.children[:].constructor_name == &quot;SyntaxError&quot;</code>. It will search through all children in flattened array
 no matter how deeply nested. Same is not easily attainable for nested objects.</li>
 </ol>
 </li>
-<li>Provides a JSON format which is<ol>
+<li><code>caught-object-report-json</code> guarantees a JSON format which is<ol>
 <li>Same for any object processed.</li>
 <li>Has metadata fields that hint into how it was produced (configurable).</li>
-<li>Has JSON Schema as source of truth about the format.</li>
+<li>Has JSON Schema as a source of truth.</li>
 </ol>
 </li>
 </ul>
@@ -210,7 +211,8 @@ field is added</li>
 <li>Because <code>childrenSources</code> option includes <code>nestedError</code> field, it is included in <code>children</code> array</li>
 <li>Because <code>childrenSources</code> option includes <code>nestedError</code> field, it is excluded from <code>as_json</code> field</li>
 <li>Because nested objects are flattened, <code>children</code> prop for nested objects includes list of <code>child_id</code>s and not objects</li>
-<li>If a value found by a property from <code>childrenSources</code> is an array, then report is made for each element and not for an array as a whole.</li>
+<li>If a value found by a property from <code>childrenSources</code> is an array, then report is made for each element and not for an
+array as a whole.</li>
 </ul>
 <p><sub>(Run with <code>npm run ts-file ./examples/example-6-nested-errors-2-nesting-levels.ts</code>)</sub></p>
 <pre><code class="language-typescript"><span class="hl-4">const</span><span class="hl-1"> </span><span class="hl-2">caught</span><span class="hl-1"> = </span><span class="hl-4">new</span><span class="hl-1"> </span><span class="hl-3">Error</span><span class="hl-1">(</span><span class="hl-9">&quot;lvl 0&quot;</span><span class="hl-1">, {</span><br/><span class="hl-1">  </span><span class="hl-5">cause:</span><span class="hl-1"> </span><span class="hl-4">new</span><span class="hl-1"> </span><span class="hl-3">Error</span><span class="hl-1">(</span><span class="hl-9">&quot;lvl 1; obj 0&quot;</span><span class="hl-1">, {</span><br/><span class="hl-1">    </span><span class="hl-5">cause:</span><span class="hl-1"> [</span><br/><span class="hl-1">      </span><span class="hl-4">new</span><span class="hl-1"> </span><span class="hl-3">Error</span><span class="hl-1">(</span><span class="hl-9">&quot;lvl 2; obj 0.0&quot;</span><span class="hl-1">, { </span><span class="hl-5">cause:</span><span class="hl-1"> </span><span class="hl-4">new</span><span class="hl-1"> </span><span class="hl-3">Error</span><span class="hl-1">(</span><span class="hl-9">&quot;lvl 3; obj 0.0.0&quot;</span><span class="hl-1">) }),</span><br/><span class="hl-1">      </span><span class="hl-4">new</span><span class="hl-1"> </span><span class="hl-3">Error</span><span class="hl-1">(</span><span class="hl-9">&quot;lvl 2; obj 0.1&quot;</span><span class="hl-1">)</span><br/><span class="hl-1">    ]</span><br/><span class="hl-1">  })</span><br/><span class="hl-1">});</span><br/><span class="hl-5">caught</span><span class="hl-1">.</span><span class="hl-5">nestedErrors</span><span class="hl-1"> = </span><span class="hl-9">&#39;lvl 1; obj 1&#39;</span><span class="hl-1">;</span><br/><span class="hl-5">caught</span><span class="hl-1">.</span><span class="hl-5">extraField</span><span class="hl-1"> = </span><span class="hl-9">&#39;error info&#39;</span><span class="hl-1">;</span><br/><span class="hl-4">const</span><span class="hl-1"> </span><span class="hl-2">report</span><span class="hl-1"> = </span><span class="hl-3">makeCaughtObjectReportJson</span><span class="hl-1">(</span><span class="hl-5">caught</span><span class="hl-1">, {</span><br/><span class="hl-1">  </span><span class="hl-5">maxChildrenLevel:</span><span class="hl-1"> </span><span class="hl-7">2</span><span class="hl-1">,</span><br/><span class="hl-1">  </span><span class="hl-5">childrenSources:</span><span class="hl-1"> [</span><span class="hl-9">&#39;cause&#39;</span><span class="hl-1">, </span><span class="hl-9">&#39;errors&#39;</span><span class="hl-1">, </span><span class="hl-9">&#39;nestedErrors&#39;</span><span class="hl-1">],</span><br/><span class="hl-1">  </span><span class="hl-5">metadataFields:</span><span class="hl-1"> {</span><br/><span class="hl-1">    </span><span class="hl-5">$schema:</span><span class="hl-1"> </span><span class="hl-4">false</span><span class="hl-1">,</span><br/><span class="hl-1">    </span><span class="hl-5">as_json_format:</span><span class="hl-1"> </span><span class="hl-4">false</span><span class="hl-1">,</span><br/><span class="hl-1">    </span><span class="hl-5">as_string_format:</span><span class="hl-1"> </span><span class="hl-4">false</span><span class="hl-1">,</span><br/><span class="hl-1">    </span><span class="hl-5">v:</span><span class="hl-1"> </span><span class="hl-4">false</span><span class="hl-1">,</span><br/><span class="hl-1">    </span><span class="hl-5">children_sources:</span><span class="hl-1"> </span><span class="hl-4">true</span><br/><span class="hl-1">  }</span><br/><span class="hl-1">});</span><br/><span class="hl-5">console</span><span class="hl-1">.</span><span class="hl-3">log</span><span class="hl-1">(</span><span class="hl-2">JSON</span><span class="hl-1">.</span><span class="hl-3">stringify</span><span class="hl-1">(</span><span class="hl-5">report</span><span class="hl-1">, </span><span class="hl-4">null</span><span class="hl-1">, </span><span class="hl-7">2</span><span class="hl-1">));</span>

@@ -73,16 +73,17 @@ Compared to the method above, `caught-object-report-json` gives you the followin
 - Logs errors that happen when producing JSON report (configurable). This means that even
   when `caught-object-report-json` fails to produce complete report, it will tell you why.
 - Handles nested errors
-    1. `Object.getOwnPropertyNames(err)` will not apply to nested errors, but `caught-object-report-json` will process
-       all found nested objects the same way.
+    1. Replacer array obtained by `Object.getOwnPropertyNames` will apply to nested errors, but they can have a
+       different set of property names, and you can miss on something important.
+       `caught-object-report-json` will process all found nested objects the same way.
     2. `caught-object-report-json` flattens nested errors. Array is more suitable for processing than
        nested object. For example, you can write a pseudocode search condition like this with JSONPath
        query - `$.children[:].constructor_name == "SyntaxError"`. It will search through all children in flattened array
        no matter how deeply nested. Same is not easily attainable for nested objects.
-- Provides a JSON format which is
+- `caught-object-report-json` guarantees a JSON format which is
     1. Same for any object processed.
     2. Has metadata fields that hint into how it was produced (configurable).
-    3. Has JSON Schema as source of truth about the format.
+    3. Has JSON Schema as a source of truth.
 
 # Examples
 
@@ -458,7 +459,8 @@ The following example showcases some nuances of processing nested errors.
 - Because `childrenSources` option includes `nestedError` field, it is included in `children` array
 - Because `childrenSources` option includes `nestedError` field, it is excluded from `as_json` field
 - Because nested objects are flattened, `children` prop for nested objects includes list of `child_id`s and not objects
-- If a value found by a property from `childrenSources` is an array, then report is made for each element and not for an array as a whole.
+- If a value found by a property from `childrenSources` is an array, then report is made for each element and not for an
+  array as a whole.
 
 <sub>(Run with `npm run ts-file ./examples/example-6-nested-errors-2-nesting-levels.ts`)</sub>
 

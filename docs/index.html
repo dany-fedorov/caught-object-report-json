@@ -66,8 +66,8 @@ their own way. There is no standard <code>details</code> field.</li>
 <li><code>Error</code> object can have nested errors,
 see <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/AggregateError"><code>AggregateError</code></a>
 and <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Error/cause#specifications"><code>cause</code> property</a>.
-This can be a custom property of course like <code>rootCauses</code>. This means that occasionally an error you catch is a deeply
-nested tree.</li>
+This can be a custom property of course like <code>rootCauses</code>. This means that occasionally an error you catch can be a
+deeply nested tree.</li>
 <li>Even worse, in JavaScript, you can apply <code>throw</code> statement to any object, not just to <code>Error</code> instances. For
 example <code>throw Infinity</code> is valid JS code.</li>
 <li>TypeScript does not attempt to make throwing errors type-safe. Every time you catch, the best you can say about caught
@@ -80,7 +80,9 @@ object is that it is <code>unknown</code>.</li>
 <li>Structured logging</li>
 <li>Sending caught objects through network, e.g. REST API or GraphQL response</li>
 </ul>
+<blockquote>
 <p>Please don&#39;t hesitate to open an issue if your use case for this type of library is not met.</p>
+</blockquote>
 
 <a href="#before-using-this-library" id="before-using-this-library" style="color: inherit; text-decoration: none;">
   <h1>Before Using This Library</h1>
@@ -94,16 +96,20 @@ errors of converting to JSON like circular references or converting BigInt value
 </ul>
 <p>Compared to the method above, <code>caught-object-report-json</code> gives you the following benefits</p>
 <ul>
-<li>Handles weird edge cases like <code>throw null</code> or when accessing property throws. Slap it on anything.</li>
-<li>Logs errors that happen producing JSON report (configurable). This might help with investigation if something goes
-horribly wrong with your system.</li>
+<li>Handles weird edge cases like <code>throw null</code> or when accessing a property on the error throws. Just
+slap <code>caught-object-report-json</code> on anything.</li>
+<li>Logs errors that happen when producing JSON report (configurable). This means that even
+when <code>caught-object-report-json</code> fails to produce complete report, it will tell you why.</li>
 <li>Handles nested errors<ol>
 <li><code>Object.getOwnPropertyNames(err)</code> will not apply to nested errors, but <code>caught-object-report-json</code> will process
 all found nested objects the same way.</li>
-<li>Flattened nested errors are more suitable for processing than nested objects.</li>
+<li><code>caught-object-report-json</code> flattens nested errors. Array is more suitable for processing than
+nested object. For example, you can write a pseudocode search condition like this with JSONPath
+query - <code>$.children[:].constructor_name == &quot;SyntaxError&quot;</code>. It will search through all children in flattened array
+no matter how deeply nested. Same is not easily attainable for nested objects.</li>
 </ol>
 </li>
-<li>JSON format which is<ol>
+<li>Provides a JSON format which is<ol>
 <li>Same for any object processed.</li>
 <li>Has metadata fields that hint into how it was produced (configurable).</li>
 <li>Has JSON Schema as source of truth about the format.</li>

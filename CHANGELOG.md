@@ -1,3 +1,10 @@
+# [6.4.0](https://github.com/dany-fedorov/caught-object-report-json/compare/v6.3.1...v6.4.0) (2023-01-31)
+
+
+### Features
+
+* Opt out of onCaughtMaking default behavior with null ([f5ab890](https://github.com/dany-fedorov/caught-object-report-json/commit/f5ab890bc485ec26197c7ea8040edab463c35b94))
+
 ## [6.3.1](https://github.com/dany-fedorov/caught-object-report-json/compare/v6.3.0...v6.3.1) (2023-01-31)
 
 # [6.3.0](https://github.com/dany-fedorov/caught-object-report-json/compare/v6.2.2...v6.3.0) (2023-01-31)

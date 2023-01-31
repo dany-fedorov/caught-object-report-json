@@ -39,8 +39,8 @@
 - `Error` object can have nested errors,
   see [`AggregateError`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/AggregateError)
   and [`cause` property](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Error/cause#specifications).
-  This can be a custom property of course like `rootCauses`. This means that occasionally an error you catch is a deeply
-  nested tree.
+  This can be a custom property of course like `rootCauses`. This means that occasionally an error you catch can be a
+  deeply nested tree.
 - Even worse, in JavaScript, you can apply `throw` statement to any object, not just to `Error` instances. For
   example `throw Infinity` is valid JS code.
 - TypeScript does not attempt to make throwing errors type-safe. Every time you catch, the best you can say about caught
@@ -55,7 +55,7 @@ Intended use cases are
 - Structured logging
 - Sending caught objects through network, e.g. REST API or GraphQL response
 
-Please don't hesitate to open an issue if your use case for this type of library is not met.
+> Please don't hesitate to open an issue if your use case for this type of library is not met.
 
 # Before Using This Library
 
@@ -68,14 +68,18 @@ Consider
 
 Compared to the method above, `caught-object-report-json` gives you the following benefits
 
-- Handles weird edge cases like `throw null` or when accessing property throws. Slap it on anything.
-- Logs errors that happen producing JSON report (configurable). This might help with investigation if something goes
-  horribly wrong with your system.
+- Handles weird edge cases like `throw null` or when accessing a property on the error throws. Just
+  slap `caught-object-report-json` on anything.
+- Logs errors that happen when producing JSON report (configurable). This means that even
+  when `caught-object-report-json` fails to produce complete report, it will tell you why.
 - Handles nested errors
     1. `Object.getOwnPropertyNames(err)` will not apply to nested errors, but `caught-object-report-json` will process
        all found nested objects the same way.
-    2. Flattened nested errors are more suitable for processing than nested objects.
-- JSON format which is
+    2. `caught-object-report-json` flattens nested errors. Array is more suitable for processing than
+       nested object. For example, you can write a pseudocode search condition like this with JSONPath
+       query - `$.children[:].constructor_name == "SyntaxError"`. It will search through all children in flattened array
+       no matter how deeply nested. Same is not easily attainable for nested objects.
+- Provides a JSON format which is
     1. Same for any object processed.
     2. Has metadata fields that hint into how it was produced (configurable).
     3. Has JSON Schema as source of truth about the format.

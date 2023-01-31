@@ -7,6 +7,29 @@
 [![Package License MIT](https://img.shields.io/npm/l/caught-object-report-json.svg "Package License MIT")](https://www.npmjs.org/package/caught-object-report-json)
 [![Npm Version](https://img.shields.io/npm/v/caught-object-report-json.svg "Npm Version")](https://www.npmjs.org/package/caught-object-report-json)
 
+![Banner](https://github.com/dany-fedorov/caught-object-report-json/blob/main/banner.png)
+
+# Table Of Contents
+
+* [Motivation](#motivation)
+* [Before Using This Library](#before-using-this-library)
+* [Examples](#examples)
+    * [1. Syntax error](#1-syntax-error)
+    * [2. Axios error](#2-axios-error)
+    * [3. Not an error object thrown](#3-not-an-error-object-thrown)
+    * [4. Metadata fields](#4-metadata-fields)
+    * [5. Nested errors: Basic](#5-nested-errors-basic)
+    * [6. Nested errors: Nesting levels](#6-nested-errors-nesting-levels)
+    * [7. Using CorjMaker instance to provide options just once](#7-using-corjmaker-instance-to-provide-options-just-once)
+* [API](#api)
+    * [makeCaughtObjectReportJson(caught)](#makecaughtobjectreportjsoncaught)
+    * [new CorjMaker(options)](#new-corjmakeroptions)
+    * [type CaughtObjectReportJson](#type-caughtobjectreportjson)
+* [Links](#links)
+    * [GitHub](#github)
+    * [Npm](#npm)
+    * [CORJ JSON Schema - corj/v0.6](#corj-json-schema---corjv06)
+
 # Motivation
 
 - JavaScript does not have a default way to represent `Error` object as JSON.
@@ -46,34 +69,16 @@ Consider
 Compared to the method above, `caught-object-report-json` gives you the following benefits
 
 - Handles weird edge cases like `throw null` or when accessing property throws. Slap it on anything.
-- Handles nested errors.
-    1. `Object.getOwnPropertyNames(err)` will not apply to nested errors, but `caught-object-report-json` will process
-       all found nested objects the same.
-    2. Flattened nested errors are more suitable for processing than nested objects.
 - Logs errors that happen producing JSON report (configurable). This might help with investigation if something goes
   horribly wrong with your system.
-- Same JSON format for all objects with metadata that hints into how it was produced.
-
-# Table Of Contents
-
-* [Motivation](#motivation)
-* [Before Using This Library](#before-using-this-library)
-* [Examples](#examples)
-    * [1. Syntax error](#1-syntax-error)
-    * [2. Axios error](#2-axios-error)
-    * [3. Not an error object thrown](#3-not-an-error-object-thrown)
-    * [4. Metadata fields](#4-metadata-fields)
-    * [5. Nested errors: Basic](#5-nested-errors-basic)
-    * [6. Nested errors: Nesting levels](#6-nested-errors-nesting-levels)
-    * [7. Using CorjMaker instance to provide options just once](#7-using-corjmaker-instance-to-provide-options-just-once)
-* [API](#api)
-    * [makeCaughtObjectReportJson(caught)](#makecaughtobjectreportjsoncaught)
-    * [new CorjMaker(options)](#new-corjmakeroptions)
-    * [type CaughtObjectReportJson](#type-caughtobjectreportjson)
-* [Links](#links)
-    * [GitHub](#github)
-    * [Npm](#npm)
-    * [CORJ JSON Schema - corj/v0.6](#corj-json-schema---corjv06)
+- Handles nested errors
+    1. `Object.getOwnPropertyNames(err)` will not apply to nested errors, but `caught-object-report-json` will process
+       all found nested objects the same way.
+    2. Flattened nested errors are more suitable for processing than nested objects.
+- JSON format which is
+    1. Same for any object processed.
+    2. Has metadata fields that hint into how it was produced (configurable).
+    3. Has JSON Schema as source of truth about the format.
 
 # Examples
 

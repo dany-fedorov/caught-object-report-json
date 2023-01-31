@@ -1,3 +1,15 @@
+# [6.3.0](https://github.com/dany-fedorov/caught-object-report-json/compare/v6.2.2...v6.3.0) (2023-01-31)
+
+
+### Bug Fixes
+
+* Fix docs gen ([6197cfb](https://github.com/dany-fedorov/caught-object-report-json/commit/6197cfb068434bf20165089a690072eb2bc31ed3))
+
+
+### Features
+
+* Add configuring metadata for children ([8e31935](https://github.com/dany-fedorov/caught-object-report-json/commit/8e319352e375e1c0f2e5bebe81604655524578fb))
+
 ## [6.2.2](https://github.com/dany-fedorov/caught-object-report-json/compare/v6.2.1...v6.2.2) (2023-01-30)
 
 ## [6.2.1](https://github.com/dany-fedorov/caught-object-report-json/compare/v6.2.0...v6.2.1) (2023-01-29)

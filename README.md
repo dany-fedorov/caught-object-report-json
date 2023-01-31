@@ -310,7 +310,9 @@ and then prints form catch block
 
 ## 4. [Metadata fields](https://github.com/dany-fedorov/caught-object-report-json/blob/main/examples/example-4-metadata-fields.ts)
 
-Use `metadataFields` option to control what metadata to add to report.
+Use `metadataFields` option to control what metadata to add to report. There is a similar
+option `childrenMetadataFields` that controls metadata fields for children reports. By default metadata is not set for
+children reports.
 
 <sub>(Run with `npm run ts-file ./examples/example-4-metadata-fields.ts`)</sub>
 

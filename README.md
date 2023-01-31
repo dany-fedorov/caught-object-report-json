@@ -7,7 +7,7 @@
 [![Package License MIT](https://img.shields.io/npm/l/caught-object-report-json.svg "Package License MIT")](https://www.npmjs.org/package/caught-object-report-json)
 [![Npm Version](https://img.shields.io/npm/v/caught-object-report-json.svg "Npm Version")](https://www.npmjs.org/package/caught-object-report-json)
 
-![Banner](https://github.com/dany-fedorov/caught-object-report-json/blob/main/banner.png)
+<img src="https://github.com/dany-fedorov/caught-object-report-json/raw/main/banner.png">
 
 # Table Of Contents
 

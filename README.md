@@ -53,7 +53,8 @@ This library attempts to provide a useful JSON representation for any JS object 
 Intended use cases are
 
 - Structured logging
-- Sending caught objects through network, e.g. REST API or GraphQL response
+- REST API or GraphQL response
+- Front-end sending an error report
 
 > Please don't hesitate to open an issue if your use case for this type of library is not met.
 

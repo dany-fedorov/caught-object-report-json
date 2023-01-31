@@ -285,6 +285,35 @@ describe('CorjMaker', () => {
       `);
       expect(caughtBuildingArray).toMatchInlineSnapshot(`Array []`);
     });
+
+    test('onCaughtMaking: null', () => {
+      const noOptionsBuilder = new CorjMaker({
+        ...CORJ_MAKER_DEFAULT_OPTIONS,
+        onCaughtMaking: null,
+      });
+      const caught = new Error('I am an error!');
+      const report = noOptionsBuilder.make(caught);
+      expect(getReportValidator()(report)).toBe(true);
+      expect(typeof report.stack).toBe('string');
+      delete report.stack;
+      expect(report).toMatchInlineSnapshot(`
+        Object {
+          "as_json": Object {},
+          "as_json_format": "safe-stable-stringify@2.4.1",
+          "as_string": "Error: I am an error!",
+          "as_string_format": "String",
+          "children_sources": Array [
+            "cause",
+            "errors",
+          ],
+          "constructor_name": "Error",
+          "instanceof_error": true,
+          "message": "I am an error!",
+          "typeof": "object",
+          "v": "corj/v0.6",
+        }
+      `);
+    });
   });
 
   describe('Default onCaughtMaking', function () {

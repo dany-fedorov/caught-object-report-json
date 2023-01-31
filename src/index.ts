@@ -245,7 +245,7 @@ export type CorjMakerOptions = {
   /**
    * This function is called when {@link CorjMaker.make | CorjMaker.make} fails to produce along the way of producing a report.
    */
-  onCaughtMaking: CorjMakerOnCaughtMakingCallbackFn;
+  onCaughtMaking: CorjMakerOnCaughtMakingCallbackFn | null;
   /**
    * Print warning when `onCaughtMaking` is not set, or when `onCaughtMaking` itself threw an error.
    */

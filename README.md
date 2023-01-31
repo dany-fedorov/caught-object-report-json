@@ -251,7 +251,8 @@ prints
 
 ## 3. [Not an error object thrown](https://github.com/dany-fedorov/caught-object-report-json/blob/main/examples/example-3-not-error-object.ts)
 
-If you do not provide `onCaughtMaking` callback, then any errors are muffled.
+If you do not provide `onCaughtMaking` callback, then errors are reported by default reporter using `console.warn`
+function. Provide `onCaughtMaking: null` to opt out of it.
 
 <sub>(Run with `npm run ts-file ./examples/example-3-not-error-object.ts`)</sub>
 

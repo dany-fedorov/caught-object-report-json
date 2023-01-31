@@ -75,7 +75,7 @@ Compared to the method above, `caught-object-report-json` gives you the followin
 - Handles nested errors
     1. Replacer array obtained by `Object.getOwnPropertyNames` will apply to nested errors, but they can have a
        different set of property names, and you can miss on something important.
-       `caught-object-report-json` will process all found nested objects the same way.
+       `caught-object-report-json` does not have this problem.
     2. `caught-object-report-json` flattens nested errors. Array is more suitable for processing than
        nested object. For example, you can write a pseudocode search condition like this with JSONPath
        query - `$.children[:].constructor_name == "SyntaxError"`. It will search through all children in flattened array

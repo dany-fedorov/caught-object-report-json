@@ -129,7 +129,7 @@
           ]
         },
         "children_sources": {
-          "description": "Optional top-level property. Metadata property. Array of property names of caught object to collect into `children` property.",
+          "description": "Optional base property. Metadata property. Array of property names of caught object to collect into `children` property.",
           "type": "array",
           "items": {
             "type": "string"

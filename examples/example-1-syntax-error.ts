@@ -14,3 +14,18 @@ try {
   const report = makeCaughtObjectReportJson(caught);
   console.log(JSON.stringify(report, null, 2));
 }
+
+try {
+  // ...
+} catch (err: unknown) {
+  if (canHandle(err)) {
+    handle(err);
+  } else {
+    Logger.error(
+      JSON.stringify({
+        message: 'Unhandled exception',
+        data: makeCaughtObjectReportJson(err),
+      }),
+    );
+  }
+}

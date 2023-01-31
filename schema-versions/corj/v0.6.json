@@ -127,6 +127,13 @@
           "enum": [
             "safe-stable-stringify@2.4.1"
           ]
+        },
+        "children_sources": {
+          "description": "Optional top-level property. Metadata property. Array of property names of caught object to collect into `children` property.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         }
       }
     },
@@ -153,13 +160,6 @@
                 ]
               }
             ]
-          }
-        },
-        "children_sources": {
-          "description": "Optional top-level property. Metadata property. Array of property names of caught object to collect into `children` property.",
-          "type": "array",
-          "items": {
-            "type": "string"
           }
         }
       }

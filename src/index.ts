@@ -217,19 +217,20 @@ export type CorjMakerOnCaughtMakingCallbackFn = (
   options: CorjMakerOnCaughtMakingContext,
 ) => void;
 
+type CorjMakerOptionsMetadataFieldsConfig = {
+  $schema: boolean;
+  v: boolean;
+  as_string_format: boolean;
+  as_json_format: boolean;
+  children_sources: boolean;
+};
+
 export type CorjMakerOptions = {
   /**
    * Controls adding metadata fields to report.
    */
-  metadataFields:
-    | boolean
-    | {
-        $schema: boolean;
-        v: boolean;
-        as_string_format: boolean;
-        as_json_format: boolean;
-        children_sources: boolean;
-      };
+  metadataFields: boolean | CorjMakerOptionsMetadataFieldsConfig;
+  childrenMetadataFields: boolean | CorjMakerOptionsMetadataFieldsConfig;
   /**
    * Controls how much levels of nested errors will be included.
    * For example
@@ -293,7 +294,7 @@ export const CORJ_AS_STRING_FORMAT_STRING_CONSTRUCTOR = 'String';
 export const CORJ_VERSION = 'corj/v0.6';
 
 export const CORJ_JSON_SCHEMA_LINK =
-  'https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.5.json';
+  'https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.6.json';
 
 export const CORJ_MAKER_DEFAULT_OPTIONS = Object.freeze({
   metadataFields: {
@@ -302,6 +303,13 @@ export const CORJ_MAKER_DEFAULT_OPTIONS = Object.freeze({
     children_sources: true,
     as_string_format: true,
     v: true,
+  },
+  childrenMetadataFields: {
+    $schema: false,
+    as_json_format: false,
+    children_sources: false,
+    as_string_format: false,
+    v: false,
   },
   maxChildrenLevel: 5,
   childrenSources: ['cause', 'errors'],
@@ -391,10 +399,18 @@ function processOptions(
       options.metadataFields.v;
       options.metadataFields.$schema;
     }
+    options.childrenMetadataFields;
+    if (typeof options.childrenMetadataFields === 'object') {
+      options.childrenMetadataFields.as_json_format;
+      options.childrenMetadataFields.as_string_format;
+      options.childrenMetadataFields.v;
+      options.childrenMetadataFields.$schema;
+    }
     options.printWarningsOnUnhandledErrors;
     options.onCaughtMaking;
     options.maxChildrenLevel;
     options.childrenSources;
+    options.childrenSources?.forEach((s) => s);
     return options;
   } catch (caught: unknown) {
     console.warn(
@@ -445,7 +461,7 @@ function safeAccessProp(
   return { caughtDuring };
 }
 
-function getNestedObjectsOf(
+function getNestedObjectsOfCaught(
   caught: unknown,
   maker: CorjMaker,
 ): { obj: unknown; path: string }[] {
@@ -471,6 +487,32 @@ function getNestedObjectsOf(
     nestedObjects.push(...sourceArray);
   }
   return nestedObjects;
+}
+
+function makeMetadataValue<
+  K extends
+    | keyof CorjMakerOptionsMetadataFieldsConfig
+    | keyof Pick<
+        CaughtObjectReportJson,
+        keyof CorjMakerOptionsMetadataFieldsConfig
+      >,
+>(
+  nestedCfg: NestedCfg | null,
+  options: CorjMakerOptions,
+  propName: K,
+  value: CaughtObjectReportJson[K],
+): { value?: CaughtObjectReportJson[K] } {
+  const metadataConfig =
+    nestedCfg === null
+      ? options.metadataFields
+      : options.childrenMetadataFields;
+  if (
+    metadataConfig === true ||
+    (typeof metadataConfig === 'object' && metadataConfig[propName] === true)
+  ) {
+    return { value };
+  }
+  return {};
 }
 
 // ██████╗ ███████╗██████╗  ██████╗ ██████╗ ████████╗    ██████╗ ██████╗  ██████╗ ██████╗ ███████╗    ██████╗ ██╗   ██╗██╗██╗     ██████╗ ███████╗██████╗ ███████╗
@@ -507,46 +549,65 @@ function makeProp_as_string(
 function makeProp_as_string_format(
   format: CorjAsStringFormat,
   options: CorjMakerOptions,
+  nestedCfg: NestedCfg | null,
 ) {
-  return !options.metadataFields ||
-    (typeof options.metadataFields === 'object' &&
-      !options.metadataFields?.as_string_format)
-    ? undefined
-    : format;
+  const res = makeMetadataValue(nestedCfg, options, 'as_string_format', format);
+  if ('value' in res) {
+    return res.value;
+  }
+  return undefined;
 }
 
-function makeProp_children_sources(options: CorjMakerOptions) {
-  return !options.metadataFields ||
-    (typeof options.metadataFields === 'object' &&
-      !options.metadataFields?.children_sources)
-    ? undefined
-    : options.childrenSources;
+function makeProp_children_sources(
+  options: CorjMakerOptions,
+  nestedCfg: NestedCfg | null,
+) {
+  const res = makeMetadataValue(
+    nestedCfg,
+    options,
+    'children_sources',
+    options.childrenSources,
+  );
+  if ('value' in res) {
+    return res.value;
+  }
+  return undefined;
 }
 
 function makeProp_as_json_format(
   format: CorjAsJsonFormat,
   options: CorjMakerOptions,
+  nestedCfg: NestedCfg | null,
 ) {
-  return !options.metadataFields ||
-    (typeof options.metadataFields === 'object' &&
-      !options.metadataFields?.as_json_format)
-    ? undefined
-    : format;
+  const res = makeMetadataValue(nestedCfg, options, 'as_json_format', format);
+  if ('value' in res) {
+    return res.value;
+  }
+  return undefined;
 }
 
-function makeProp_v(options: CorjMakerOptions) {
-  return !options.metadataFields ||
-    (typeof options.metadataFields === 'object' && !options.metadataFields?.v)
-    ? undefined
-    : CORJ_VERSION;
+function makeProp_v(options: CorjMakerOptions, nestedCfg: NestedCfg | null) {
+  const res = makeMetadataValue(nestedCfg, options, 'v', CORJ_VERSION);
+  if ('value' in res) {
+    return res.value;
+  }
+  return undefined;
 }
 
-function makeProp_$schema(options: CorjMakerOptions) {
-  return !options.metadataFields ||
-    (typeof options.metadataFields === 'object' &&
-      !options.metadataFields?.$schema)
-    ? undefined
-    : CORJ_JSON_SCHEMA_LINK;
+function makeProp_$schema(
+  options: CorjMakerOptions,
+  nestedCfg: NestedCfg | null,
+) {
+  const res = makeMetadataValue(
+    nestedCfg,
+    options,
+    '$schema',
+    CORJ_JSON_SCHEMA_LINK,
+  );
+  if ('value' in res) {
+    return res.value;
+  }
+  return undefined;
 }
 
 function makeProp_as_json(
@@ -716,7 +777,7 @@ function makeChildrenEntries(
     };
     cur.nestedIds = [];
     const thisLevel = cur.level + 1;
-    const nestedObjectsOf = getNestedObjectsOf(cur.obj, maker);
+    const nestedObjectsOf = getNestedObjectsOfCaught(cur.obj, maker);
     if (thisLevel > maker.options.maxChildrenLevel) {
       if (nestedObjectsOf.length > 0) {
         cur.omittedReason = CORJ_NESTED_OMITTED_REASONS.REACHED_MAX_DEPTH(
@@ -738,7 +799,6 @@ function makeChildrenEntries(
     stack.push(...withIds);
   }
   const baseChildrenEntries = [
-    ['children_sources', makeProp_children_sources(maker.options)],
     ['children_omitted_reason', (root as any).omittedReason],
   ].filter(([, v]) => v !== undefined) as [string, unknown][];
   if (childrenObject.length === 0) {
@@ -792,10 +852,12 @@ function makeParentObjectSelfEntries(
   let stack: CaughtObjectReportJson['stack'] | undefined;
   let v: CaughtObjectReportJson['v'] | undefined;
   let $schema: CaughtObjectReportJson['$schema'] | undefined;
+  let children_sources: CaughtObjectReportJson['children_sources'] | undefined;
   try {
     // Metadata
-    v = makeProp_v(maker.options);
-    $schema = makeProp_$schema(maker.options);
+    v = makeProp_v(maker.options, nestedCfg);
+    $schema = makeProp_$schema(maker.options, nestedCfg);
+    children_sources = makeProp_children_sources(maker.options, nestedCfg);
 
     // Less likely to throw in onCaughtMaking
     instanceof_error = caught instanceof Error;
@@ -813,10 +875,15 @@ function makeParentObjectSelfEntries(
     as_string_format = makeProp_as_string_format(
       asString.format,
       maker.options,
+      nestedCfg,
     );
     as_string = asString.value;
     const asJson = makeProp_as_json(caught, maker.options, nestedCfg);
-    as_json_format = makeProp_as_json_format(asJson.format, maker.options);
+    as_json_format = makeProp_as_json_format(
+      asJson.format,
+      maker.options,
+      nestedCfg,
+    );
     as_json = asJson.value;
   } catch (caughtNew: unknown) {
     handleCaught(caughtNew, maker.options, {
@@ -845,6 +912,7 @@ function makeParentObjectSelfEntries(
     ['as_json_format', as_json_format],
     ['v', v],
     ['$schema', $schema],
+    ['children_sources', children_sources],
   ].filter(([, v]) => v !== undefined);
   return {
     mainEntries: mainEntries as [string, unknown][],
@@ -903,6 +971,13 @@ export class CorjMaker {
                 : {
                     ...CORJ_MAKER_DEFAULT_OPTIONS.metadataFields,
                     ...(options?.metadataFields ?? {}),
+                  },
+            childrenMetadataFields:
+              typeof options?.childrenMetadataFields === 'boolean'
+                ? options.childrenMetadataFields
+                : {
+                    ...CORJ_MAKER_DEFAULT_OPTIONS.childrenMetadataFields,
+                    ...(options?.childrenMetadataFields ?? {}),
                   },
           };
     return new CorjMaker(effectiveOptions);

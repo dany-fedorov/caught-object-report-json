@@ -241,7 +241,7 @@ describe('CorjMaker', () => {
       delete report.stack;
       expect(report).toMatchInlineSnapshot(`
         Object {
-          "$schema": "https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.5.json",
+          "$schema": "https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.6.json",
           "as_json": Object {},
           "as_json_format": "safe-stable-stringify@2.4.1",
           "as_string": "Error: I am an error!",
@@ -671,13 +671,6 @@ describe('CorjMaker', () => {
           ,
         ],
         Array [
-          "children_sources",
-          Array [
-            "cause",
-            "errors",
-          ],
-        ],
-        Array [
           "as_string_format",
           "String",
         ],
@@ -688,6 +681,13 @@ describe('CorjMaker', () => {
         Array [
           "v",
           "corj/v0.6",
+        ],
+        Array [
+          "children_sources",
+          Array [
+            "cause",
+            "errors",
+          ],
         ],
       ]
     `);
@@ -806,9 +806,7 @@ describe('CorjMaker', () => {
           "children": Array [
             Object {
               "as_json": Object {},
-              "as_json_format": "safe-stable-stringify@2.4.1",
               "as_string": "Error: lvl 1",
-              "as_string_format": "String",
               "child_id": 0,
               "child_level": 1,
               "child_path": "$.cause",
@@ -816,7 +814,6 @@ describe('CorjMaker', () => {
               "instanceof_error": true,
               "message": "lvl 1",
               "typeof": "object",
-              "v": "corj/v0.6",
             },
           ],
           "children_sources": Array [
@@ -861,9 +858,7 @@ describe('CorjMaker', () => {
           "children": Array [
             Object {
               "as_json": Object {},
-              "as_json_format": "safe-stable-stringify@2.4.1",
               "as_string": "Error: lvl 1; obj 0",
-              "as_string_format": "String",
               "child_id": 0,
               "child_level": 1,
               "child_path": "$.cause[0]",
@@ -871,13 +866,10 @@ describe('CorjMaker', () => {
               "instanceof_error": true,
               "message": "lvl 1; obj 0",
               "typeof": "object",
-              "v": "corj/v0.6",
             },
             Object {
               "as_json": Object {},
-              "as_json_format": "safe-stable-stringify@2.4.1",
               "as_string": "Error: lvl 1; obj 1",
-              "as_string_format": "String",
               "child_id": 1,
               "child_level": 1,
               "child_path": "$.cause[1]",
@@ -885,7 +877,6 @@ describe('CorjMaker', () => {
               "instanceof_error": true,
               "message": "lvl 1; obj 1",
               "typeof": "object",
-              "v": "corj/v0.6",
             },
           ],
           "children_sources": Array [
@@ -958,9 +949,7 @@ describe('CorjMaker', () => {
           "children": Array [
             Object {
               "as_json": Object {},
-              "as_json_format": "safe-stable-stringify@2.4.1",
               "as_string": "Error: lvl 1; obj 0",
-              "as_string_format": "String",
               "child_id": 0,
               "child_level": 1,
               "child_path": "$.cause[0]",
@@ -972,13 +961,10 @@ describe('CorjMaker', () => {
               "instanceof_error": true,
               "message": "lvl 1; obj 0",
               "typeof": "object",
-              "v": "corj/v0.6",
             },
             Object {
               "as_json": Object {},
-              "as_json_format": "safe-stable-stringify@2.4.1",
               "as_string": "Error: lvl 1; obj 1",
-              "as_string_format": "String",
               "child_id": 1,
               "child_level": 1,
               "child_path": "$.cause[1]",
@@ -990,13 +976,10 @@ describe('CorjMaker', () => {
               "instanceof_error": true,
               "message": "lvl 1; obj 1",
               "typeof": "object",
-              "v": "corj/v0.6",
             },
             Object {
               "as_json": Object {},
-              "as_json_format": "safe-stable-stringify@2.4.1",
               "as_string": "Error: lvl 2; obj 1.0",
-              "as_string_format": "String",
               "child_id": 2,
               "child_level": 2,
               "child_path": "$.cause[1].cause[0]",
@@ -1004,13 +987,10 @@ describe('CorjMaker', () => {
               "instanceof_error": true,
               "message": "lvl 2; obj 1.0",
               "typeof": "object",
-              "v": "corj/v0.6",
             },
             Object {
               "as_json": Object {},
-              "as_json_format": "safe-stable-stringify@2.4.1",
               "as_string": "Error: lvl 2; obj 1.1",
-              "as_string_format": "String",
               "child_id": 3,
               "child_level": 2,
               "child_path": "$.cause[1].cause[1]",
@@ -1018,13 +998,10 @@ describe('CorjMaker', () => {
               "instanceof_error": true,
               "message": "lvl 2; obj 1.1",
               "typeof": "object",
-              "v": "corj/v0.6",
             },
             Object {
               "as_json": Object {},
-              "as_json_format": "safe-stable-stringify@2.4.1",
               "as_string": "Error: lvl 2; obj 0.0",
-              "as_string_format": "String",
               "child_id": 4,
               "child_level": 2,
               "child_path": "$.cause[0].cause[0]",
@@ -1036,13 +1013,10 @@ describe('CorjMaker', () => {
               "instanceof_error": true,
               "message": "lvl 2; obj 0.0",
               "typeof": "object",
-              "v": "corj/v0.6",
             },
             Object {
               "as_json": Object {},
-              "as_json_format": "safe-stable-stringify@2.4.1",
               "as_string": "Error: lvl 2; obj 0.1",
-              "as_string_format": "String",
               "child_id": 5,
               "child_level": 2,
               "child_path": "$.cause[0].cause[1]",
@@ -1054,13 +1028,10 @@ describe('CorjMaker', () => {
               "instanceof_error": true,
               "message": "lvl 2; obj 0.1",
               "typeof": "object",
-              "v": "corj/v0.6",
             },
             Object {
               "as_json": Object {},
-              "as_json_format": "safe-stable-stringify@2.4.1",
               "as_string": "Error: lvl 3; obj 0.1.0",
-              "as_string_format": "String",
               "child_id": 6,
               "child_level": 3,
               "child_path": "$.cause[0].cause[1].cause[0]",
@@ -1068,13 +1039,10 @@ describe('CorjMaker', () => {
               "instanceof_error": true,
               "message": "lvl 3; obj 0.1.0",
               "typeof": "object",
-              "v": "corj/v0.6",
             },
             Object {
               "as_json": Object {},
-              "as_json_format": "safe-stable-stringify@2.4.1",
               "as_string": "Error: lvl 3; obj 0.1.1",
-              "as_string_format": "String",
               "child_id": 7,
               "child_level": 3,
               "child_path": "$.cause[0].cause[1].cause[1]",
@@ -1082,13 +1050,10 @@ describe('CorjMaker', () => {
               "instanceof_error": true,
               "message": "lvl 3; obj 0.1.1",
               "typeof": "object",
-              "v": "corj/v0.6",
             },
             Object {
               "as_json": Object {},
-              "as_json_format": "safe-stable-stringify@2.4.1",
               "as_string": "Error: lvl 3; obj 0.0.0",
-              "as_string_format": "String",
               "child_id": 8,
               "child_level": 3,
               "child_path": "$.cause[0].cause[0].cause[0]",
@@ -1096,13 +1061,10 @@ describe('CorjMaker', () => {
               "instanceof_error": true,
               "message": "lvl 3; obj 0.0.0",
               "typeof": "object",
-              "v": "corj/v0.6",
             },
             Object {
               "as_json": Object {},
-              "as_json_format": "safe-stable-stringify@2.4.1",
               "as_string": "Error: lvl 3; obj 0.0.1",
-              "as_string_format": "String",
               "child_id": 9,
               "child_level": 3,
               "child_path": "$.cause[0].cause[0].cause[1]",
@@ -1110,7 +1072,6 @@ describe('CorjMaker', () => {
               "instanceof_error": true,
               "message": "lvl 3; obj 0.0.1",
               "typeof": "object",
-              "v": "corj/v0.6",
             },
           ],
           "children_sources": Array [
@@ -1150,9 +1111,7 @@ describe('CorjMaker', () => {
           "children": Array [
             Object {
               "as_json": Object {},
-              "as_json_format": "safe-stable-stringify@2.4.1",
               "as_string": "Error: lvl 1; obj 0",
-              "as_string_format": "String",
               "child_id": 0,
               "child_level": 1,
               "child_path": "$.cause[0]",
@@ -1161,13 +1120,10 @@ describe('CorjMaker', () => {
               "instanceof_error": true,
               "message": "lvl 1; obj 0",
               "typeof": "object",
-              "v": "corj/v0.6",
             },
             Object {
               "as_json": Object {},
-              "as_json_format": "safe-stable-stringify@2.4.1",
               "as_string": "Error: lvl 1; obj 1",
-              "as_string_format": "String",
               "child_id": 1,
               "child_level": 1,
               "child_path": "$.cause[1]",
@@ -1175,6 +1131,172 @@ describe('CorjMaker', () => {
               "constructor_name": "Error",
               "instanceof_error": true,
               "message": "lvl 1; obj 1",
+              "typeof": "object",
+            },
+          ],
+          "children_sources": Array [
+            "cause",
+            "errors",
+          ],
+          "constructor_name": "Error",
+          "instanceof_error": true,
+          "message": "lvl 0",
+          "typeof": "object",
+          "v": "corj/v0.6",
+        }
+      `);
+    });
+
+    test('childrenMetadataFields: true', () => {
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore
+      const caught = new Error('lvl 0', { cause: new Error('lvl 1') });
+      const report = makeCaughtObjectReportJson(caught, {
+        childrenMetadataFields: true,
+      });
+      expect(getReportValidator()(report)).toBe(true);
+      expect(typeof report.stack).toBe('string');
+      delete report.stack;
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore
+      for (const childReport of report.children) {
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        // @ts-ignore
+        expect(typeof childReport.stack).toBe('string');
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        // @ts-ignore
+        delete childReport.stack;
+      }
+      expect(report).toMatchInlineSnapshot(`
+        Object {
+          "as_json": Object {},
+          "as_json_format": "safe-stable-stringify@2.4.1",
+          "as_string": "Error: lvl 0",
+          "as_string_format": "String",
+          "children": Array [
+            Object {
+              "$schema": "https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.6.json",
+              "as_json": Object {},
+              "as_json_format": "safe-stable-stringify@2.4.1",
+              "as_string": "Error: lvl 1",
+              "as_string_format": "String",
+              "child_id": 0,
+              "child_level": 1,
+              "child_path": "$.cause",
+              "children_sources": Array [
+                "cause",
+                "errors",
+              ],
+              "constructor_name": "Error",
+              "instanceof_error": true,
+              "message": "lvl 1",
+              "typeof": "object",
+              "v": "corj/v0.6",
+            },
+          ],
+          "children_sources": Array [
+            "cause",
+            "errors",
+          ],
+          "constructor_name": "Error",
+          "instanceof_error": true,
+          "message": "lvl 0",
+          "typeof": "object",
+          "v": "corj/v0.6",
+        }
+      `);
+    });
+
+    test('childrenMetadataFields: false', () => {
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore
+      const caught = new Error('lvl 0', { cause: new Error('lvl 1') });
+      const report = makeCaughtObjectReportJson(caught, {
+        childrenMetadataFields: false,
+      });
+      expect(getReportValidator()(report)).toBe(true);
+      expect(typeof report.stack).toBe('string');
+      delete report.stack;
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore
+      for (const childReport of report.children) {
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        // @ts-ignore
+        expect(typeof childReport.stack).toBe('string');
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        // @ts-ignore
+        delete childReport.stack;
+      }
+      expect(report).toMatchInlineSnapshot(`
+        Object {
+          "as_json": Object {},
+          "as_json_format": "safe-stable-stringify@2.4.1",
+          "as_string": "Error: lvl 0",
+          "as_string_format": "String",
+          "children": Array [
+            Object {
+              "as_json": Object {},
+              "as_string": "Error: lvl 1",
+              "child_id": 0,
+              "child_level": 1,
+              "child_path": "$.cause",
+              "constructor_name": "Error",
+              "instanceof_error": true,
+              "message": "lvl 1",
+              "typeof": "object",
+            },
+          ],
+          "children_sources": Array [
+            "cause",
+            "errors",
+          ],
+          "constructor_name": "Error",
+          "instanceof_error": true,
+          "message": "lvl 0",
+          "typeof": "object",
+          "v": "corj/v0.6",
+        }
+      `);
+    });
+
+    test('childrenMetadataFields: {}', () => {
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore
+      const caught = new Error('lvl 0', { cause: new Error('lvl 1') });
+      const report = makeCaughtObjectReportJson(caught, {
+        childrenMetadataFields: {
+          v: true,
+        },
+      });
+      expect(getReportValidator()(report)).toBe(true);
+      expect(typeof report.stack).toBe('string');
+      delete report.stack;
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore
+      for (const childReport of report.children) {
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        // @ts-ignore
+        expect(typeof childReport.stack).toBe('string');
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        // @ts-ignore
+        delete childReport.stack;
+      }
+      expect(report).toMatchInlineSnapshot(`
+        Object {
+          "as_json": Object {},
+          "as_json_format": "safe-stable-stringify@2.4.1",
+          "as_string": "Error: lvl 0",
+          "as_string_format": "String",
+          "children": Array [
+            Object {
+              "as_json": Object {},
+              "as_string": "Error: lvl 1",
+              "child_id": 0,
+              "child_level": 1,
+              "child_path": "$.cause",
+              "constructor_name": "Error",
+              "instanceof_error": true,
+              "message": "lvl 1",
               "typeof": "object",
               "v": "corj/v0.6",
             },

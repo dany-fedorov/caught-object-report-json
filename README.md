@@ -7,16 +7,12 @@
 [![Package License MIT](https://img.shields.io/npm/l/caught-object-report-json.svg "Package License MIT")](https://www.npmjs.org/package/caught-object-report-json)
 [![Npm Version](https://img.shields.io/npm/v/caught-object-report-json.svg "Npm Version")](https://www.npmjs.org/package/caught-object-report-json)
 
-02:08 intro
-
-<a href="https://asciinema.org/a/555407"><img src="https://asciinema.org/a/555407.svg" height="749" width="749" ></a>
-
 # Motivation
 
 - JavaScript does not have a default way to represent `Error` object as JSON.
 - No standard way to extend error object with custom properties. It is natural to augment thrown error with details, but
   everybody is going to do it
-  their own way. There is not standard `details` field.
+  their own way. There is no standard `details` field.
 - `Error` object can have nested errors,
   see [`AggregateError`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/AggregateError)
   and [`cause` property](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Error/cause#specifications).
@@ -38,9 +34,30 @@ Intended use cases are
 
 Please don't hesitate to open an issue if your use case for this type of library is not met.
 
+# Before Using This Library
+
+Consider
+
+- `JSON.stringify(err, Object.getOwnPropertyNames(err))` is good enough if you don't necessarily want all edge cases
+  covered.
+- `JSON.stringify` can throw, so make sure to wrap it in `try catch` or use `safe-stable-stringify` to avoid common
+  errors of converting to JSON like circular references or converting BigInt value.
+
+Compared to the method above, `caught-object-report-json` gives you the following benefits
+
+- Handles weird edge cases like `throw null` or when accessing property throws. Slap it on anything.
+- Handles nested errors.
+    1. `Object.getOwnPropertyNames(err)` will not apply to nested errors, but `caught-object-report-json` will process
+       all found nested objects the same.
+    2. Flattened nested errors are more suitable for processing than nested objects.
+- Logs errors that happen producing JSON report (configurable). This might help with investigation if something goes
+  horribly wrong with your system.
+- Same JSON format for all objects with metadata that hints into how it was produced.
+
 # Table Of Contents
 
 * [Motivation](#motivation)
+* [Before Using This Library](#before-using-this-library)
 * [Examples](#examples)
     * [1. Syntax error](#1-syntax-error)
     * [2. Axios error](#2-axios-error)

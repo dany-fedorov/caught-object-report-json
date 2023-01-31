@@ -103,7 +103,7 @@ when <code>caught-object-report-json</code> fails to produce complete report, it
 <li>Handles nested errors<ol>
 <li>Replacer array obtained by <code>Object.getOwnPropertyNames</code> will apply to nested errors, but they can have a
 different set of property names, and you can miss on something important.
-<code>caught-object-report-json</code> will process all found nested objects the same way.</li>
+<code>caught-object-report-json</code> does not have this problem.</li>
 <li><code>caught-object-report-json</code> flattens nested errors. Array is more suitable for processing than
 nested object. For example, you can write a pseudocode search condition like this with JSONPath
 query - <code>$.children[:].constructor_name == &quot;SyntaxError&quot;</code>. It will search through all children in flattened array

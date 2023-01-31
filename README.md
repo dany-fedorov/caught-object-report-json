@@ -351,10 +351,13 @@ prints
 ## 5. [Nested errors: Basic](https://github.com/dany-fedorov/caught-object-report-json/blob/main/examples/example-5-nested-errors-1-basic.ts)
 
 JS has two standard ways to represent nested/children
-errors. [`AggregateError`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/AggregateError)
-has nested errors accessible in `errors` property
-and [`cause` property](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Error/cause#specifications)
-of `Error` class.
+errors.
+
+1. [`AggregateError`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/AggregateError)
+   has nested errors accessible in `errors` property
+2. [`cause` property](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Error/cause#specifications)
+   of `Error` class.
+
 Caught Object Report JSON abstracts this into `children` property.
 
 In the following example `AggregateError` has both `errors` and `cause` properties set.
@@ -448,14 +451,14 @@ prints
 
 The following example showcases some nuances of processing nested errors.
 
-- Because of `maxChildrenLevel` set to `2`, "lvl 3" errors are not included
+- Because of `maxChildrenLevel` option set to `2`, "lvl 3" errors are not included
 - When there are nested error object detected, but level is greater than `maxChildrenLevel`
   setting, `children_omitted_reason`
   field is added
 - Because `childrenSources` option includes `nestedError` field, it is included in `children` array
 - Because `childrenSources` option includes `nestedError` field, it is excluded from `as_json` field
 - Because nested objects are flattened, `children` prop for nested objects includes list of `child_id`s and not objects
-- If children source value is an array, report is made for each element
+- If a value found by a property from `childrenSources` is an array, then report is made for each element and not for an array as a whole.
 
 <sub>(Run with `npm run ts-file ./examples/example-6-nested-errors-2-nesting-levels.ts`)</sub>
 

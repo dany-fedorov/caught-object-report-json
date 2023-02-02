@@ -28,6 +28,7 @@
 * [Links](#links)
     * [GitHub](#github)
     * [Npm](#npm)
+    * [Deno Land](#deno-land)
     * [CORJ JSON Schema - corj/v0.6](#corj-json-schema---corjv06)
 
 # Motivation
@@ -624,8 +625,6 @@ https://www.npmjs.com/package/caught-object-report-json
 ##### Deno Land
 
 https://deno.land/x/caught_object_report_json
-
-https://www.npmjs.com/package/caught-object-report-json
 
 ##### CORJ JSON Schema - corj/v0.6
 

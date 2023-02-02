@@ -621,6 +621,12 @@ https://github.com/dany-fedorov/caught-object-report-json.git
 
 https://www.npmjs.com/package/caught-object-report-json
 
+##### Deno Land
+
+https://deno.land/x/caught_object_report_json
+
+https://www.npmjs.com/package/caught-object-report-json
+
 ##### CORJ JSON Schema - corj/v0.6
 
 https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.6.json

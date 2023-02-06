@@ -853,9 +853,6 @@ function makeChildrenEntries(
     childrenObject.push(...withIds);
     stack.push(...withIds);
   }
-  // const baseChildrenEntries = [
-  //   ['children_omitted_reason', (root as any).omittedReason],
-  // ].filter(([, v]) => v !== undefined) as [string, unknown][];
   if (childrenObject.length === 0) {
     return {
       rootIds: (root as any).nestedIds,
@@ -894,7 +891,7 @@ function makeChildrenEntries(
           ['children', no.nestedIds.length > 0 ? no.nestedIds : undefined],
           ['children_omitted_reason', (no as any).omittedReason],
           ...metadataEntries,
-        ];
+        ].filter(([, v]) => v !== undefined) as [string, unknown][];
       })
       .filter(([, v]) => v !== undefined) as [string, unknown][][],
   };
@@ -1023,7 +1020,10 @@ export class CorjMaker {
             ),
       ],
       ...metadataEntries,
-    ] as CaughtObjectReportJsonEntries;
+    ].filter(([, v]) => v !== undefined) as [
+      string,
+      unknown,
+    ][] as CaughtObjectReportJsonEntries;
   }
 
   makeReportObject(caught: unknown): CaughtObjectReportJson {

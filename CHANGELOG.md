@@ -1,3 +1,10 @@
+# [6.6.0](https://github.com/dany-fedorov/caught-object-report-json/compare/v6.5.0...v6.6.0) (2023-02-06)
+
+
+### Features
+
+* Undo breaking change (accidentally release breaking change as minor) ([d870549](https://github.com/dany-fedorov/caught-object-report-json/commit/d870549005b530291fc0c9a159123b1f07ca33a9))
+
 # [6.5.0](https://github.com/dany-fedorov/caught-object-report-json/compare/v6.4.3...v6.5.0) (2023-02-06)
 
 

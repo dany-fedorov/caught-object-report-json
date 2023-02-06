@@ -616,9 +616,20 @@ function makeProp_as_string(
               };
             }
           } else {
+            const value = caught.toCorjAsString({ options, caught, nestedCfg });
+            if (typeof value !== 'string') {
+              if (i < formats.length - 1) {
+                continue;
+              } else {
+                return {
+                  format,
+                  value: null,
+                };
+              }
+            }
             return {
               format,
-              value: caught.toCorjAsString({ options, caught, nestedCfg }),
+              value,
             };
           }
         }
@@ -737,10 +748,24 @@ function makeProp_as_json(
               };
             }
           } else {
-            return {
-              format,
-              value: caught.toCorjAsJson({ options, caught, nestedCfg }),
-            };
+            const value = jsonStringify(
+              caught.toCorjAsJson({ options, caught, nestedCfg }),
+            );
+            if (value === undefined) {
+              if (i < formats.length - 1) {
+                continue;
+              } else {
+                return {
+                  format,
+                  value: null,
+                };
+              }
+            } else {
+              return {
+                format,
+                value: JSON.parse(value),
+              };
+            }
           }
         }
         case CORJ_AS_JSON_FORMAT_SAFE_STABLE_STRINGIFY_2_4_1: {

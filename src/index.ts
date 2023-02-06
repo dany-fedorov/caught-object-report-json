@@ -1002,6 +1002,14 @@ export class CorjMaker {
     this.options = screenOptionsForAccessorErrors(options) as CorjMakerOptions;
   }
 
+  make(caught: unknown): CaughtObjectReportJson {
+    return this.makeReportObject(caught);
+  }
+
+  entries(caught: unknown): CaughtObjectReportJsonEntries {
+    return this.makeReportObjectEntries(caught);
+  }
+
   /**
    * This exists to produce entries in dependable order.
    */

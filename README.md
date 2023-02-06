@@ -29,7 +29,7 @@
     * [GitHub](#github)
     * [Npm](#npm)
     * [Deno Land](#deno-land)
-    * [CORJ JSON Schema - corj/v0.7](#corj-json-schema---corjv07)
+    * [CORJ JSON Schema - corj/v0.8](#corj-json-schema---corjv08)
 
 # Motivation
 
@@ -626,8 +626,8 @@ https://www.npmjs.com/package/caught-object-report-json
 
 https://deno.land/x/caught_object_report_json
 
-##### CORJ JSON Schema - corj/v0.7
+##### CORJ JSON Schema - corj/v0.8
 
-- Definitions - https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.7-definitions.json
-- Report Object - https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.7-report-object.json
-- Report Array - https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.7-report-array.json
+- Definitions - https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.8/definitions.json
+- Report Object - https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.8/report-object.json
+- Report Array - https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.8/report-array.json

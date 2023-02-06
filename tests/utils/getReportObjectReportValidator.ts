@@ -4,39 +4,52 @@ import path from 'node:path';
 
 const ajv = new Ajv();
 
+const V = 'v0.8';
+
 ajv.addSchema(
   JSON.parse(
     String(
       fs.readFileSync(
-        path.join(__dirname, '../../schema-versions/corj/v0.7-definitions.json'),
+        path.join(
+          __dirname,
+          `../../schema-versions/corj/${V}/definitions.json`,
+        ),
       ),
     ),
   ),
-  'defs',
+  'definitions',
 );
 ajv.addSchema(
   JSON.parse(
     String(
       fs.readFileSync(
-        path.join(__dirname, '../../schema-versions/corj/v0.7-report-array.json'),
+        path.join(
+          __dirname,
+          `../../schema-versions/corj/${V}/report-array.json`,
+        ),
       ),
     ),
   ),
-  'array',
+  'report-array',
 );
 ajv.addSchema(
   JSON.parse(
     String(
       fs.readFileSync(
-        path.join(__dirname, '../../schema-versions/corj/v0.7-report-object.json'),
+        path.join(
+          __dirname,
+          `../../schema-versions/corj/${V}/report-object.json`,
+        ),
       ),
     ),
   ),
-  'object',
+  'report-object',
 );
 
-export function getReportObjectReportValidator<T = unknown>(): ValidateFunction<T> {
-  const validate = ajv.getSchema<T>('object');
+export function getReportObjectReportValidator<
+  T = unknown,
+>(): ValidateFunction<T> {
+  const validate = ajv.getSchema<T>('report-object');
   if (!validate) {
     throw new Error('Did not find report validator');
   }

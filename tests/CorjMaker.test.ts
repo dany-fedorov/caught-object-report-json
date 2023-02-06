@@ -40,7 +40,7 @@ describe('CorjMaker', () => {
           "instanceof_error": true,
           "message": "I am an error!",
           "typeof": "object",
-          "v": "corj/v0.7",
+          "v": "corj/v0.8",
         }
       `);
       expect(caughtBuildingArray).toMatchInlineSnapshot(`Array []`);
@@ -72,7 +72,7 @@ describe('CorjMaker', () => {
           "constructor_name": "String",
           "instanceof_error": false,
           "typeof": "string",
-          "v": "corj/v0.7",
+          "v": "corj/v0.8",
         }
       `);
       expect(caughtBuildingArray).toMatchInlineSnapshot(`Array []`);
@@ -103,7 +103,7 @@ describe('CorjMaker', () => {
           ],
           "instanceof_error": false,
           "typeof": "undefined",
-          "v": "corj/v0.7",
+          "v": "corj/v0.8",
         }
       `);
       expect(caughtBuildingArray).toMatchInlineSnapshot(`
@@ -145,7 +145,7 @@ describe('CorjMaker', () => {
           ],
           "instanceof_error": false,
           "typeof": "object",
-          "v": "corj/v0.7",
+          "v": "corj/v0.8",
         }
       `);
       expect(caughtBuildingArray).toMatchInlineSnapshot(`Array []`);
@@ -177,7 +177,7 @@ describe('CorjMaker', () => {
           "constructor_name": "BigInt",
           "instanceof_error": false,
           "typeof": "bigint",
-          "v": "corj/v0.7",
+          "v": "corj/v0.8",
         }
       `);
       expect(caughtBuildingArray).toMatchInlineSnapshot(`Array []`);
@@ -216,7 +216,7 @@ describe('CorjMaker', () => {
           "constructor_name": "Array",
           "instanceof_error": false,
           "typeof": "object",
-          "v": "corj/v0.7",
+          "v": "corj/v0.8",
         }
       `);
       expect(caughtBuildingArray).toMatchInlineSnapshot(`Array []`);
@@ -243,7 +243,7 @@ describe('CorjMaker', () => {
       delete report.stack;
       expect(report).toMatchInlineSnapshot(`
         Object {
-          "$schema": "https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.7-report-object.json",
+          "$schema": "https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.8/report-object.json",
           "as_json": Object {},
           "as_json_format": "safe-stable-stringify@2.4.1",
           "as_string": "Error: I am an error!",
@@ -256,7 +256,7 @@ describe('CorjMaker', () => {
           "instanceof_error": true,
           "message": "I am an error!",
           "typeof": "object",
-          "v": "corj/v0.7",
+          "v": "corj/v0.8",
         }
       `);
       expect(caughtBuildingArray).toMatchInlineSnapshot(`Array []`);
@@ -312,7 +312,7 @@ describe('CorjMaker', () => {
           "instanceof_error": true,
           "message": "I am an error!",
           "typeof": "object",
-          "v": "corj/v0.7",
+          "v": "corj/v0.8",
         }
       `);
     });
@@ -340,7 +340,7 @@ describe('CorjMaker', () => {
           ],
           "instanceof_error": false,
           "typeof": "undefined",
-          "v": "corj/v0.7",
+          "v": "corj/v0.8",
         }
       `);
       expect(consoleWarnSpy.mock.calls).toMatchInlineSnapshot(`
@@ -382,7 +382,7 @@ describe('CorjMaker', () => {
           "constructor_name": "Object",
           "instanceof_error": false,
           "typeof": "object",
-          "v": "corj/v0.7",
+          "v": "corj/v0.8",
         }
       `);
       expect(consoleWarnSpy.mock.calls).toMatchInlineSnapshot(`
@@ -427,7 +427,7 @@ describe('CorjMaker', () => {
           "constructor_name": "Object",
           "instanceof_error": false,
           "typeof": "object",
-          "v": "corj/v0.7",
+          "v": "corj/v0.8",
         }
       `);
       expect(consoleWarnSpy.mock.calls).toMatchInlineSnapshot(`
@@ -473,7 +473,7 @@ describe('CorjMaker', () => {
           "constructor_name": null,
           "instanceof_error": false,
           "typeof": "object",
-          "v": "corj/v0.7",
+          "v": "corj/v0.8",
         }
       `);
       expect(consoleWarnSpy.mock.calls).toMatchInlineSnapshot(`
@@ -529,7 +529,7 @@ describe('CorjMaker', () => {
           "constructor_name": null,
           "instanceof_error": false,
           "typeof": "object",
-          "v": "corj/v0.7",
+          "v": "corj/v0.8",
         }
       `);
       expect(consoleWarnSpy.mock.calls).toMatchInlineSnapshot(`
@@ -584,7 +584,7 @@ describe('CorjMaker', () => {
           "instanceof_error": false,
           "message": null,
           "typeof": "object",
-          "v": "corj/v0.7",
+          "v": "corj/v0.8",
         }
       `);
       expect(consoleWarnSpy.mock.calls).toMatchInlineSnapshot(`
@@ -638,7 +638,7 @@ describe('CorjMaker', () => {
           "constructor_name": "Object",
           "instanceof_error": false,
           "typeof": "object",
-          "v": "corj/v0.7",
+          "v": "corj/v0.8",
         }
       `);
       expect(consoleWarnSpy.mock.calls).toMatchInlineSnapshot(`
@@ -720,7 +720,7 @@ describe('CorjMaker', () => {
         ],
         Array [
           "v",
-          "corj/v0.7",
+          "corj/v0.8",
         ],
       ]
     `);
@@ -762,7 +762,7 @@ describe('CorjMaker', () => {
           "instanceof_error": true,
           "message": "I'm just a regular Error",
           "typeof": "object",
-          "v": "corj/v0.7",
+          "v": "corj/v0.8",
         }
       `);
       expect(consoleWarnSpy.mock.calls).toMatchInlineSnapshot(`
@@ -798,7 +798,7 @@ describe('CorjMaker', () => {
           ],
           "instanceof_error": false,
           "typeof": "undefined",
-          "v": "corj/v0.7",
+          "v": "corj/v0.8",
         }
       `);
       expect(consoleWarnSpy.mock.calls).toMatchInlineSnapshot(`
@@ -817,7 +817,9 @@ describe('CorjMaker', () => {
       // @ts-ignore
       const caught = new Error('lvl 0', { cause: new Error('lvl 1') });
       const report = makeCaughtObjectReportJson(caught);
-      expect(getReportObjectReportValidator()(report)).toBe(true);
+      const validator = getReportObjectReportValidator();
+      const isValid = validator(report);
+      expect(isValid).toBe(true);
       expect(typeof report.stack).toBe('string');
       delete report.stack;
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -857,7 +859,7 @@ describe('CorjMaker', () => {
           "instanceof_error": true,
           "message": "lvl 0",
           "typeof": "object",
-          "v": "corj/v0.7",
+          "v": "corj/v0.8",
         }
       `);
     });
@@ -920,7 +922,7 @@ describe('CorjMaker', () => {
           "instanceof_error": true,
           "message": "lvl 0",
           "typeof": "object",
-          "v": "corj/v0.7",
+          "v": "corj/v0.8",
         }
       `);
     });
@@ -1115,7 +1117,7 @@ describe('CorjMaker', () => {
           "instanceof_error": true,
           "message": "lvl 0",
           "typeof": "object",
-          "v": "corj/v0.7",
+          "v": "corj/v0.8",
         }
       `);
 
@@ -1175,7 +1177,7 @@ describe('CorjMaker', () => {
           "instanceof_error": true,
           "message": "lvl 0",
           "typeof": "object",
-          "v": "corj/v0.7",
+          "v": "corj/v0.8",
         }
       `);
     });
@@ -1208,7 +1210,7 @@ describe('CorjMaker', () => {
           "as_string_format": "String",
           "children": Array [
             Object {
-              "$schema": "https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.7-report-array.json",
+              "$schema": "https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.8/report-array.json",
               "as_json": Object {},
               "as_json_format": "safe-stable-stringify@2.4.1",
               "as_string": "Error: lvl 1",
@@ -1224,7 +1226,7 @@ describe('CorjMaker', () => {
               "message": "lvl 1",
               "path": "$.cause",
               "typeof": "object",
-              "v": "corj/v0.7",
+              "v": "corj/v0.8",
             },
           ],
           "children_sources": Array [
@@ -1235,7 +1237,7 @@ describe('CorjMaker', () => {
           "instanceof_error": true,
           "message": "lvl 0",
           "typeof": "object",
-          "v": "corj/v0.7",
+          "v": "corj/v0.8",
         }
       `);
     });
@@ -1287,7 +1289,7 @@ describe('CorjMaker', () => {
           "instanceof_error": true,
           "message": "lvl 0",
           "typeof": "object",
-          "v": "corj/v0.7",
+          "v": "corj/v0.8",
         }
       `);
     });
@@ -1331,7 +1333,7 @@ describe('CorjMaker', () => {
               "message": "lvl 1",
               "path": "$.cause",
               "typeof": "object",
-              "v": "corj/v0.7",
+              "v": "corj/v0.8",
             },
           ],
           "children_sources": Array [
@@ -1342,7 +1344,7 @@ describe('CorjMaker', () => {
           "instanceof_error": true,
           "message": "lvl 0",
           "typeof": "object",
-          "v": "corj/v0.7",
+          "v": "corj/v0.8",
         }
       `);
     });

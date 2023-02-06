@@ -2,7 +2,7 @@ import {
   CORJ_REPORT_OBJECT_JSON_SCHEMA_LINK,
   CORJ_VERSION,
   CORJ_AS_JSON_FORMAT_SAFE_STABLE_STRINGIFY_2_4_1,
-  CORJ_AS_STRING_FORMAT_STRING_CONSTRUCTOR,
+  CORJ_AS_STRING_FORMAT_STRING_COERCION,
   bakeCorj,
   makeCaughtObjectReportJson,
   CORJ_MAKER_DEFAULT_OPTIONS,
@@ -15,13 +15,13 @@ describe('Assertions about package exports', function () {
       CORJ_VERSION,
       CORJ_SAFE_STABLE_STRINGIFY_VERSION:
         CORJ_AS_JSON_FORMAT_SAFE_STABLE_STRINGIFY_2_4_1,
-      CORJ_STRINGIFY_VERSION: CORJ_AS_STRING_FORMAT_STRING_CONSTRUCTOR,
+      CORJ_STRINGIFY_VERSION: CORJ_AS_STRING_FORMAT_STRING_COERCION,
     }).toMatchInlineSnapshot(`
       Object {
-        "CORJ_JSON_SCHEMA_LINK": "https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.7-report-object.json",
+        "CORJ_JSON_SCHEMA_LINK": "https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.8/report-object.json",
         "CORJ_SAFE_STABLE_STRINGIFY_VERSION": "safe-stable-stringify@2.4.1",
         "CORJ_STRINGIFY_VERSION": "String",
-        "CORJ_VERSION": "corj/v0.7",
+        "CORJ_VERSION": "corj/v0.8",
       }
     `);
   });
@@ -33,6 +33,14 @@ describe('Assertions about package exports', function () {
   test('DEFAULT_CORJ_MAKER_OPTIONS', () => {
     expect(CORJ_MAKER_DEFAULT_OPTIONS).toMatchInlineSnapshot(`
       Object {
+        "asJsonFormatsToApply": Array [
+          ".toCorjAsJson",
+          "safe-stable-stringify@2.4.1",
+        ],
+        "asStringFormatsToApply": Array [
+          ".toCorjAsString",
+          "String",
+        ],
         "childrenMetadataFields": Object {
           "$schema": false,
           "as_json_format": false,

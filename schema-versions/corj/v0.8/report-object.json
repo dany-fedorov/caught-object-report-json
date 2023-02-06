@@ -1,0 +1,14 @@
+{
+  "$id": "https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.8/report-object.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Caught Object Report JSON",
+  "description": "A JS caught object representation. Default implementation is https://www.npmjs.com/package/caught-object-report-json.",
+  "allOf": [
+    {
+      "$ref": "https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.8/definitions.json/$defs/BASE_PROPERTIES_MIXIN"
+    },
+    {
+      "$ref": "https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.8/definitions.json/$defs/REPORT_OBJECT_PROPERTIES_MIXIN"
+    }
+  ]
+}

@@ -128,14 +128,14 @@ export type CaughtObjectReportJson = {
    * Links
    * - [MDN String() constructor](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/String)
    */
-  as_string_format?: CorjAsStringFormat;
+  as_string_format?: CorjAsStringFormat | null;
   /**
    * Indicates a method used to obtain the value of `as_json`.<br>
    * - "safe-stable-stringify@2.4.1" means value was obtained with safe-stable-stringify library.`
    *
    * Adding this field is controlled by {@link CorjMakerOptions | CorjMakerOptions['metadataFields']['as_json_format']}).
    */
-  as_json_format: CorjAsJsonFormat;
+  as_json_format: CorjAsJsonFormat | null;
   /**
    * Optional link to JSON schema this object conforms to.<br>
    * Adding this field is controlled by {@link CorjMakerOptions | CorjMakerOptions['metadataFields']['$schema']}).
@@ -234,6 +234,11 @@ export type CorjMakerOptions = {
   metadataFields: boolean | CorjMakerOptionsMetadataFieldsConfig;
   childrenMetadataFields: boolean | CorjMakerOptionsMetadataFieldsConfig;
   /**
+   *
+   */
+  asJsonFormatsToApply: [CorjAsJsonFormat, ...CorjAsJsonFormat[]];
+  asStringFormatsToApply: [CorjAsStringFormat, ...CorjAsStringFormat[]];
+  /**
    * Controls how much levels of nested errors will be included.
    * For example
    * - 1 means `caught.cause` is included, but `caught.cause.cause` is not.
@@ -281,10 +286,12 @@ type NestedCfg = {
 };
 
 export type CorjAsStringFormat =
-  typeof CORJ_AS_STRING_FORMAT_STRING_CONSTRUCTOR;
+  | typeof CORJ_AS_STRING_FORMAT_STRING_COERCION
+  | typeof CORJ_AS_STRING_FORMAT_TO_CORJ_AS_STRING_METHOD;
 
 export type CorjAsJsonFormat =
-  typeof CORJ_AS_JSON_FORMAT_SAFE_STABLE_STRINGIFY_2_4_1;
+  | typeof CORJ_AS_JSON_FORMAT_SAFE_STABLE_STRINGIFY_2_4_1
+  | typeof CORJ_AS_JSON_FORMAT_TO_CORJ_AS_JSON_METHOD;
 
 //  ██████╗ ██████╗ ███╗   ██╗███████╗████████╗ █████╗ ███╗   ██╗████████╗███████╗
 // ██╔════╝██╔═══██╗████╗  ██║██╔════╝╚══██╔══╝██╔══██╗████╗  ██║╚══██╔══╝██╔════╝
@@ -296,20 +303,14 @@ export type CorjAsJsonFormat =
 export const CORJ_NESTED_OMITTED_REASONS = {
   REACHED_MAX_DEPTH: (maxDepth: number) => `Reached max depth - ${maxDepth}`,
 };
-
 export const CORJ_AS_JSON_FORMAT_SAFE_STABLE_STRINGIFY_2_4_1 =
   'safe-stable-stringify@2.4.1';
-
-export const CORJ_AS_STRING_FORMAT_STRING_CONSTRUCTOR = 'String';
-
-export const CORJ_VERSION = 'corj/v0.7';
-
-export const CORJ_REPORT_OBJECT_JSON_SCHEMA_LINK =
-  'https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.7-report-object.json';
-
-export const CORJ_REPORT_ARRAY_JSON_SCHEMA_LINK =
-  'https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.7-report-array.json';
-
+export const CORJ_AS_JSON_FORMAT_TO_CORJ_AS_JSON_METHOD = '.toCorjAsJson';
+export const CORJ_AS_STRING_FORMAT_STRING_COERCION = 'String';
+export const CORJ_AS_STRING_FORMAT_TO_CORJ_AS_STRING_METHOD = '.toCorjAsString';
+export const CORJ_VERSION = 'corj/v0.8';
+export const CORJ_REPORT_OBJECT_JSON_SCHEMA_LINK = `https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/${CORJ_VERSION}/report-object.json`;
+export const CORJ_REPORT_ARRAY_JSON_SCHEMA_LINK = `https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/${CORJ_VERSION}/report-array.json`;
 export const CORJ_MAKER_DEFAULT_OPTIONS = Object.freeze({
   metadataFields: {
     $schema: false,
@@ -325,6 +326,14 @@ export const CORJ_MAKER_DEFAULT_OPTIONS = Object.freeze({
     as_string_format: false,
     v: false,
   },
+  asJsonFormatsToApply: ['.toCorjAsJson', 'safe-stable-stringify@2.4.1'] as [
+    CorjAsJsonFormat,
+    CorjAsJsonFormat,
+  ],
+  asStringFormatsToApply: ['.toCorjAsString', 'String'] as [
+    CorjAsStringFormat,
+    CorjAsStringFormat,
+  ],
   maxChildrenLevel: 5,
   childrenSources: ['cause', 'errors'],
   makeReportId: ({ index }) => (index === -1 ? 'root' : String(index)),
@@ -421,6 +430,10 @@ function screenOptionsForAccessorErrors(
       options.childrenMetadataFields.v;
       options.childrenMetadataFields.$schema;
     }
+    options.asJsonFormatsToApply;
+    options.asJsonFormatsToApply?.forEach((f) => f);
+    options.asStringFormatsToApply;
+    options.asStringFormatsToApply?.forEach((f) => f);
     options.makeReportId;
     options.printWarningsOnUnhandledErrors;
     options.onCaughtMaking;
@@ -577,27 +590,63 @@ function makeProp_as_string(
   options: CorjMakerOptions,
   nestedCfg: NestedCfg | null,
 ): CaughtObjectAsStringReport {
-  const format = CORJ_AS_STRING_FORMAT_STRING_CONSTRUCTOR;
-  try {
-    return {
-      format,
-      value: String(caught),
-    };
-  } catch (caughtNew: unknown) {
-    handleCaught(caughtNew, options, {
-      reason: 'error-converting-caught-to-json',
-      caughtObjectNestingInfo: nestedCfg,
-      caughtWhenProcessingReportKey: 'as_string',
-    });
-    return {
-      format,
-      value: null,
-    };
+  const formats = options.asStringFormatsToApply;
+  for (let i = 0; i < formats.length; ++i) {
+    const format = formats[i] as CorjAsStringFormat;
+    try {
+      switch (format) {
+        case CORJ_AS_STRING_FORMAT_STRING_COERCION:
+          return {
+            format,
+            value: String(caught),
+          };
+        case CORJ_AS_STRING_FORMAT_TO_CORJ_AS_STRING_METHOD: {
+          if (
+            !caught ||
+            typeof caught !== 'object' ||
+            !('toCorjAsString' in caught) ||
+            typeof caught['toCorjAsString'] !== 'function'
+          ) {
+            if (i < formats.length - 1) {
+              continue;
+            } else {
+              return {
+                format,
+                value: null,
+              };
+            }
+          } else {
+            return {
+              format,
+              value: caught.toCorjAsString({ options, caught, nestedCfg }),
+            };
+          }
+        }
+      }
+    } catch (caughtNew: unknown) {
+      if (i < formats.length - 1) {
+        continue;
+      } else {
+        handleCaught(caughtNew, options, {
+          reason: 'error-converting-caught-to-json',
+          caughtObjectNestingInfo: nestedCfg,
+          caughtWhenProcessingReportKey: 'as_string',
+        });
+        return {
+          format,
+          value: null,
+        };
+      }
+    }
   }
+  return {
+    format: null,
+    value: null,
+  };
 }
 
 function makeProp_as_string_format(
-  format: CorjAsStringFormat,
+  format: CorjAsStringFormat | null,
   options: CorjMakerOptions,
   nestedCfg: NestedCfg | null,
 ) {
@@ -625,7 +674,7 @@ function makeProp_children_sources(
 }
 
 function makeProp_as_json_format(
-  format: CorjAsJsonFormat,
+  format: CorjAsJsonFormat | null,
   options: CorjMakerOptions,
   nestedCfg: NestedCfg | null,
 ) {
@@ -667,40 +716,76 @@ function makeProp_as_json(
   options: CorjMakerOptions,
   nestedCfg: NestedCfg | null,
 ): CaughtObjectAsJsonReport {
-  const format = CORJ_AS_JSON_FORMAT_SAFE_STABLE_STRINGIFY_2_4_1;
-  try {
-    const jsonString = jsonStringify(
-      caught,
-      function (this: object, key: string, value: unknown) {
-        if (this === caught && options.childrenSources.includes(key)) {
-          return undefined;
+  const formats = options.asJsonFormatsToApply;
+  for (let i = 0; i < formats.length; ++i) {
+    const format = formats[i] as CorjAsJsonFormat;
+    try {
+      switch (format) {
+        case CORJ_AS_JSON_FORMAT_TO_CORJ_AS_JSON_METHOD: {
+          if (
+            !caught ||
+            typeof caught !== 'object' ||
+            !('toCorjAsJson' in caught) ||
+            typeof caught['toCorjAsJson'] !== 'function'
+          ) {
+            if (i < formats.length - 1) {
+              continue;
+            } else {
+              return {
+                format,
+                value: null,
+              };
+            }
+          } else {
+            return {
+              format,
+              value: caught.toCorjAsJson({ options, caught, nestedCfg }),
+            };
+          }
         }
-        return value;
-      },
-    );
-    if (typeof jsonString !== 'string') {
-      const err = new Error(
-        `Could not convert caught object to json string using ${format}.`,
-      );
-      (err as any).originalCaught = caught;
-      (err as any).originalCaughtStringifyResult = jsonString;
-      throw err;
+        case CORJ_AS_JSON_FORMAT_SAFE_STABLE_STRINGIFY_2_4_1: {
+          const jsonString = jsonStringify(
+            caught,
+            function (this: object, key: string, value: unknown) {
+              if (this === caught && options.childrenSources.includes(key)) {
+                return undefined;
+              }
+              return value;
+            },
+          );
+          if (typeof jsonString !== 'string') {
+            const err = new Error(
+              `Could not convert caught object to json string using ${format}.`,
+            );
+            (err as any).originalCaught = caught;
+            (err as any).originalCaughtStringifyResult = jsonString;
+            throw err;
+          }
+          return {
+            format,
+            value: JSON.parse(jsonString),
+          };
+        }
+      }
+    } catch (caughtNew: unknown) {
+      if (i < formats.length - 1) {
+        continue;
+      }
+      handleCaught(caughtNew, options, {
+        reason: 'error-converting-caught-to-json',
+        caughtObjectNestingInfo: nestedCfg,
+        caughtWhenProcessingReportKey: 'as_json',
+      });
+      return {
+        format,
+        value: null,
+      };
     }
-    return {
-      format,
-      value: JSON.parse(jsonString),
-    };
-  } catch (caughtNew: unknown) {
-    handleCaught(caughtNew, options, {
-      reason: 'error-converting-caught-to-json',
-      caughtObjectNestingInfo: nestedCfg,
-      caughtWhenProcessingReportKey: 'as_json',
-    });
-    return {
-      format,
-      value: null,
-    };
   }
+  return {
+    format: null,
+    value: null,
+  };
 }
 
 function makeProp_message(

@@ -1,12 +1,13 @@
-- [x] Rename `child_id`, `child_level`, `child_path` to `id`, `level`, `path`. Make `id` a string.
-- [x] Provide a callback to generate `id`. Option to make add `id` to top-level object, default id is 'root'. Add `CorjMaker#makeReportObjectArray` method to make a spliced array of root + all children. `$schema` has to be different.
-- [ ] Publish to CDN and try to use in browser to collect logs from frontend to Sentry (?) or somwthwere. Investigate.
-- [ ] Publish to CDN and make a website that will evaluate user JS and show the report.
-- [ ] Changes to as_json and as_string formats. Use `toCORJAsJson_or_toJSON_or_safe-json-values-v...`, `toCORJAsString_toString_String`
-- [ ] Try to use safe-json-values instead. I think it is better (look more into this). The challenge is to convert it to cjs fist.
-- [ ] Try cucumber testing to better maintain the list of test cases. Maybe the list can serve (or be converted to) a list of edge cases that this lib handles for the user.
-- [ ] Refactor to use better TypeScript, make code more readable.
-- [x] Mention JSON.stringify(e, Object.getOwnPropertyNames(e), 2) as a relatively good quick workaround, but point out edge cases with nested errors.
-- [ ] Decide on a single source of truth when documenting separate properties of the report + behavior of the library. Should it be same source of truth or not?
-- [ ] Reread and fix the docs
-- [ ] Write more tests, maybe completely refactor existing tests, get to ~99% coverage.
+- [x] (feat) Rename `child_id`, `child_level`, `child_path` to `id`, `level`, `path`. Make `id` a string.
+- [x] (feat) Provide a callback to generate `id`. Option to make add `id` to top-level object, default id is 'root'. Add `CorjMaker#makeReportObjectArray` method to make a spliced array of root + all children. `$schema` has to be different.
+- [ ] (dist,docs) Publish to CDN and try to use in browser to collect logs from frontend to Sentry (?) or somwthwere. Investigate.
+- [ ] (dist,docs) Publish to CDN and make a website that will evaluate user JS and show the report.
+- [x] (feat) Changes to as_json and as_string formats. Use `toCORJAsJson_or_toJSON_or_safe-json-values-v...`, `toCORJAsString_toString_String`. 
+  `(1).toCorjAsJson(2)safe-stable-stringify@2.4.2`, `(1).toCorjAsString(2)String`
+- [ ] (feat) Try to use safe-json-values instead. I think it is better (look more into this). The challenge is to convert it to cjs fist.
+- [ ] (test,docs) Try cucumber testing to better maintain the list of test cases. Maybe the list can serve (or be converted to) a list of edge cases that this lib handles for the user.
+- [ ] (refactor) Refactor to use better TypeScript, make code more readable.
+- [x] (docs) Mention JSON.stringify(e, Object.getOwnPropertyNames(e), 2) as a relatively good quick workaround, but point out edge cases with nested errors.
+- [ ] (docs) Decide on a single source of truth when documenting separate properties of the report + behavior of the library. Should it be same source of truth or not?
+- [ ] (docs) Reread and fix the docs
+- [ ] (tests) Write more tests, maybe completely refactor existing tests, get to ~99% coverage.

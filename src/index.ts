@@ -601,12 +601,15 @@ function makeProp_as_string(
             value: String(caught),
           };
         case CORJ_AS_STRING_FORMAT_TO_CORJ_AS_STRING_METHOD: {
-          if (
-            !caught ||
-            typeof caught !== 'object' ||
-            !('toCorjAsString' in caught) ||
-            typeof caught['toCorjAsString'] !== 'function'
-          ) {
+          const r = safeAccessProp(
+            nestedCfg,
+            'as_string',
+            options,
+            'caught',
+            caught,
+            'toCorjAsString',
+          );
+          if (!('value' in r) || typeof r.value !== 'function') {
             if (i < formats.length - 1) {
               continue;
             } else {
@@ -616,7 +619,7 @@ function makeProp_as_string(
               };
             }
           } else {
-            const value = caught.toCorjAsString({ options, caught, nestedCfg });
+            const value = r.value.call(caught, { options, caught, nestedCfg });
             if (typeof value !== 'string') {
               if (i < formats.length - 1) {
                 continue;
@@ -733,12 +736,15 @@ function makeProp_as_json(
     try {
       switch (format) {
         case CORJ_AS_JSON_FORMAT_TO_CORJ_AS_JSON_METHOD: {
-          if (
-            !caught ||
-            typeof caught !== 'object' ||
-            !('toCorjAsJson' in caught) ||
-            typeof caught['toCorjAsJson'] !== 'function'
-          ) {
+          const r = safeAccessProp(
+            nestedCfg,
+            'as_string',
+            options,
+            'caught',
+            caught,
+            'toCorjAsJson',
+          );
+          if (!('value' in r) || typeof r.value !== 'function') {
             if (i < formats.length - 1) {
               continue;
             } else {
@@ -748,10 +754,10 @@ function makeProp_as_json(
               };
             }
           } else {
-            const value = jsonStringify(
-              caught.toCorjAsJson({ options, caught, nestedCfg }),
+            const stringValue = jsonStringify(
+              r.value.call(caught, { options, caught, nestedCfg }),
             );
-            if (value === undefined) {
+            if (typeof stringValue !== 'string') {
               if (i < formats.length - 1) {
                 continue;
               } else {
@@ -763,7 +769,7 @@ function makeProp_as_json(
             } else {
               return {
                 format,
-                value: JSON.parse(value),
+                value: JSON.parse(stringValue),
               };
             }
           }

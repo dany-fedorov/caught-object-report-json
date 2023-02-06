@@ -29,7 +29,7 @@
     * [GitHub](#github)
     * [Npm](#npm)
     * [Deno Land](#deno-land)
-    * [CORJ JSON Schema - corj/v0.6](#corj-json-schema---corjv06)
+    * [CORJ JSON Schema - corj/v0.7](#corj-json-schema---corjv07)
 
 # Motivation
 
@@ -347,7 +347,7 @@ prints
   "as_string": "Error: Hi, I'm a regular Error object.",
   "as_json": {},
   "stack": "Error: Hi, I'm a regular Error object.\n    at Object.<anonymous> (/home/user/work-dir/caught-object-report-json/examples/example-4-metadata-fields.ts:4:9)\n    at Module._compile (node:internal/modules/cjs/loader:1120:14)\n    at Module.m._compile (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/index.ts:1618:23)\n    at Module._extensions..js (node:internal/modules/cjs/loader:1174:10)\n    at Object.require.extensions.<computed> [as .ts] (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/index.ts:1621:12)\n    at Module.load (node:internal/modules/cjs/loader:998:32)\n    at Function.Module._load (node:internal/modules/cjs/loader:839:12)\n    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:81:12)\n    at phase4 (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/bin.ts:649:14)\n    at bootstrap (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/bin.ts:95:10)",
-  "$schema": "https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.5.json"
+  "$schema": "https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.7-report-object.json"
 }
 ```
 
@@ -626,6 +626,8 @@ https://www.npmjs.com/package/caught-object-report-json
 
 https://deno.land/x/caught_object_report_json
 
-##### CORJ JSON Schema - corj/v0.6
+##### CORJ JSON Schema - corj/v0.7
 
-https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.6.json
+- Definitions - https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.7-definitions.json
+- Report Object - https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.7-report-object.json
+- Report Array - https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.7-report-array.json

@@ -137,10 +137,12 @@ export type CaughtObjectReportJson = {
    */
   as_json_format: CorjAsJsonFormat;
   /**
-   * Optional link to JSON schema this object conforms to - {@link CORJ_JSON_SCHEMA_LINK}.<br>
+   * Optional link to JSON schema this object conforms to.<br>
    * Adding this field is controlled by {@link CorjMakerOptions | CorjMakerOptions['metadataFields']['$schema']}).
    */
-  $schema?: typeof CORJ_JSON_SCHEMA_LINK;
+  $schema?:
+    | typeof CORJ_REPORT_OBJECT_JSON_SCHEMA_LINK
+    | typeof CORJ_REPORT_ARRAY_JSON_SCHEMA_LINK;
 };
 
 export type CaughtObjectReportJsonChildren = CaughtObjectReportJson & {
@@ -302,8 +304,11 @@ export const CORJ_AS_STRING_FORMAT_STRING_CONSTRUCTOR = 'String';
 
 export const CORJ_VERSION = 'corj/v0.7';
 
-export const CORJ_JSON_SCHEMA_LINK =
-  'https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.6.json';
+export const CORJ_REPORT_OBJECT_JSON_SCHEMA_LINK =
+  'https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.7-report-object.json';
+
+export const CORJ_REPORT_ARRAY_JSON_SCHEMA_LINK =
+  'https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.7-report-array.json';
 
 export const CORJ_MAKER_DEFAULT_OPTIONS = Object.freeze({
   metadataFields: {
@@ -647,7 +652,9 @@ function makeProp_$schema(
     nestedCfg,
     options,
     '$schema',
-    CORJ_JSON_SCHEMA_LINK,
+    nestedCfg === null
+      ? CORJ_REPORT_OBJECT_JSON_SCHEMA_LINK
+      : CORJ_REPORT_ARRAY_JSON_SCHEMA_LINK,
   );
   if ('value' in res) {
     return res.value;

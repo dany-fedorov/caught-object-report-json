@@ -243,7 +243,7 @@ describe('CorjMaker', () => {
       delete report.stack;
       expect(report).toMatchInlineSnapshot(`
         Object {
-          "$schema": "https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.6.json",
+          "$schema": "https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.7-report-object.json",
           "as_json": Object {},
           "as_json_format": "safe-stable-stringify@2.4.1",
           "as_string": "Error: I am an error!",
@@ -1208,7 +1208,7 @@ describe('CorjMaker', () => {
           "as_string_format": "String",
           "children": Array [
             Object {
-              "$schema": "https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.6.json",
+              "$schema": "https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.7-report-array.json",
               "as_json": Object {},
               "as_json_format": "safe-stable-stringify@2.4.1",
               "as_string": "Error: lvl 1",

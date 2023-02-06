@@ -663,9 +663,11 @@ describe('CorjMaker', () => {
     });
   });
 
-  test('CorjMaker#entries', function () {
+  test('CorjMaker#makeReportObjectEntries', function () {
     const corj = new CorjMaker(CORJ_MAKER_DEFAULT_OPTIONS);
-    const entries = corj.makeReportObjectEntries(new Error(`Hey, I'm an error`));
+    const entries = corj.makeReportObjectEntries(
+      new Error(`Hey, I'm an error`),
+    );
     expect(entries?.[6]?.[0]).toBe('stack');
     expect(typeof entries?.[6]?.[1]).toBe('string');
     // eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -702,6 +704,13 @@ describe('CorjMaker', () => {
           ,
         ],
         Array [
+          "children_sources",
+          Array [
+            "cause",
+            "errors",
+          ],
+        ],
+        Array [
           "as_string_format",
           "String",
         ],
@@ -712,13 +721,6 @@ describe('CorjMaker', () => {
         Array [
           "v",
           "corj/v0.7",
-        ],
-        Array [
-          "children_sources",
-          Array [
-            "cause",
-            "errors",
-          ],
         ],
       ]
     `);
@@ -982,8 +984,8 @@ describe('CorjMaker', () => {
               "as_json": Object {},
               "as_string": "Error: lvl 1; obj 0",
               "children": Array [
-                4,
-                5,
+                "4",
+                "5",
               ],
               "constructor_name": "Error",
               "id": "0",
@@ -997,8 +999,8 @@ describe('CorjMaker', () => {
               "as_json": Object {},
               "as_string": "Error: lvl 1; obj 1",
               "children": Array [
-                2,
-                3,
+                "2",
+                "3",
               ],
               "constructor_name": "Error",
               "id": "1",
@@ -1034,8 +1036,8 @@ describe('CorjMaker', () => {
               "as_json": Object {},
               "as_string": "Error: lvl 2; obj 0.0",
               "children": Array [
-                8,
-                9,
+                "8",
+                "9",
               ],
               "constructor_name": "Error",
               "id": "4",
@@ -1049,8 +1051,8 @@ describe('CorjMaker', () => {
               "as_json": Object {},
               "as_string": "Error: lvl 2; obj 0.1",
               "children": Array [
-                6,
-                7,
+                "6",
+                "7",
               ],
               "constructor_name": "Error",
               "id": "5",

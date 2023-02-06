@@ -1,6 +1,6 @@
 {
   "name": "caught-object-report-json",
-  "version": "6.4.3",
+  "version": "6.5.0",
   "description": "JS Error JSON representation",
   "main": "./index.js",
   "scripts": {

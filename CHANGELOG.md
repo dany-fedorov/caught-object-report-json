@@ -1,3 +1,10 @@
+# [6.5.0](https://github.com/dany-fedorov/caught-object-report-json/compare/v6.4.3...v6.5.0) (2023-02-06)
+
+
+### Features
+
+* Update JSON schema, add array methods ([e59e2db](https://github.com/dany-fedorov/caught-object-report-json/commit/e59e2db8866320013a3d9fdd8b4b33f81aca0e32))
+
 ## [6.4.3](https://github.com/dany-fedorov/caught-object-report-json/compare/v6.4.2...v6.4.3) (2023-01-31)
 
 ## [6.4.2](https://github.com/dany-fedorov/caught-object-report-json/compare/v6.4.1...v6.4.2) (2023-01-31)

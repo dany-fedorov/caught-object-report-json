@@ -1,3 +1,15 @@
+# [7.0.0](https://github.com/dany-fedorov/caught-object-report-json/compare/v6.6.0...v7.0.0) (2023-02-06)
+
+
+### Features
+
+* Remove `make` and `entries` methods ([7ed9460](https://github.com/dany-fedorov/caught-object-report-json/commit/7ed946024fec690397128f51810adcb69e586290))
+
+
+### BREAKING CHANGES
+
+* In this commit - e59e2db
+
 # [6.6.0](https://github.com/dany-fedorov/caught-object-report-json/compare/v6.5.0...v6.6.0) (2023-02-06)
 
 

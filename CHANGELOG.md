@@ -1,3 +1,11 @@
+# [7.1.0](https://github.com/dany-fedorov/caught-object-report-json/compare/v7.0.0...v7.1.0) (2023-02-06)
+
+
+### Features
+
+* Check types returned by protocol methods ([7c27dcd](https://github.com/dany-fedorov/caught-object-report-json/commit/7c27dcdf6a4cd2fca779576b67426cb7c56116dc))
+* Intorduce protocol for objects to provide their own `as_string` ([ced7dca](https://github.com/dany-fedorov/caught-object-report-json/commit/ced7dca376bb71c972663131b5d5009215ffce30))
+
 # [7.0.0](https://github.com/dany-fedorov/caught-object-report-json/compare/v6.6.0...v7.0.0) (2023-02-06)
 
 

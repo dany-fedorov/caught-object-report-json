@@ -1,3 +1,10 @@
+## [7.1.1](https://github.com/dany-fedorov/caught-object-report-json/compare/v7.1.0...v7.1.1) (2023-02-06)
+
+
+### Bug Fixes
+
+* Safely access protocol methods ([57cd79e](https://github.com/dany-fedorov/caught-object-report-json/commit/57cd79eaed11f53a256f6192a86ae8536cfb4e60))
+
 # [7.1.0](https://github.com/dany-fedorov/caught-object-report-json/compare/v7.0.0...v7.1.0) (2023-02-06)
 
 

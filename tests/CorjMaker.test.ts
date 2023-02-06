@@ -3,7 +3,7 @@ import {
   CorjMaker,
   makeCaughtObjectReportJson,
 } from '../src';
-import { getReportValidator } from './utils/getReportValidator';
+import { getReportObjectReportValidator } from './utils/getReportObjectReportValidator';
 
 describe('CorjMaker', () => {
   afterEach(() => {
@@ -20,8 +20,10 @@ describe('CorjMaker', () => {
         },
       });
       const caught = new Error('I am an error!');
-      const report = noOptionsBuilder.make(caught);
-      expect(getReportValidator()(report)).toBe(true);
+      const report = noOptionsBuilder.makeReportObject(caught);
+      const validator = getReportObjectReportValidator();
+      const isValid = validator(report);
+      expect(isValid).toBe(true);
       expect(typeof report.stack).toBe('string');
       delete report.stack;
       expect(report).toMatchInlineSnapshot(`
@@ -38,7 +40,7 @@ describe('CorjMaker', () => {
           "instanceof_error": true,
           "message": "I am an error!",
           "typeof": "object",
-          "v": "corj/v0.6",
+          "v": "corj/v0.7",
         }
       `);
       expect(caughtBuildingArray).toMatchInlineSnapshot(`Array []`);
@@ -53,8 +55,8 @@ describe('CorjMaker', () => {
         },
       });
       const caught = 'I am a string, but I was thrown nevertheless!';
-      const report = noOptionsBuilder.make(caught);
-      expect(getReportValidator()(report)).toBe(true);
+      const report = noOptionsBuilder.makeReportObject(caught);
+      expect(getReportObjectReportValidator()(report)).toBe(true);
       expect(typeof report.stack).toBe('undefined');
       delete report.stack;
       expect(report).toMatchInlineSnapshot(`
@@ -70,7 +72,7 @@ describe('CorjMaker', () => {
           "constructor_name": "String",
           "instanceof_error": false,
           "typeof": "string",
-          "v": "corj/v0.6",
+          "v": "corj/v0.7",
         }
       `);
       expect(caughtBuildingArray).toMatchInlineSnapshot(`Array []`);
@@ -85,8 +87,8 @@ describe('CorjMaker', () => {
         },
       });
       const caught = undefined;
-      const report = noOptionsBuilder.make(caught);
-      expect(getReportValidator()(report)).toBe(true);
+      const report = noOptionsBuilder.makeReportObject(caught);
+      expect(getReportObjectReportValidator()(report)).toBe(true);
       expect(typeof report.stack).toBe('undefined');
       delete report.stack;
       expect(report).toMatchInlineSnapshot(`
@@ -101,7 +103,7 @@ describe('CorjMaker', () => {
           ],
           "instanceof_error": false,
           "typeof": "undefined",
-          "v": "corj/v0.6",
+          "v": "corj/v0.7",
         }
       `);
       expect(caughtBuildingArray).toMatchInlineSnapshot(`
@@ -127,8 +129,8 @@ describe('CorjMaker', () => {
         },
       });
       const caught = null;
-      const report = noOptionsBuilder.make(caught);
-      expect(getReportValidator()(report)).toBe(true);
+      const report = noOptionsBuilder.makeReportObject(caught);
+      expect(getReportObjectReportValidator()(report)).toBe(true);
       expect(typeof report.stack).toBe('undefined');
       delete report.stack;
       expect(report).toMatchInlineSnapshot(`
@@ -143,7 +145,7 @@ describe('CorjMaker', () => {
           ],
           "instanceof_error": false,
           "typeof": "object",
-          "v": "corj/v0.6",
+          "v": "corj/v0.7",
         }
       `);
       expect(caughtBuildingArray).toMatchInlineSnapshot(`Array []`);
@@ -158,8 +160,8 @@ describe('CorjMaker', () => {
         },
       });
       const caught = BigInt(123);
-      const report = noOptionsBuilder.make(caught);
-      expect(getReportValidator()(report)).toBe(true);
+      const report = noOptionsBuilder.makeReportObject(caught);
+      expect(getReportObjectReportValidator()(report)).toBe(true);
       expect(typeof report.stack).toBe('undefined');
       delete report.stack;
       expect(report).toMatchInlineSnapshot(`
@@ -175,7 +177,7 @@ describe('CorjMaker', () => {
           "constructor_name": "BigInt",
           "instanceof_error": false,
           "typeof": "bigint",
-          "v": "corj/v0.6",
+          "v": "corj/v0.7",
         }
       `);
       expect(caughtBuildingArray).toMatchInlineSnapshot(`Array []`);
@@ -190,8 +192,8 @@ describe('CorjMaker', () => {
         },
       });
       const caught = [1234, 'string', BigInt(1234), { a: 'b' }];
-      const report = noOptionsBuilder.make(caught);
-      expect(getReportValidator()(report)).toBe(true);
+      const report = noOptionsBuilder.makeReportObject(caught);
+      expect(getReportObjectReportValidator()(report)).toBe(true);
       expect(typeof report.stack).toBe('undefined');
       delete report.stack;
       expect(report).toMatchInlineSnapshot(`
@@ -214,7 +216,7 @@ describe('CorjMaker', () => {
           "constructor_name": "Array",
           "instanceof_error": false,
           "typeof": "object",
-          "v": "corj/v0.6",
+          "v": "corj/v0.7",
         }
       `);
       expect(caughtBuildingArray).toMatchInlineSnapshot(`Array []`);
@@ -235,8 +237,8 @@ describe('CorjMaker', () => {
         },
       });
       const caught = new Error('I am an error!');
-      const report = corj.make(caught);
-      expect(getReportValidator()(report)).toBe(true);
+      const report = corj.makeReportObject(caught);
+      expect(getReportObjectReportValidator()(report)).toBe(true);
       expect(typeof report.stack).toBe('string');
       delete report.stack;
       expect(report).toMatchInlineSnapshot(`
@@ -254,7 +256,7 @@ describe('CorjMaker', () => {
           "instanceof_error": true,
           "message": "I am an error!",
           "typeof": "object",
-          "v": "corj/v0.6",
+          "v": "corj/v0.7",
         }
       `);
       expect(caughtBuildingArray).toMatchInlineSnapshot(`Array []`);
@@ -269,8 +271,8 @@ describe('CorjMaker', () => {
         metadataFields: false,
       });
       const caught = new Error('I am an error!');
-      const report = corj.make(caught);
-      expect(getReportValidator()(report)).toBe(true);
+      const report = corj.makeReportObject(caught);
+      expect(getReportObjectReportValidator()(report)).toBe(true);
       expect(typeof report.stack).toBe('string');
       delete report.stack;
       expect(report).toMatchInlineSnapshot(`
@@ -292,8 +294,8 @@ describe('CorjMaker', () => {
         onCaughtMaking: null,
       });
       const caught = new Error('I am an error!');
-      const report = noOptionsBuilder.make(caught);
-      expect(getReportValidator()(report)).toBe(true);
+      const report = noOptionsBuilder.makeReportObject(caught);
+      expect(getReportObjectReportValidator()(report)).toBe(true);
       expect(typeof report.stack).toBe('string');
       delete report.stack;
       expect(report).toMatchInlineSnapshot(`
@@ -310,7 +312,7 @@ describe('CorjMaker', () => {
           "instanceof_error": true,
           "message": "I am an error!",
           "typeof": "object",
-          "v": "corj/v0.6",
+          "v": "corj/v0.7",
         }
       `);
     });
@@ -322,8 +324,8 @@ describe('CorjMaker', () => {
       consoleWarnSpy.mockImplementation(() => null);
       const corj = new CorjMaker(CORJ_MAKER_DEFAULT_OPTIONS);
       const caught = undefined;
-      const report = corj.make(caught);
-      expect(getReportValidator()(report)).toBe(true);
+      const report = corj.makeReportObject(caught);
+      expect(getReportObjectReportValidator()(report)).toBe(true);
       expect(typeof report.stack).toBe('undefined');
       delete report.stack;
       expect(report).toMatchInlineSnapshot(`
@@ -338,7 +340,7 @@ describe('CorjMaker', () => {
           ],
           "instanceof_error": false,
           "typeof": "undefined",
-          "v": "corj/v0.6",
+          "v": "corj/v0.7",
         }
       `);
       expect(consoleWarnSpy.mock.calls).toMatchInlineSnapshot(`
@@ -363,8 +365,8 @@ describe('CorjMaker', () => {
           throw new Error('I am a nasty error!');
         },
       };
-      const report = corj.make(caught);
-      expect(getReportValidator()(report)).toBe(true);
+      const report = corj.makeReportObject(caught);
+      expect(getReportObjectReportValidator()(report)).toBe(true);
       expect(typeof report.stack).toBe('undefined');
       delete report.stack;
       expect(report).toMatchInlineSnapshot(`
@@ -380,7 +382,7 @@ describe('CorjMaker', () => {
           "constructor_name": "Object",
           "instanceof_error": false,
           "typeof": "object",
-          "v": "corj/v0.6",
+          "v": "corj/v0.7",
         }
       `);
       expect(consoleWarnSpy.mock.calls).toMatchInlineSnapshot(`
@@ -408,8 +410,8 @@ describe('CorjMaker', () => {
           };
         },
       };
-      const report = corj.make(caught);
-      expect(getReportValidator()(report)).toBe(true);
+      const report = corj.makeReportObject(caught);
+      expect(getReportObjectReportValidator()(report)).toBe(true);
       expect(typeof report.stack).toBe('undefined');
       delete report.stack;
       expect(report).toMatchInlineSnapshot(`
@@ -425,7 +427,7 @@ describe('CorjMaker', () => {
           "constructor_name": "Object",
           "instanceof_error": false,
           "typeof": "object",
-          "v": "corj/v0.6",
+          "v": "corj/v0.7",
         }
       `);
       expect(consoleWarnSpy.mock.calls).toMatchInlineSnapshot(`
@@ -454,8 +456,8 @@ describe('CorjMaker', () => {
           );
         },
       };
-      const report = corj.make(caught);
-      expect(getReportValidator()(report)).toBe(true);
+      const report = corj.makeReportObject(caught);
+      expect(getReportObjectReportValidator()(report)).toBe(true);
       expect(typeof report.stack).toBe('undefined');
       delete report.stack;
       expect(report).toMatchInlineSnapshot(`
@@ -471,7 +473,7 @@ describe('CorjMaker', () => {
           "constructor_name": null,
           "instanceof_error": false,
           "typeof": "object",
-          "v": "corj/v0.6",
+          "v": "corj/v0.7",
         }
       `);
       expect(consoleWarnSpy.mock.calls).toMatchInlineSnapshot(`
@@ -510,8 +512,8 @@ describe('CorjMaker', () => {
           },
         },
       };
-      const report = corj.make(caught);
-      expect(getReportValidator()(report)).toBe(true);
+      const report = corj.makeReportObject(caught);
+      expect(getReportObjectReportValidator()(report)).toBe(true);
       expect(typeof report.stack).toBe('undefined');
       delete report.stack;
       expect(report).toMatchInlineSnapshot(`
@@ -527,7 +529,7 @@ describe('CorjMaker', () => {
           "constructor_name": null,
           "instanceof_error": false,
           "typeof": "object",
-          "v": "corj/v0.6",
+          "v": "corj/v0.7",
         }
       `);
       expect(consoleWarnSpy.mock.calls).toMatchInlineSnapshot(`
@@ -564,8 +566,8 @@ describe('CorjMaker', () => {
           );
         },
       };
-      const report = corj.make(caught);
-      expect(getReportValidator()(report)).toBe(true);
+      const report = corj.makeReportObject(caught);
+      expect(getReportObjectReportValidator()(report)).toBe(true);
       expect(typeof report.stack).toBe('undefined');
       delete report.stack;
       expect(report).toMatchInlineSnapshot(`
@@ -582,7 +584,7 @@ describe('CorjMaker', () => {
           "instanceof_error": false,
           "message": null,
           "typeof": "object",
-          "v": "corj/v0.6",
+          "v": "corj/v0.7",
         }
       `);
       expect(consoleWarnSpy.mock.calls).toMatchInlineSnapshot(`
@@ -619,8 +621,8 @@ describe('CorjMaker', () => {
           );
         },
       };
-      const report = corj.make(caught);
-      expect(getReportValidator()(report)).toBe(true);
+      const report = corj.makeReportObject(caught);
+      expect(getReportObjectReportValidator()(report)).toBe(true);
       expect(report.stack).toBe(null);
       delete report.stack;
       expect(report).toMatchInlineSnapshot(`
@@ -636,7 +638,7 @@ describe('CorjMaker', () => {
           "constructor_name": "Object",
           "instanceof_error": false,
           "typeof": "object",
-          "v": "corj/v0.6",
+          "v": "corj/v0.7",
         }
       `);
       expect(consoleWarnSpy.mock.calls).toMatchInlineSnapshot(`
@@ -663,7 +665,7 @@ describe('CorjMaker', () => {
 
   test('CorjMaker#entries', function () {
     const corj = new CorjMaker(CORJ_MAKER_DEFAULT_OPTIONS);
-    const entries = corj.entries(new Error(`Hey, I'm an error`));
+    const entries = corj.makeReportObjectEntries(new Error(`Hey, I'm an error`));
     expect(entries?.[6]?.[0]).toBe('stack');
     expect(typeof entries?.[6]?.[1]).toBe('string');
     // eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -709,7 +711,7 @@ describe('CorjMaker', () => {
         ],
         Array [
           "v",
-          "corj/v0.6",
+          "corj/v0.7",
         ],
         Array [
           "children_sources",
@@ -742,7 +744,7 @@ describe('CorjMaker', () => {
       Object.setPrototypeOf(opts, badField);
       const corj = new CorjMaker(opts);
       const caught = new Error(`I'm just a regular Error`);
-      const report = corj.make(caught);
+      const report = corj.makeReportObject(caught);
       delete report.stack;
       expect(report).toMatchInlineSnapshot(`
         Object {
@@ -758,7 +760,7 @@ describe('CorjMaker', () => {
           "instanceof_error": true,
           "message": "I'm just a regular Error",
           "typeof": "object",
-          "v": "corj/v0.6",
+          "v": "corj/v0.7",
         }
       `);
       expect(consoleWarnSpy.mock.calls).toMatchInlineSnapshot(`
@@ -780,7 +782,7 @@ describe('CorjMaker', () => {
         },
       });
       const caught = undefined;
-      const report = corj.make(caught);
+      const report = corj.makeReportObject(caught);
       delete report.stack;
       expect(report).toMatchInlineSnapshot(`
         Object {
@@ -794,7 +796,7 @@ describe('CorjMaker', () => {
           ],
           "instanceof_error": false,
           "typeof": "undefined",
-          "v": "corj/v0.6",
+          "v": "corj/v0.7",
         }
       `);
       expect(consoleWarnSpy.mock.calls).toMatchInlineSnapshot(`
@@ -813,7 +815,7 @@ describe('CorjMaker', () => {
       // @ts-ignore
       const caught = new Error('lvl 0', { cause: new Error('lvl 1') });
       const report = makeCaughtObjectReportJson(caught);
-      expect(getReportValidator()(report)).toBe(true);
+      expect(getReportObjectReportValidator()(report)).toBe(true);
       expect(typeof report.stack).toBe('string');
       delete report.stack;
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -836,12 +838,12 @@ describe('CorjMaker', () => {
             Object {
               "as_json": Object {},
               "as_string": "Error: lvl 1",
-              "child_id": 0,
-              "child_level": 1,
-              "child_path": "$.cause",
               "constructor_name": "Error",
+              "id": "0",
               "instanceof_error": true,
+              "level": 1,
               "message": "lvl 1",
+              "path": "$.cause",
               "typeof": "object",
             },
           ],
@@ -853,7 +855,7 @@ describe('CorjMaker', () => {
           "instanceof_error": true,
           "message": "lvl 0",
           "typeof": "object",
-          "v": "corj/v0.6",
+          "v": "corj/v0.7",
         }
       `);
     });
@@ -865,7 +867,7 @@ describe('CorjMaker', () => {
         cause: [new Error('lvl 1; obj 0'), new Error('lvl 1; obj 1')],
       });
       const report = makeCaughtObjectReportJson(caught);
-      expect(getReportValidator()(report)).toBe(true);
+      expect(getReportObjectReportValidator()(report)).toBe(true);
       expect(typeof report.stack).toBe('string');
       delete report.stack;
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -888,23 +890,23 @@ describe('CorjMaker', () => {
             Object {
               "as_json": Object {},
               "as_string": "Error: lvl 1; obj 0",
-              "child_id": 0,
-              "child_level": 1,
-              "child_path": "$.cause[0]",
               "constructor_name": "Error",
+              "id": "0",
               "instanceof_error": true,
+              "level": 1,
               "message": "lvl 1; obj 0",
+              "path": "$.cause[0]",
               "typeof": "object",
             },
             Object {
               "as_json": Object {},
               "as_string": "Error: lvl 1; obj 1",
-              "child_id": 1,
-              "child_level": 1,
-              "child_path": "$.cause[1]",
               "constructor_name": "Error",
+              "id": "1",
               "instanceof_error": true,
+              "level": 1,
               "message": "lvl 1; obj 1",
+              "path": "$.cause[1]",
               "typeof": "object",
             },
           ],
@@ -916,7 +918,7 @@ describe('CorjMaker', () => {
           "instanceof_error": true,
           "message": "lvl 0",
           "typeof": "object",
-          "v": "corj/v0.6",
+          "v": "corj/v0.7",
         }
       `);
     });
@@ -956,7 +958,7 @@ describe('CorjMaker', () => {
         ],
       });
       const reportCheck = makeCaughtObjectReportJson(caught);
-      expect(getReportValidator()(reportCheck)).toBe(true);
+      expect(getReportObjectReportValidator()(reportCheck)).toBe(true);
       expect(typeof reportCheck.stack).toBe('string');
       delete reportCheck.stack;
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -979,127 +981,127 @@ describe('CorjMaker', () => {
             Object {
               "as_json": Object {},
               "as_string": "Error: lvl 1; obj 0",
-              "child_id": 0,
-              "child_level": 1,
-              "child_path": "$.cause[0]",
               "children": Array [
                 4,
                 5,
               ],
               "constructor_name": "Error",
+              "id": "0",
               "instanceof_error": true,
+              "level": 1,
               "message": "lvl 1; obj 0",
+              "path": "$.cause[0]",
               "typeof": "object",
             },
             Object {
               "as_json": Object {},
               "as_string": "Error: lvl 1; obj 1",
-              "child_id": 1,
-              "child_level": 1,
-              "child_path": "$.cause[1]",
               "children": Array [
                 2,
                 3,
               ],
               "constructor_name": "Error",
+              "id": "1",
               "instanceof_error": true,
+              "level": 1,
               "message": "lvl 1; obj 1",
+              "path": "$.cause[1]",
               "typeof": "object",
             },
             Object {
               "as_json": Object {},
               "as_string": "Error: lvl 2; obj 1.0",
-              "child_id": 2,
-              "child_level": 2,
-              "child_path": "$.cause[1].cause[0]",
               "constructor_name": "Error",
+              "id": "2",
               "instanceof_error": true,
+              "level": 2,
               "message": "lvl 2; obj 1.0",
+              "path": "$.cause[1].cause[0]",
               "typeof": "object",
             },
             Object {
               "as_json": Object {},
               "as_string": "Error: lvl 2; obj 1.1",
-              "child_id": 3,
-              "child_level": 2,
-              "child_path": "$.cause[1].cause[1]",
               "constructor_name": "Error",
+              "id": "3",
               "instanceof_error": true,
+              "level": 2,
               "message": "lvl 2; obj 1.1",
+              "path": "$.cause[1].cause[1]",
               "typeof": "object",
             },
             Object {
               "as_json": Object {},
               "as_string": "Error: lvl 2; obj 0.0",
-              "child_id": 4,
-              "child_level": 2,
-              "child_path": "$.cause[0].cause[0]",
               "children": Array [
                 8,
                 9,
               ],
               "constructor_name": "Error",
+              "id": "4",
               "instanceof_error": true,
+              "level": 2,
               "message": "lvl 2; obj 0.0",
+              "path": "$.cause[0].cause[0]",
               "typeof": "object",
             },
             Object {
               "as_json": Object {},
               "as_string": "Error: lvl 2; obj 0.1",
-              "child_id": 5,
-              "child_level": 2,
-              "child_path": "$.cause[0].cause[1]",
               "children": Array [
                 6,
                 7,
               ],
               "constructor_name": "Error",
+              "id": "5",
               "instanceof_error": true,
+              "level": 2,
               "message": "lvl 2; obj 0.1",
+              "path": "$.cause[0].cause[1]",
               "typeof": "object",
             },
             Object {
               "as_json": Object {},
               "as_string": "Error: lvl 3; obj 0.1.0",
-              "child_id": 6,
-              "child_level": 3,
-              "child_path": "$.cause[0].cause[1].cause[0]",
               "constructor_name": "Error",
+              "id": "6",
               "instanceof_error": true,
+              "level": 3,
               "message": "lvl 3; obj 0.1.0",
+              "path": "$.cause[0].cause[1].cause[0]",
               "typeof": "object",
             },
             Object {
               "as_json": Object {},
               "as_string": "Error: lvl 3; obj 0.1.1",
-              "child_id": 7,
-              "child_level": 3,
-              "child_path": "$.cause[0].cause[1].cause[1]",
               "constructor_name": "Error",
+              "id": "7",
               "instanceof_error": true,
+              "level": 3,
               "message": "lvl 3; obj 0.1.1",
+              "path": "$.cause[0].cause[1].cause[1]",
               "typeof": "object",
             },
             Object {
               "as_json": Object {},
               "as_string": "Error: lvl 3; obj 0.0.0",
-              "child_id": 8,
-              "child_level": 3,
-              "child_path": "$.cause[0].cause[0].cause[0]",
               "constructor_name": "Error",
+              "id": "8",
               "instanceof_error": true,
+              "level": 3,
               "message": "lvl 3; obj 0.0.0",
+              "path": "$.cause[0].cause[0].cause[0]",
               "typeof": "object",
             },
             Object {
               "as_json": Object {},
               "as_string": "Error: lvl 3; obj 0.0.1",
-              "child_id": 9,
-              "child_level": 3,
-              "child_path": "$.cause[0].cause[0].cause[1]",
               "constructor_name": "Error",
+              "id": "9",
               "instanceof_error": true,
+              "level": 3,
               "message": "lvl 3; obj 0.0.1",
+              "path": "$.cause[0].cause[0].cause[1]",
               "typeof": "object",
             },
           ],
@@ -1111,14 +1113,14 @@ describe('CorjMaker', () => {
           "instanceof_error": true,
           "message": "lvl 0",
           "typeof": "object",
-          "v": "corj/v0.6",
+          "v": "corj/v0.7",
         }
       `);
 
       const reportCapped = makeCaughtObjectReportJson(caught, {
         maxChildrenLevel: 1,
       });
-      expect(getReportValidator()(reportCapped)).toBe(true);
+      expect(getReportObjectReportValidator()(reportCapped)).toBe(true);
       expect(typeof reportCapped.stack).toBe('string');
       delete reportCapped.stack;
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -1141,25 +1143,25 @@ describe('CorjMaker', () => {
             Object {
               "as_json": Object {},
               "as_string": "Error: lvl 1; obj 0",
-              "child_id": 0,
-              "child_level": 1,
-              "child_path": "$.cause[0]",
               "children_omitted_reason": "Reached max depth - 1",
               "constructor_name": "Error",
+              "id": "0",
               "instanceof_error": true,
+              "level": 1,
               "message": "lvl 1; obj 0",
+              "path": "$.cause[0]",
               "typeof": "object",
             },
             Object {
               "as_json": Object {},
               "as_string": "Error: lvl 1; obj 1",
-              "child_id": 1,
-              "child_level": 1,
-              "child_path": "$.cause[1]",
               "children_omitted_reason": "Reached max depth - 1",
               "constructor_name": "Error",
+              "id": "1",
               "instanceof_error": true,
+              "level": 1,
               "message": "lvl 1; obj 1",
+              "path": "$.cause[1]",
               "typeof": "object",
             },
           ],
@@ -1171,7 +1173,7 @@ describe('CorjMaker', () => {
           "instanceof_error": true,
           "message": "lvl 0",
           "typeof": "object",
-          "v": "corj/v0.6",
+          "v": "corj/v0.7",
         }
       `);
     });
@@ -1183,7 +1185,7 @@ describe('CorjMaker', () => {
       const report = makeCaughtObjectReportJson(caught, {
         childrenMetadataFields: true,
       });
-      expect(getReportValidator()(report)).toBe(true);
+      expect(getReportObjectReportValidator()(report)).toBe(true);
       expect(typeof report.stack).toBe('string');
       delete report.stack;
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -1209,18 +1211,18 @@ describe('CorjMaker', () => {
               "as_json_format": "safe-stable-stringify@2.4.1",
               "as_string": "Error: lvl 1",
               "as_string_format": "String",
-              "child_id": 0,
-              "child_level": 1,
-              "child_path": "$.cause",
               "children_sources": Array [
                 "cause",
                 "errors",
               ],
               "constructor_name": "Error",
+              "id": "0",
               "instanceof_error": true,
+              "level": 1,
               "message": "lvl 1",
+              "path": "$.cause",
               "typeof": "object",
-              "v": "corj/v0.6",
+              "v": "corj/v0.7",
             },
           ],
           "children_sources": Array [
@@ -1231,7 +1233,7 @@ describe('CorjMaker', () => {
           "instanceof_error": true,
           "message": "lvl 0",
           "typeof": "object",
-          "v": "corj/v0.6",
+          "v": "corj/v0.7",
         }
       `);
     });
@@ -1243,7 +1245,7 @@ describe('CorjMaker', () => {
       const report = makeCaughtObjectReportJson(caught, {
         childrenMetadataFields: false,
       });
-      expect(getReportValidator()(report)).toBe(true);
+      expect(getReportObjectReportValidator()(report)).toBe(true);
       expect(typeof report.stack).toBe('string');
       delete report.stack;
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -1266,12 +1268,12 @@ describe('CorjMaker', () => {
             Object {
               "as_json": Object {},
               "as_string": "Error: lvl 1",
-              "child_id": 0,
-              "child_level": 1,
-              "child_path": "$.cause",
               "constructor_name": "Error",
+              "id": "0",
               "instanceof_error": true,
+              "level": 1,
               "message": "lvl 1",
+              "path": "$.cause",
               "typeof": "object",
             },
           ],
@@ -1283,7 +1285,7 @@ describe('CorjMaker', () => {
           "instanceof_error": true,
           "message": "lvl 0",
           "typeof": "object",
-          "v": "corj/v0.6",
+          "v": "corj/v0.7",
         }
       `);
     });
@@ -1297,7 +1299,7 @@ describe('CorjMaker', () => {
           v: true,
         },
       });
-      expect(getReportValidator()(report)).toBe(true);
+      expect(getReportObjectReportValidator()(report)).toBe(true);
       expect(typeof report.stack).toBe('string');
       delete report.stack;
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -1320,14 +1322,14 @@ describe('CorjMaker', () => {
             Object {
               "as_json": Object {},
               "as_string": "Error: lvl 1",
-              "child_id": 0,
-              "child_level": 1,
-              "child_path": "$.cause",
               "constructor_name": "Error",
+              "id": "0",
               "instanceof_error": true,
+              "level": 1,
               "message": "lvl 1",
+              "path": "$.cause",
               "typeof": "object",
-              "v": "corj/v0.6",
+              "v": "corj/v0.7",
             },
           ],
           "children_sources": Array [
@@ -1338,7 +1340,7 @@ describe('CorjMaker', () => {
           "instanceof_error": true,
           "message": "lvl 0",
           "typeof": "object",
-          "v": "corj/v0.6",
+          "v": "corj/v0.7",
         }
       `);
     });

@@ -1,10 +1,10 @@
 import { makeCaughtObjectReportJson } from '../src';
-import { getReportValidator } from './utils/getReportValidator';
+import { getReportObjectReportValidator } from './utils/getReportObjectReportValidator';
 
 describe('makeCaughtObjectReportJson', function () {
   test('default', () => {
     const report = makeCaughtObjectReportJson(new Error('I am an error!'));
-    expect(getReportValidator()(report)).toBe(true);
+    expect(getReportObjectReportValidator()(report)).toBe(true);
     expect(typeof report.stack).toBe('string');
     delete report.stack;
     expect(report).toMatchInlineSnapshot(`
@@ -21,7 +21,7 @@ describe('makeCaughtObjectReportJson', function () {
         "instanceof_error": true,
         "message": "I am an error!",
         "typeof": "object",
-        "v": "corj/v0.6",
+        "v": "corj/v0.7",
       }
     `);
   });
@@ -33,7 +33,7 @@ describe('makeCaughtObjectReportJson', function () {
         onCaughtMakingArray.push(caught);
       },
     });
-    expect(getReportValidator()(report)).toBe(true);
+    expect(getReportObjectReportValidator()(report)).toBe(true);
     expect(typeof report.stack).toBe('undefined');
     delete report.stack;
     expect(report).toMatchInlineSnapshot(`
@@ -48,7 +48,7 @@ describe('makeCaughtObjectReportJson', function () {
         ],
         "instanceof_error": false,
         "typeof": "undefined",
-        "v": "corj/v0.6",
+        "v": "corj/v0.7",
       }
     `);
     expect(onCaughtMakingArray).toMatchInlineSnapshot(`

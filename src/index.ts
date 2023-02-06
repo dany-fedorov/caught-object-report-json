@@ -144,10 +144,10 @@ export type CaughtObjectReportJson = {
 };
 
 export type CaughtObjectReportJsonChildren = CaughtObjectReportJson & {
-  child_id: number;
-  child_path: string;
-  child_level: number;
-  children?: (number | null)[];
+  id: string;
+  path: string;
+  level: number;
+  children?: (string | null)[];
   children_omitted_reason?: string;
 };
 
@@ -164,7 +164,7 @@ export type CaughtObjectTypeof =
 export type CaughtObjectReportJsonNestedEntries = [
   keyof CaughtObjectReportJsonChildren,
   CaughtObjectReportJsonChildren[keyof CaughtObjectReportJsonChildren],
-];
+][];
 
 export type CaughtObjectReportJsonEntries = [
   keyof CaughtObjectReportJson,
@@ -243,7 +243,16 @@ export type CorjMakerOptions = {
    */
   childrenSources: string[];
   /**
-   * This function is called when {@link CorjMaker.make | CorjMaker.make} fails to produce along the way of producing a report.
+   *
+   */
+  makeReportId: (context: {
+    index: number;
+    level: number;
+    path: string;
+    caught: unknown;
+  }) => string;
+  /**
+   * This function is called when {@link CorjMaker.makeReportObject | CorjMaker.makeReportObject} fails to produce along the way of producing a report.
    */
   onCaughtMaking: CorjMakerOnCaughtMakingCallbackFn | null;
   /**
@@ -252,21 +261,21 @@ export type CorjMakerOptions = {
   printWarningsOnUnhandledErrors: boolean;
 };
 
-type DeepPartial<T> = T extends object
+type DeepPartialOptions<T> = T extends object
   ? // eslint-disable-next-line @typescript-eslint/ban-types
     T extends Function
     ? T
     : T extends unknown[]
     ? T
     : {
-        [P in keyof T]?: DeepPartial<T[P]>;
+        [P in keyof T]?: DeepPartialOptions<T[P]>;
       }
   : T;
 
 type NestedCfg = {
   path: string;
   level: number;
-  id: number;
+  index: number;
 };
 
 export type CorjAsStringFormat =
@@ -291,7 +300,7 @@ export const CORJ_AS_JSON_FORMAT_SAFE_STABLE_STRINGIFY_2_4_1 =
 
 export const CORJ_AS_STRING_FORMAT_STRING_CONSTRUCTOR = 'String';
 
-export const CORJ_VERSION = 'corj/v0.6';
+export const CORJ_VERSION = 'corj/v0.7';
 
 export const CORJ_JSON_SCHEMA_LINK =
   'https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.6.json';
@@ -313,6 +322,7 @@ export const CORJ_MAKER_DEFAULT_OPTIONS = Object.freeze({
   },
   maxChildrenLevel: 5,
   childrenSources: ['cause', 'errors'],
+  makeReportId: ({ index }) => (index === -1 ? 'root' : String(index)),
   onCaughtMaking: (
     caught: unknown,
     {
@@ -385,9 +395,9 @@ function handleCaught(
   }
 }
 
-function processOptions(
-  options: DeepPartial<CorjMakerOptions>,
-): DeepPartial<CorjMakerOptions> {
+function screenOptionsForAccessorErrors(
+  options: DeepPartialOptions<CorjMakerOptions>,
+): DeepPartialOptions<CorjMakerOptions> {
   if (options === CORJ_MAKER_DEFAULT_OPTIONS) {
     return options;
   }
@@ -406,6 +416,7 @@ function processOptions(
       options.childrenMetadataFields.v;
       options.childrenMetadataFields.$schema;
     }
+    options.makeReportId;
     options.printWarningsOnUnhandledErrors;
     options.onCaughtMaking;
     options.maxChildrenLevel;
@@ -513,6 +524,40 @@ function makeMetadataValue<
     return { value };
   }
   return {};
+}
+
+function mergeOptions(
+  baseOptions: CorjMakerOptions,
+  newOptions: DeepPartialOptions<CorjMakerOptions>,
+): CorjMakerOptions {
+  const effectiveOptions: CorjMakerOptions =
+    newOptions === baseOptions
+      ? (newOptions as CorjMakerOptions)
+      : {
+          ...baseOptions,
+          ...(newOptions ?? {}),
+          metadataFields:
+            typeof newOptions?.metadataFields === 'boolean'
+              ? newOptions.metadataFields
+              : {
+                  ...CORJ_MAKER_DEFAULT_OPTIONS.metadataFields,
+                  ...(typeof baseOptions.metadataFields === 'boolean'
+                    ? {}
+                    : baseOptions.metadataFields),
+                  ...(newOptions?.metadataFields ?? {}),
+                },
+          childrenMetadataFields:
+            typeof newOptions?.childrenMetadataFields === 'boolean'
+              ? newOptions.childrenMetadataFields
+              : {
+                  ...CORJ_MAKER_DEFAULT_OPTIONS.childrenMetadataFields,
+                  ...(typeof baseOptions.childrenMetadataFields === 'boolean'
+                    ? {}
+                    : baseOptions.childrenMetadataFields),
+                  ...(newOptions?.childrenMetadataFields ?? {}),
+                },
+        };
+  return effectiveOptions;
 }
 
 // ██████╗ ███████╗██████╗  ██████╗ ██████╗ ████████╗    ██████╗ ██████╗  ██████╗ ██████╗ ███████╗    ██████╗ ██╗   ██╗██╗██╗     ██████╗ ███████╗██████╗ ███████╗
@@ -759,19 +804,22 @@ function makeProp_constructor_name(
 function makeChildrenEntries(
   maker: CorjMaker,
   caught: unknown,
-): [string, unknown][] {
-  const root = { id: -1, obj: caught, path: '$', level: 0 };
-  const stack: { id: number; obj: unknown; path: string; level: number }[] = [
-    root,
-  ];
+): {
+  omittedReason: string | undefined;
+  flatChildrenEntries?: [string, unknown][][];
+  rootIds: string[];
+} {
+  const root = { index: -1, obj: caught, path: '$', level: 0 };
+  const stack: { index: number; obj: unknown; path: string; level: number }[] =
+    [root];
   const childrenObject = [];
-  let id = 0;
+  let index = 0;
   while (stack.length > 0) {
     const cur = stack.pop() as {
       level: number;
-      nestedIds: number[];
+      nestedIds: string[];
       omittedReason?: string;
-      id: number;
+      index: number;
       obj: unknown;
       path: string;
     };
@@ -788,52 +836,68 @@ function makeChildrenEntries(
     }
     const withIds = nestedObjectsOf.map((n) => {
       return {
-        id: id++,
+        index: index++,
         obj: n.obj,
         path: cur.path + n.path,
         level: thisLevel,
       };
     });
-    cur.nestedIds = withIds.map((n) => n.id);
+    cur.nestedIds = withIds.map((n) =>
+      maker.options.makeReportId({
+        caught: n.obj,
+        index: n.index,
+        path: n.path,
+        level: n.level,
+      }),
+    );
     childrenObject.push(...withIds);
     stack.push(...withIds);
   }
-  const baseChildrenEntries = [
-    ['children_omitted_reason', (root as any).omittedReason],
-  ].filter(([, v]) => v !== undefined) as [string, unknown][];
+  // const baseChildrenEntries = [
+  //   ['children_omitted_reason', (root as any).omittedReason],
+  // ].filter(([, v]) => v !== undefined) as [string, unknown][];
   if (childrenObject.length === 0) {
-    return baseChildrenEntries;
+    return {
+      rootIds: (root as any).nestedIds,
+      omittedReason: (root as any).omittedReason,
+    };
   }
-  return [
-    [
-      'children',
-      childrenObject.map((no) => {
+  return {
+    rootIds: (root as any).nestedIds,
+    omittedReason: (root as any).omittedReason,
+    flatChildrenEntries: childrenObject
+      .map((no) => {
         const { mainEntries, metadataEntries } = makeParentObjectSelfEntries(
           maker,
           no.obj,
           {
             level: no.level,
             path: no.path,
-            id: no.id,
+            index: no.index,
           },
         );
-        return Object.fromEntries(
+        return [
           [
-            ['child_id', no.id],
-            ['child_path', no.path],
-            ['child_level', no.level],
-            ...mainEntries,
-            // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-            // @ts-ignore
-            ['children', no.nestedIds.length > 0 ? no.nestedIds : undefined],
-            ['children_omitted_reason', (no as any).omittedReason],
-            ...metadataEntries,
-          ].filter(([, v]) => v !== undefined),
-        );
-      }),
-    ],
-    ...baseChildrenEntries,
-  ].filter(([, v]) => v !== undefined) as [string, unknown][];
+            'id',
+            maker.options.makeReportId({
+              caught,
+              index: no.index,
+              path: no.path,
+              level: no.level,
+            }),
+          ],
+          ['path', no.path],
+          ['level', no.level],
+          ...mainEntries,
+          // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+          // @ts-ignore
+          ['children', no.nestedIds.length > 0 ? no.nestedIds : undefined],
+          ['children_omitted_reason', (no as any).omittedReason],
+          ...metadataEntries,
+        ];
+      })
+      .filter(([, v]) => v !== undefined) as [string, unknown][][],
+  };
 }
 
 function makeParentObjectSelfEntries(
@@ -908,11 +972,11 @@ function makeParentObjectSelfEntries(
     ['stack', stack],
   ].filter(([, v]) => v !== undefined);
   const metadataEntries = [
+    ['children_sources', children_sources],
     ['as_string_format', as_string_format],
     ['as_json_format', as_json_format],
     ['v', v],
     ['$schema', $schema],
-    ['children_sources', children_sources],
   ].filter(([, v]) => v !== undefined);
   return {
     mainEntries: mainEntries as [string, unknown][],
@@ -931,70 +995,131 @@ export class CorjMaker {
   public options: CorjMakerOptions;
 
   constructor(options: CorjMakerOptions) {
-    this.options = processOptions(options) as CorjMakerOptions;
+    this.options = screenOptionsForAccessorErrors(options) as CorjMakerOptions;
   }
 
   /**
    * This exists to produce entries in dependable order.
    */
-  entries(caught: unknown): CaughtObjectReportJsonEntries {
+  makeReportObjectEntries(caught: unknown): CaughtObjectReportJsonEntries {
     const { mainEntries, metadataEntries } = makeParentObjectSelfEntries(
       this,
       caught,
       null,
     );
-    const childrenEntries = makeChildrenEntries(this, caught);
+    const { omittedReason, flatChildrenEntries } = makeChildrenEntries(
+      this,
+      caught,
+    );
     return [
       ...mainEntries,
-      ...childrenEntries,
+      ['children_omitted_reason', omittedReason],
+      [
+        'children',
+        !Array.isArray(flatChildrenEntries)
+          ? undefined
+          : flatChildrenEntries.map((chEntries) =>
+              Object.fromEntries(chEntries as [string, unknown][]),
+            ),
+      ],
       ...metadataEntries,
     ] as CaughtObjectReportJsonEntries;
   }
 
-  make(caught: unknown): CaughtObjectReportJson {
-    return Object.fromEntries(this.entries(caught)) as CaughtObjectReportJson;
+  makeReportObject(caught: unknown): CaughtObjectReportJson {
+    return Object.fromEntries(
+      this.makeReportObjectEntries(caught),
+    ) as CaughtObjectReportJson;
+  }
+
+  makeReportArrayEntries(
+    caught: unknown,
+  ): CaughtObjectReportJsonNestedEntries[] {
+    const effectiveMaker = this.cloneWith({
+      childrenMetadataFields: this.options.metadataFields,
+    });
+    const { mainEntries, metadataEntries } = makeParentObjectSelfEntries(
+      effectiveMaker,
+      caught,
+      null,
+    );
+    const rootId = effectiveMaker.options.makeReportId({
+      caught,
+      index: -1,
+      path: '$',
+      level: 0,
+    });
+    const { rootIds, omittedReason, flatChildrenEntries } = makeChildrenEntries(
+      effectiveMaker,
+      caught,
+    );
+    return [
+      [
+        ['id', rootId],
+        ['path', '$'],
+        ['level', 0],
+        ...mainEntries,
+        ['children_omitted_reason', omittedReason],
+        ['children', rootIds],
+        ...metadataEntries,
+      ].filter(([_, v]) => v !== undefined),
+      ...(!Array.isArray(flatChildrenEntries) ? [] : flatChildrenEntries),
+    ] as CaughtObjectReportJsonNestedEntries[];
+  }
+
+  makeReportArray(caught: unknown): CaughtObjectReportJsonChildren[] {
+    const arrayEntries = this.makeReportArrayEntries(caught);
+    return arrayEntries.map((reportObjectEntries) =>
+      Object.fromEntries(
+        reportObjectEntries as CaughtObjectReportJsonNestedEntries,
+      ),
+    ) as unknown as CaughtObjectReportJsonChildren[];
   }
 
   static withDefaults(
-    options: DeepPartial<CorjMakerOptions> = CORJ_MAKER_DEFAULT_OPTIONS,
+    options: DeepPartialOptions<CorjMakerOptions> = CORJ_MAKER_DEFAULT_OPTIONS,
   ): CorjMaker {
-    const normalizedOptions = processOptions(options);
-    const effectiveOptions: CorjMakerOptions =
-      normalizedOptions === CORJ_MAKER_DEFAULT_OPTIONS
-        ? (normalizedOptions as CorjMakerOptions)
-        : {
-            ...CORJ_MAKER_DEFAULT_OPTIONS,
-            ...(options ?? {}),
-            metadataFields:
-              typeof options?.metadataFields === 'boolean'
-                ? options.metadataFields
-                : {
-                    ...CORJ_MAKER_DEFAULT_OPTIONS.metadataFields,
-                    ...(options?.metadataFields ?? {}),
-                  },
-            childrenMetadataFields:
-              typeof options?.childrenMetadataFields === 'boolean'
-                ? options.childrenMetadataFields
-                : {
-                    ...CORJ_MAKER_DEFAULT_OPTIONS.childrenMetadataFields,
-                    ...(options?.childrenMetadataFields ?? {}),
-                  },
-          };
+    const screenedOptions = screenOptionsForAccessorErrors(options);
+    const effectiveOptions: CorjMakerOptions = mergeOptions(
+      CORJ_MAKER_DEFAULT_OPTIONS,
+      screenedOptions,
+    );
     return new CorjMaker(effectiveOptions);
+  }
+
+  cloneWith(
+    options: DeepPartialOptions<CorjMakerOptions> = CORJ_MAKER_DEFAULT_OPTIONS,
+  ): CorjMaker {
+    return new CorjMaker(mergeOptions(this.options, options));
   }
 }
 
 /**
- * Wrapper for {@link CorjMaker#make | CorjMaker.make} with default options specified in {@link CORJ_MAKER_DEFAULT_OPTIONS}.
+ * Wrapper for {@link CorjMaker#makeReportObjectReportObject | CorjMaker.makeReportObject} with default options specified in {@link CORJ_MAKER_DEFAULT_OPTIONS}.
  */
 export function makeCaughtObjectReportJson(
   caught: unknown,
-  options?: DeepPartial<CorjMakerOptions>,
+  options?: DeepPartialOptions<CorjMakerOptions>,
 ): CaughtObjectReportJson {
-  return CorjMaker.withDefaults(options).make(caught);
+  return CorjMaker.withDefaults(options).makeReportObject(caught);
 }
 
 /**
  * Alias for {@link makeCaughtObjectReportJson}.
  */
 export const bakeCorj = makeCaughtObjectReportJson;
+
+/**
+ * Wrapper for {@link CorjMaker#makeReportObjectReportObject | CorjMaker.makeReportArray} with default options specified in {@link CORJ_MAKER_DEFAULT_OPTIONS}.
+ */
+export function makeCaughtObjectReportJsonArray(
+  caught: unknown,
+  options?: DeepPartialOptions<CorjMakerOptions>,
+): CaughtObjectReportJsonChildren[] {
+  return CorjMaker.withDefaults(options).makeReportArray(caught);
+}
+
+/**
+ * Alias for {@link makeCaughtObjectReportJsonArray}.
+ */
+export const bakeCorjArray = makeCaughtObjectReportJsonArray;

@@ -7,6 +7,6 @@ const corj = CorjMaker.withDefaults({
 try {
   throw new Error(`Hi, I'm a regular Error object.`);
 } catch (caught: unknown) {
-  const report = corj.make(caught);
+  const report = corj.makeReportObject(caught);
   console.log(JSON.stringify(report, null, 2));
 }

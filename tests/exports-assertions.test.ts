@@ -21,7 +21,7 @@ describe('Assertions about package exports', function () {
         "CORJ_JSON_SCHEMA_LINK": "https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.6.json",
         "CORJ_SAFE_STABLE_STRINGIFY_VERSION": "safe-stable-stringify@2.4.1",
         "CORJ_STRINGIFY_VERSION": "String",
-        "CORJ_VERSION": "corj/v0.6",
+        "CORJ_VERSION": "corj/v0.7",
       }
     `);
   });
@@ -44,6 +44,7 @@ describe('Assertions about package exports', function () {
           "cause",
           "errors",
         ],
+        "makeReportId": [Function],
         "maxChildrenLevel": 5,
         "metadataFields": Object {
           "$schema": false,

@@ -288,7 +288,7 @@ onCaughtMaking:: {
       at makeProp_as_json (/home/user/work-dir/caught-object-report-json/src/index.ts:546:19)
       at makeEntriesWithoutNested (/home/user/work-dir/caught-object-report-json/src/index.ts:903:20)
       at CorjMaker.entries (/home/user/work-dir/caught-object-report-json/src/index.ts:951:46)
-      at CorjMaker.make (/home/user/work-dir/caught-object-report-json/src/index.ts:965:36)
+      at CorjMaker.makeReportObject (/home/user/work-dir/caught-object-report-json/src/index.ts:965:36)
       at makeCaughtObjectReportJson (/home/user/work-dir/caught-object-report-json/src/index.ts:353:42)
 }
 ```
@@ -406,36 +406,36 @@ prints
   "message": "AggregateError message",
   "as_string": "AggregateError: AggregateError message",
   "as_json": {},
-  "stack": "AggregateError: AggregateError message\n    at Object.<anonymous> (/home/user/work-dir/caught-object-report-json/examples/example-5-nested-errors-1.ts:7:16)\n    at Module._compile (node:internal/modules/cjs/loader:1120:14)\n    at Module.m._compile (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/index.ts:1618:23)\n    at Module._extensions..js (node:internal/modules/cjs/loader:1174:10)\n    at Object.require.extensions.<computed> [as .ts] (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/index.ts:1621:12)\n    at Module.load (node:internal/modules/cjs/loader:998:32)\n    at Function.Module._load (node:internal/modules/cjs/loader:839:12)\n    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:81:12)\n    at phase4 (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/bin.ts:649:14)\n    at bootstrap (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/bin.ts:95:10)",
+  "stack": "AggregateError: AggregateError message\n    at Object.<anonymous> (/home/user/work-dir/caught-object-report-json/examples/example-5-nested-errors-1-basic.ts:7:16)\n    at Module._compile (node:internal/modules/cjs/loader:1120:14)\n    at Module.m._compile (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/index.ts:1618:23)\n    at Module._extensions..js (node:internal/modules/cjs/loader:1174:10)\n    at Object.require.extensions.<computed> [as .ts] (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/index.ts:1621:12)\n    at Module.load (node:internal/modules/cjs/loader:998:32)\n    at Function.Module._load (node:internal/modules/cjs/loader:839:12)\n    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:81:12)\n    at phase4 (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/bin.ts:649:14)\n    at bootstrap (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/bin.ts:95:10)",
   "children": [
     {
-      "child_id": 0,
-      "child_path": "$.cause",
-      "child_level": 1,
+      "id": "0",
+      "path": "$.cause",
+      "level": 1,
       "instanceof_error": true,
       "typeof": "object",
       "constructor_name": "Error",
       "message": "Cause Error object",
       "as_string": "Error: Cause Error object",
       "as_json": {},
-      "stack": "Error: Cause Error object\n    at Object.<anonymous> (/home/user/work-dir/caught-object-report-json/examples/example-5-nested-errors-1.ts:13:12)\n    at Module._compile (node:internal/modules/cjs/loader:1120:14)\n    at Module.m._compile (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/index.ts:1618:23)\n    at Module._extensions..js (node:internal/modules/cjs/loader:1174:10)\n    at Object.require.extensions.<computed> [as .ts] (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/index.ts:1621:12)\n    at Module.load (node:internal/modules/cjs/loader:998:32)\n    at Function.Module._load (node:internal/modules/cjs/loader:839:12)\n    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:81:12)\n    at phase4 (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/bin.ts:649:14)\n    at bootstrap (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/bin.ts:95:10)"
+      "stack": "Error: Cause Error object\n    at Object.<anonymous> (/home/user/work-dir/caught-object-report-json/examples/example-5-nested-errors-1-basic.ts:13:12)\n    at Module._compile (node:internal/modules/cjs/loader:1120:14)\n    at Module.m._compile (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/index.ts:1618:23)\n    at Module._extensions..js (node:internal/modules/cjs/loader:1174:10)\n    at Object.require.extensions.<computed> [as .ts] (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/index.ts:1621:12)\n    at Module.load (node:internal/modules/cjs/loader:998:32)\n    at Function.Module._load (node:internal/modules/cjs/loader:839:12)\n    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:81:12)\n    at phase4 (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/bin.ts:649:14)\n    at bootstrap (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/bin.ts:95:10)"
     },
     {
-      "child_id": 1,
-      "child_path": "$.errors[0]",
-      "child_level": 1,
+      "id": "1",
+      "path": "$.errors[0]",
+      "level": 1,
       "instanceof_error": true,
       "typeof": "object",
       "constructor_name": "Error",
       "message": "AggregateError child 0",
       "as_string": "Error: AggregateError child 0",
       "as_json": {},
-      "stack": "Error: AggregateError child 0\n    at Object.<anonymous> (/home/user/work-dir/caught-object-report-json/examples/example-5-nested-errors-1.ts:9:5)\n    at Module._compile (node:internal/modules/cjs/loader:1120:14)\n    at Module.m._compile (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/index.ts:1618:23)\n    at Module._extensions..js (node:internal/modules/cjs/loader:1174:10)\n    at Object.require.extensions.<computed> [as .ts] (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/index.ts:1621:12)\n    at Module.load (node:internal/modules/cjs/loader:998:32)\n    at Function.Module._load (node:internal/modules/cjs/loader:839:12)\n    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:81:12)\n    at phase4 (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/bin.ts:649:14)\n    at bootstrap (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/bin.ts:95:10)"
+      "stack": "Error: AggregateError child 0\n    at Object.<anonymous> (/home/user/work-dir/caught-object-report-json/examples/example-5-nested-errors-1-basic.ts:9:5)\n    at Module._compile (node:internal/modules/cjs/loader:1120:14)\n    at Module.m._compile (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/index.ts:1618:23)\n    at Module._extensions..js (node:internal/modules/cjs/loader:1174:10)\n    at Object.require.extensions.<computed> [as .ts] (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/index.ts:1621:12)\n    at Module.load (node:internal/modules/cjs/loader:998:32)\n    at Function.Module._load (node:internal/modules/cjs/loader:839:12)\n    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:81:12)\n    at phase4 (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/bin.ts:649:14)\n    at bootstrap (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/bin.ts:95:10)"
     },
     {
-      "child_id": 2,
-      "child_path": "$.errors[1]",
-      "child_level": 1,
+      "id": "2",
+      "path": "$.errors[1]",
+      "level": 1,
       "instanceof_error": false,
       "typeof": "string",
       "constructor_name": "String",
@@ -506,9 +506,9 @@ prints
   "stack": "Error: lvl 0\n    at Object.<anonymous> (/home/user/work-dir/caught-object-report-json/examples/example-6-nested-errors-2-nesting-levels.ts:5:16)\n    at Module._compile (node:internal/modules/cjs/loader:1120:14)\n    at Module.m._compile (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/index.ts:1618:23)\n    at Module._extensions..js (node:internal/modules/cjs/loader:1174:10)\n    at Object.require.extensions.<computed> [as .ts] (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/index.ts:1621:12)\n    at Module.load (node:internal/modules/cjs/loader:998:32)\n    at Function.Module._load (node:internal/modules/cjs/loader:839:12)\n    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:81:12)\n    at phase4 (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/bin.ts:649:14)\n    at bootstrap (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/bin.ts:95:10)",
   "children": [
     {
-      "child_id": 0,
-      "child_path": "$.cause",
-      "child_level": 1,
+      "id": "0",
+      "path": "$.cause",
+      "level": 1,
       "instanceof_error": true,
       "typeof": "object",
       "constructor_name": "Error",
@@ -517,14 +517,14 @@ prints
       "as_json": {},
       "stack": "Error: lvl 1; obj 0\n    at Object.<anonymous> (/home/user/work-dir/caught-object-report-json/examples/example-6-nested-errors-2-nesting-levels.ts:9:5)\n    at Module._compile (node:internal/modules/cjs/loader:1120:14)\n    at Module.m._compile (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/index.ts:1618:23)\n    at Module._extensions..js (node:internal/modules/cjs/loader:1174:10)\n    at Object.require.extensions.<computed> [as .ts] (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/index.ts:1621:12)\n    at Module.load (node:internal/modules/cjs/loader:998:32)\n    at Function.Module._load (node:internal/modules/cjs/loader:839:12)\n    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:81:12)\n    at phase4 (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/bin.ts:649:14)\n    at bootstrap (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/bin.ts:95:10)",
       "children": [
-        2,
-        3
+        "2",
+        "3"
       ]
     },
     {
-      "child_id": 1,
-      "child_path": "$.nestedError",
-      "child_level": 1,
+      "id": "1",
+      "path": "$.nestedError",
+      "level": 1,
       "instanceof_error": false,
       "typeof": "string",
       "constructor_name": "String",
@@ -532,9 +532,9 @@ prints
       "as_json": "lvl 1; obj 1"
     },
     {
-      "child_id": 2,
-      "child_path": "$.cause.cause[0]",
-      "child_level": 2,
+      "id": "2",
+      "path": "$.cause.cause[0]",
+      "level": 2,
       "instanceof_error": true,
       "typeof": "object",
       "constructor_name": "Error",
@@ -545,9 +545,9 @@ prints
       "children_omitted_reason": "Reached max depth - 2"
     },
     {
-      "child_id": 3,
-      "child_path": "$.cause.cause[1]",
-      "child_level": 2,
+      "id": "3",
+      "path": "$.cause.cause[1]",
+      "level": 2,
       "instanceof_error": true,
       "typeof": "object",
       "constructor_name": "Error",
@@ -560,7 +560,7 @@ prints
   "children_sources": [
     "cause",
     "errors",
-    "nestedErrors"
+    "nestedError"
   ]
 }
 ```
@@ -577,7 +577,7 @@ const corj = CorjMaker.withDefaults({
 try {
   throw new Error(`Hi, I'm a regular Error object.`);
 } catch (caught: unknown) {
-  const report = corj.make(caught);
+  const report = corj.makeReportObject(caught);
   console.log(JSON.stringify(report, null, 2));
 }
 ```
@@ -600,16 +600,16 @@ prints
 
 #### [makeCaughtObjectReportJson(caught)](https://dany-fedorov.github.io/caught-object-report-json/functions/makeCaughtObjectReportJson.html)
 
-A wrapper for `CorjMaker#make` with default options.
+A wrapper for `CorjMaker#makeReportObject` with default options.
 
 #### [new CorjMaker(options)](https://dany-fedorov.github.io/caught-object-report-json/classes/CorjMaker.html)
 
 Use `CorjMaker.withDefaults` static method to construct a `CorjMaker` with default options.<br>
-Use `CorjMaker#make` instance method to produce `CaughtObjectReportJson`.
+Use `CorjMaker#makeReportObject` instance method to produce `CaughtObjectReportJson`.
 
 #### [type CaughtObjectReportJson](https://dany-fedorov.github.io/caught-object-report-json/types/CaughtObjectReportJson.html)
 
-Report object produced by `CorjMaker#make`.
+Report object produced by `CorjMaker#makeReportObject`.
 See the link for details about properties or check out JSON Schema - all properties have descriptions.
 
 # Links

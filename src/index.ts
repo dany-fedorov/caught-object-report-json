@@ -83,7 +83,7 @@ export type CaughtObjectReportJson = {
   /**
    * A flattened representation of tree of nested error objects, collected from properties listed in `children_sources`.
    */
-  children?: (CaughtObjectReportJsonChildren | null)[];
+  children?: (CaughtObjectReportJsonChild | null)[];
   /**
    * Is set if this `caught` object has fields reported in `children_sources`, but they were omitted by implementation.
    */
@@ -145,7 +145,7 @@ export type CaughtObjectReportJson = {
     | typeof CORJ_REPORT_ARRAY_JSON_SCHEMA_LINK;
 };
 
-export type CaughtObjectReportJsonChildren = CaughtObjectReportJson & {
+export type CaughtObjectReportJsonChild = CaughtObjectReportJson & {
   id: string;
   path: string;
   level: number;
@@ -164,8 +164,8 @@ export type CaughtObjectTypeof =
   | 'function';
 
 export type CaughtObjectReportJsonNestedEntries = [
-  keyof CaughtObjectReportJsonChildren,
-  CaughtObjectReportJsonChildren[keyof CaughtObjectReportJsonChildren],
+  keyof CaughtObjectReportJsonChild,
+  CaughtObjectReportJsonChild[keyof CaughtObjectReportJsonChild],
 ][];
 
 export type CaughtObjectReportJsonEntries = [
@@ -1190,13 +1190,13 @@ export class CorjMaker {
     ] as CaughtObjectReportJsonNestedEntries[];
   }
 
-  makeReportArray(caught: unknown): CaughtObjectReportJsonChildren[] {
+  makeReportArray(caught: unknown): CaughtObjectReportJsonChild[] {
     const arrayEntries = this.makeReportArrayEntries(caught);
     return arrayEntries.map((reportObjectEntries) =>
       Object.fromEntries(
         reportObjectEntries as CaughtObjectReportJsonNestedEntries,
       ),
-    ) as unknown as CaughtObjectReportJsonChildren[];
+    ) as unknown as CaughtObjectReportJsonChild[];
   }
 
   static withDefaults(
@@ -1238,7 +1238,7 @@ export const bakeCorj = makeCaughtObjectReportJson;
 export function makeCaughtObjectReportJsonArray(
   caught: unknown,
   options?: DeepPartialOptions<CorjMakerOptions>,
-): CaughtObjectReportJsonChildren[] {
+): CaughtObjectReportJsonChild[] {
   return CorjMaker.withDefaults(options).makeReportArray(caught);
 }
 

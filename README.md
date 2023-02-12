@@ -689,19 +689,24 @@ prints
 
 A wrapper for `CorjMaker#makeReportObject` with default options.
 
+#### [makeCaughtObjectReportJsonArray(caught)](https://dany-fedorov.github.io/caught-object-report-json/functions/makeCaughtObjectReportJson.html)
+
+A wrapper for `CorjMaker#makeCaughtObjectReportJsonArray` with default options.
+
 #### [new CorjMaker(options)](https://dany-fedorov.github.io/caught-object-report-json/classes/CorjMaker.html)
 
 Use `CorjMaker.withDefaults` static method to construct a `CorjMaker` with default options.<br>
 Use `CorjMaker#makeReportObject` instance method to produce `CaughtObjectReportJson`.<br>
-Use `CorjMaker#makeReportArray` instance method to produce `CaughtObjectReportJsonChildren[]`.
+Use `CorjMaker#makeReportArray` instance method to produce `CaughtObjectReportJsonChild[]`.
 
 #### [type CaughtObjectReportJson](https://dany-fedorov.github.io/caught-object-report-json/types/CaughtObjectReportJson.html)
 
 Report object produced by `CorjMaker#makeReportObject`.
 
-#### [type CaughtObjectReportJsonChildren](https://dany-fedorov.github.io/caught-object-report-json/types/CaughtObjectReportJsonChildren.html)
+#### [type CaughtObjectReportJsonChild](https://dany-fedorov.github.io/caught-object-report-json/types/CaughtObjectReportJsonChild.html)
 
-Report object produced by `CorjMaker#makeReportArray`.
+Report object produced in array by `CorjMaker#makeReportArray`, or in top-level `children` property
+on `CaughtObjectReportJson`.
 
 # Links
 

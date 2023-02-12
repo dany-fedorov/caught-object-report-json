@@ -21,6 +21,7 @@
     * [5. Nested errors: Basic](#5-nested-errors-basic)
     * [6. Nested errors: Nesting levels](#6-nested-errors-nesting-levels)
     * [7. Using CorjMaker instance to provide options just once](#7-using-corjmaker-instance-to-provide-options-just-once)
+    * [8. Flat array report with Zod error](#8-flat-array-report-with-zod-error)
 * [API](#api)
     * [makeCaughtObjectReportJson(caught)](#makecaughtobjectreportjsoncaught)
     * [new CorjMaker(options)](#new-corjmakeroptions)
@@ -596,6 +597,92 @@ prints
 }
 ```
 
+# 8. [Flat array report with Zod error](https://github.com/dany-fedorov/caught-object-report-json/blob/main/examples/example-8-zod-error-flat-report.ts)
+
+TODO: add explanation text
+
+<sub>(Run with `npm run ts-file ./examples/example-8-zod-error-flat-report.ts`)</sub>
+
+```typescript
+const corj = CorjMaker.withDefaults({
+  metadataFields: false,
+});
+
+const User = zod.object({
+  name: zod.string(),
+  age: zod.number().min(0).max(150),
+});
+
+try {
+  const validatedStallmanObject = User.parse({ name: 'Richard Stallman' });
+  console.log('Hello, validated', validatedStallmanObject.name);
+} catch (caught: unknown) {
+  const reportArray = corj.makeReportArray(caught);
+  console.log(JSON.stringify(reportArray, null, 2));
+}
+```
+
+prints
+
+```json
+[
+  {
+    "id": "root",
+    "path": "$",
+    "level": 0,
+    "instanceof_error": true,
+    "typeof": "object",
+    "constructor_name": "ZodError",
+    "message": "[\n  {\n    \"code\": \"invalid_type\",\n    \"expected\": \"number\",\n    \"received\": \"undefined\",\n    \"path\": [\n      \"age\"\n    ],\n    \"message\": \"Required\"\n  }\n]",
+    "as_string": "[\n  {\n    \"code\": \"invalid_type\",\n    \"expected\": \"number\",\n    \"received\": \"undefined\",\n    \"path\": [\n      \"age\"\n    ],\n    \"message\": \"Required\"\n  }\n]",
+    "as_json": {
+      "issues": [
+        {
+          "code": "invalid_type",
+          "expected": "number",
+          "received": "undefined",
+          "path": [
+            "age"
+          ],
+          "message": "Required"
+        }
+      ],
+      "name": "ZodError"
+    },
+    "stack": "ZodError: [\n  {\n    \"code\": \"invalid_type\",\n    \"expected\": \"number\",\n    \"received\": \"undefined\",\n    \"path\": [\n      \"age\"\n    ],\n    \"message\": \"Required\"\n  }\n]\n    at handleResult (/home/df/hdd/wd/caught-object-report-json/node_modules/zod/lib/types.js:29:23)\n    at ZodObject.safeParse (/home/df/hdd/wd/caught-object-report-json/node_modules/zod/lib/types.js:142:16)\n    at ZodObject.parse (/home/df/hdd/wd/caught-object-report-json/node_modules/zod/lib/types.js:122:29)\n    at Object.<anonymous> (/home/df/hdd/wd/caught-object-report-json/examples/example-8-zod-error-flat-report.ts:14:40)\n    at Module._compile (node:internal/modules/cjs/loader:1120:14)\n    at Module.m._compile (/home/df/hdd/wd/caught-object-report-json/node_modules/ts-node/src/index.ts:1618:23)\n    at Module._extensions..js (node:internal/modules/cjs/loader:1174:10)\n    at Object.require.extensions.<computed> [as .ts] (/home/df/hdd/wd/caught-object-report-json/node_modules/ts-node/src/index.ts:1621:12)\n    at Module.load (node:internal/modules/cjs/loader:998:32)\n    at Function.Module._load (node:internal/modules/cjs/loader:839:12)",
+    "children": [
+      "0"
+    ],
+    "children_sources": [
+      "cause",
+      "errors"
+    ],
+    "as_string_format": "String",
+    "as_json_format": "safe-stable-stringify@2.4.1",
+    "v": "corj/v0.8"
+  },
+  {
+    "id": "0",
+    "path": "$.errors[0]",
+    "level": 1,
+    "instanceof_error": false,
+    "typeof": "object",
+    "constructor_name": "Object",
+    "message": "Required",
+    "as_string": "[object Object]",
+    "as_json": {
+      "code": "invalid_type",
+      "expected": "number",
+      "received": "undefined",
+      "path": [
+        "age"
+      ],
+      "message": "Required"
+    }
+  }
+]
+```
+
 # [API](https://dany-fedorov.github.io/caught-object-report-json/modules.html)
 
 #### [makeCaughtObjectReportJson(caught)](https://dany-fedorov.github.io/caught-object-report-json/functions/makeCaughtObjectReportJson.html)
@@ -605,12 +692,16 @@ A wrapper for `CorjMaker#makeReportObject` with default options.
 #### [new CorjMaker(options)](https://dany-fedorov.github.io/caught-object-report-json/classes/CorjMaker.html)
 
 Use `CorjMaker.withDefaults` static method to construct a `CorjMaker` with default options.<br>
-Use `CorjMaker#makeReportObject` instance method to produce `CaughtObjectReportJson`.
+Use `CorjMaker#makeReportObject` instance method to produce `CaughtObjectReportJson`.<br>
+Use `CorjMaker#makeReportArray` instance method to produce `CaughtObjectReportJsonChildren[]`.
 
 #### [type CaughtObjectReportJson](https://dany-fedorov.github.io/caught-object-report-json/types/CaughtObjectReportJson.html)
 
 Report object produced by `CorjMaker#makeReportObject`.
-See the link for details about properties or check out JSON Schema - all properties have descriptions.
+
+#### [type CaughtObjectReportJsonChildren](https://dany-fedorov.github.io/caught-object-report-json/types/CaughtObjectReportJsonChildren.html)
+
+Report object produced by `CorjMaker#makeReportArray`.
 
 # Links
 
@@ -628,6 +719,11 @@ https://deno.land/x/caught_object_report_json
 
 ##### CORJ JSON Schema - corj/v0.8
 
-- Definitions - https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.8/definitions.json
-- Report Object - https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.8/report-object.json
-- Report Array - https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.8/report-array.json
+-
+
+Definitions - https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.8/definitions.json
+
+- Report
+  Object - https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.8/report-object.json
+- Report
+  Array - https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.8/report-array.json

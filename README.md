@@ -610,7 +610,7 @@ const corj = CorjMaker.withDefaults({
 
 const User = zod.object({
   name: zod.string(),
-  age: zod.number().min(0).max(150),
+  age: zod.number().min(-250).max(250),
 });
 
 try {

@@ -55,7 +55,7 @@
     "eslint-plugin-import": "2.27.5",
     "jest": "^28.1.2",
     "prettier": "2.8.4",
-    "semantic-release": "^20.0.2",
+    "semantic-release": "^21.0.2",
     "ts-jest": "^28.0.5",
     "ts-node": "^10.8.2",
     "tsconfig-paths": "^4.1.0",

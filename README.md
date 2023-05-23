@@ -22,9 +22,10 @@
     * [6. Nested errors: Nesting levels](#6-nested-errors-nesting-levels)
     * [7. Using CorjMaker instance to provide options just once](#7-using-corjmaker-instance-to-provide-options-just-once)
     * [8. Flat array report with Zod error](#8-flat-array-report-with-zod-error)
+    * [9. Logging uncaught exceptions and rejections with `winston`](#9-logging-uncaught-exceptions-and-rejections-with-winston)
 * [API](#api)
     * [makeCaughtObjectReportJson(caught)](#makecaughtobjectreportjsoncaught)
-    * [makeCaughtObjectReportJsonArray(caught)](#makecaughtobjectreportjsonarray--caught-)
+    * [makeCaughtObjectReportJsonArray(caught)](#makecaughtobjectreportjsonarraycaught)
     * [new CorjMaker(options)](#new-corjmakeroptions)
     * [type CaughtObjectReportJson](#type-caughtobjectreportjson)
     * [type CaughtObjectReportJsonChild](#type-caughtobjectreportjsonchild)
@@ -150,7 +151,7 @@ class AxiosErrorWrapper extends AxiosError {
     this.error = error;
   }
 
-  override toJSON = function(this: AxiosErrorWrapper) {
+  override toJSON = function (this: AxiosErrorWrapper) {
     return {
       ...this.error.toJSON(),
       ...(!this.error.response
@@ -601,7 +602,7 @@ prints
 
 # 8. [Flat array report with Zod error](https://github.com/dany-fedorov/caught-object-report-json/blob/main/examples/example-8-zod-error-flat-report.ts)
 
-TODO: add explanation text
+ZodError has nested errors in the `errors` prop. `caught-object-report-json` logs both top-level and nested error.
 
 <sub>(Run with `npm run ts-file ./examples/example-8-zod-error-flat-report.ts`)</sub>
 
@@ -685,6 +686,230 @@ prints
 ]
 ```
 
+# 9. Logging uncaught exceptions and rejections with `winston`
+
+<sub>(Run with `npm run ts-file ./examples/example-9-winston-integration.ts`)</sub>
+
+This integration uses a feature of `winston` that allows to specify transports that will react to `uncaughtException`
+event emitted by the `process` - https://www.npmjs.com/package/winston#exceptions
+
+It is not pretty, but this is the only way I found to make it work.
+
+This method keeps all the processing that is done by `winston` for the error object, but it replaces the `message` prop
+on the resulting JSON with an extended report instead of message + stack that `winston` uses by default.
+
+This is the string that `winston` gives by default for this example.
+
+```
+"AggregateError\n    at Object.<anonymous> (/home/df/wd/personal/caught-object-report-json/examples/example-9-logging-uncaught-exceptions-and-rejections-with-winston.ts:33:7)\n    at Module._compile (node:internal/modules/cjs/loader:1267:14)\n    at Module.m._compile (/home/df/wd/personal/caught-object-report-json/node_modules/ts-node/src/index.ts:1618:23)\n    at Module._extensions..js (node:internal/modules/cjs/loader:1321:10)\n    at Object.require.extensions.<computed> [as .ts] (/home/df/wd/personal/caught-object-report-json/node_modules/ts-node/src/index.ts:1621:12)\n    at Module.load (node:internal/modules/cjs/loader:1125:32)\n    at Function.Module._load (node:internal/modules/cjs/loader:965:12)\n    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:83:12)\n    at phase4 (/home/df/wd/personal/caught-object-report-json/node_modules/ts-node/src/bin.ts:649:14)\n    at bootstrap (/home/df/wd/personal/caught-object-report-json/node_modules/ts-node/src/bin.ts:95:10)"
+```
+
+`caught-object-report-json` does not loose any info, see the final JSON message below the code snippet.
+
+Also, winston breaks when you `throw null` or `throw undefined`.
+
+```typescript
+import { createLogger, transports, ExceptionHandler } from 'winston';
+
+const origGetAllInfo = ExceptionHandler.prototype.getAllInfo;
+ExceptionHandler.prototype.getAllInfo = function getAllInfoExtended(
+  err: unknown,
+): object {
+  const errorInfoByWinston = origGetAllInfo.call(
+    ExceptionHandler.prototype,
+    err instanceof Error
+      ? err
+      : `I'm a hacky stub error that does not break getAllInfo method, unlike undefined or null.`,
+  );
+  return {
+    ...errorInfoByWinston,
+    error: err,
+    message: makeCaughtObjectReportJson(err),
+  };
+};
+
+const logger = createLogger({
+  transports: [new transports.Console()],
+  exceptionHandlers: [new transports.Console()],
+});
+
+logger.info({ 'just-an-info-message': 'hey' });
+
+throw new AggregateError([new Error('cause 1'), new Error('cause 2'), null]);
+```
+
+prints an inline version of the following JSON
+
+```json
+{
+  "date": "Wed May 24 2023 01:17:44 GMT+0300 (Eastern European Summer Time)",
+  "error": {},
+  "exception": true,
+  "level": "error",
+  "message": {
+    "as_json": {},
+    "as_json_format": "safe-stable-stringify@2.4.1",
+    "as_string": "AggregateError",
+    "as_string_format": "String",
+    "children": [
+      {
+        "as_json": {},
+        "as_string": "Error: cause 1",
+        "constructor_name": "Error",
+        "id": "0",
+        "instanceof_error": true,
+        "level": 1,
+        "message": "cause 1",
+        "path": "$.errors[0]",
+        "stack": "Error: cause 1\n    at Object.<anonymous> (/home/df/wd/personal/caught-object-report-json/examples/example-9-winston-integration.ts:30:27)\n    at Module._compile (node:internal/modules/cjs/loader:1267:14)\n    at Module.m._compile (/home/df/wd/personal/caught-object-report-json/node_modules/ts-node/src/index.ts:1618:23)\n    at Module._extensions..js (node:internal/modules/cjs/loader:1321:10)\n    at Object.require.extensions.<computed> [as .ts] (/home/df/wd/personal/caught-object-report-json/node_modules/ts-node/src/index.ts:1621:12)\n    at Module.load (node:internal/modules/cjs/loader:1125:32)\n    at Function.Module._load (node:internal/modules/cjs/loader:965:12)\n    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:83:12)\n    at phase4 (/home/df/wd/personal/caught-object-report-json/node_modules/ts-node/src/bin.ts:649:14)\n    at bootstrap (/home/df/wd/personal/caught-object-report-json/node_modules/ts-node/src/bin.ts:95:10)",
+        "typeof": "object"
+      },
+      {
+        "as_json": {},
+        "as_string": "Error: cause 2",
+        "constructor_name": "Error",
+        "id": "1",
+        "instanceof_error": true,
+        "level": 1,
+        "message": "cause 2",
+        "path": "$.errors[1]",
+        "stack": "Error: cause 2\n    at Object.<anonymous> (/home/df/wd/personal/caught-object-report-json/examples/example-9-winston-integration.ts:30:49)\n    at Module._compile (node:internal/modules/cjs/loader:1267:14)\n    at Module.m._compile (/home/df/wd/personal/caught-object-report-json/node_modules/ts-node/src/index.ts:1618:23)\n    at Module._extensions..js (node:internal/modules/cjs/loader:1321:10)\n    at Object.require.extensions.<computed> [as .ts] (/home/df/wd/personal/caught-object-report-json/node_modules/ts-node/src/index.ts:1621:12)\n    at Module.load (node:internal/modules/cjs/loader:1125:32)\n    at Function.Module._load (node:internal/modules/cjs/loader:965:12)\n    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:83:12)\n    at phase4 (/home/df/wd/personal/caught-object-report-json/node_modules/ts-node/src/bin.ts:649:14)\n    at bootstrap (/home/df/wd/personal/caught-object-report-json/node_modules/ts-node/src/bin.ts:95:10)",
+        "typeof": "object"
+      },
+      {
+        "as_json": null,
+        "as_string": "null",
+        "id": "2",
+        "instanceof_error": false,
+        "level": 1,
+        "path": "$.errors[2]",
+        "typeof": "object"
+      }
+    ],
+    "children_sources": [
+      "cause",
+      "errors"
+    ],
+    "constructor_name": "AggregateError",
+    "instanceof_error": true,
+    "message": "",
+    "stack": "AggregateError\n    at Object.<anonymous> (/home/df/wd/personal/caught-object-report-json/examples/example-9-winston-integration.ts:30:7)\n    at Module._compile (node:internal/modules/cjs/loader:1267:14)\n    at Module.m._compile (/home/df/wd/personal/caught-object-report-json/node_modules/ts-node/src/index.ts:1618:23)\n    at Module._extensions..js (node:internal/modules/cjs/loader:1321:10)\n    at Object.require.extensions.<computed> [as .ts] (/home/df/wd/personal/caught-object-report-json/node_modules/ts-node/src/index.ts:1621:12)\n    at Module.load (node:internal/modules/cjs/loader:1125:32)\n    at Function.Module._load (node:internal/modules/cjs/loader:965:12)\n    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:83:12)\n    at phase4 (/home/df/wd/personal/caught-object-report-json/node_modules/ts-node/src/bin.ts:649:14)\n    at bootstrap (/home/df/wd/personal/caught-object-report-json/node_modules/ts-node/src/bin.ts:95:10)",
+    "typeof": "object",
+    "v": "corj/v0.8"
+  },
+  "os": {
+    "loadavg": [
+      1.04,
+      1.3,
+      1.16
+    ],
+    "uptime": 262285.15
+  },
+  "process": {
+    "argv": [
+      "/home/df/wd/personal/caught-object-report-json/node_modules/.bin/ts-node",
+      "/home/df/wd/personal/caught-object-report-json/examples/example-9-winston-integration.ts"
+    ],
+    "cwd": "/home/df/wd/personal/caught-object-report-json",
+    "execPath": "/home/df/.volta/tools/image/node/20.1.0/bin/node",
+    "gid": 1000,
+    "memoryUsage": {
+      "arrayBuffers": 3595822,
+      "external": 5796716,
+      "heapTotal": 100966400,
+      "heapUsed": 69475360,
+      "rss": 146800640
+    },
+    "pid": 88513,
+    "uid": 1000,
+    "version": "v20.1.0"
+  },
+  "stack": "AggregateError\n    at Object.<anonymous> (/home/df/wd/personal/caught-object-report-json/examples/example-9-winston-integration.ts:30:7)\n    at Module._compile (node:internal/modules/cjs/loader:1267:14)\n    at Module.m._compile (/home/df/wd/personal/caught-object-report-json/node_modules/ts-node/src/index.ts:1618:23)\n    at Module._extensions..js (node:internal/modules/cjs/loader:1321:10)\n    at Object.require.extensions.<computed> [as .ts] (/home/df/wd/personal/caught-object-report-json/node_modules/ts-node/src/index.ts:1621:12)\n    at Module.load (node:internal/modules/cjs/loader:1125:32)\n    at Function.Module._load (node:internal/modules/cjs/loader:965:12)\n    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:83:12)\n    at phase4 (/home/df/wd/personal/caught-object-report-json/node_modules/ts-node/src/bin.ts:649:14)\n    at bootstrap (/home/df/wd/personal/caught-object-report-json/node_modules/ts-node/src/bin.ts:95:10)",
+  "trace": [
+    {
+      "column": 7,
+      "file": "/home/df/wd/personal/caught-object-report-json/examples/example-9-winston-integration.ts",
+      "function": null,
+      "line": 30,
+      "method": null,
+      "native": false
+    },
+    {
+      "column": 14,
+      "file": "node:internal/modules/cjs/loader",
+      "function": "Module._compile",
+      "line": 1267,
+      "method": "_compile",
+      "native": false
+    },
+    {
+      "column": 23,
+      "file": "/home/df/wd/personal/caught-object-report-json/node_modules/ts-node/src/index.ts",
+      "function": "Module.m._compile",
+      "line": 1618,
+      "method": "_compile",
+      "native": false
+    },
+    {
+      "column": 10,
+      "file": "node:internal/modules/cjs/loader",
+      "function": "Module._extensions..js",
+      "line": 1321,
+      "method": ".js",
+      "native": false
+    },
+    {
+      "column": 12,
+      "file": "/home/df/wd/personal/caught-object-report-json/node_modules/ts-node/src/index.ts",
+      "function": "Object.require.extensions.<computed> [as .ts]",
+      "line": 1621,
+      "method": "ts]",
+      "native": false
+    },
+    {
+      "column": 32,
+      "file": "node:internal/modules/cjs/loader",
+      "function": "Module.load",
+      "line": 1125,
+      "method": "load",
+      "native": false
+    },
+    {
+      "column": 12,
+      "file": "node:internal/modules/cjs/loader",
+      "function": "Module._load",
+      "line": 965,
+      "method": "_load",
+      "native": false
+    },
+    {
+      "column": 12,
+      "file": "node:internal/modules/run_main",
+      "function": "Function.executeUserEntryPoint [as runMain]",
+      "line": 83,
+      "method": "executeUserEntryPoint [as runMain]",
+      "native": false
+    },
+    {
+      "column": 14,
+      "file": "/home/df/wd/personal/caught-object-report-json/node_modules/ts-node/src/bin.ts",
+      "function": "phase4",
+      "line": 649,
+      "method": null,
+      "native": false
+    },
+    {
+      "column": 10,
+      "file": "/home/df/wd/personal/caught-object-report-json/node_modules/ts-node/src/bin.ts",
+      "function": "bootstrap",
+      "line": 95,
+      "method": null,
+      "native": false
+    }
+  ]
+}
+```
+
 # [API](https://dany-fedorov.github.io/caught-object-report-json/modules.html)
 
 #### [makeCaughtObjectReportJson(caught)](https://dany-fedorov.github.io/caught-object-report-json/functions/makeCaughtObjectReportJson.html)
@@ -726,6 +951,11 @@ https://deno.land/x/caught_object_report_json
 
 ##### CORJ JSON Schema - corj/v0.8
 
-- Definitions - https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.8/definitions.json
-- Report Object - https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.8/report-object.json
-- Report Array - https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.8/report-array.json
+-
+
+Definitions - https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.8/definitions.json
+
+- Report
+  Object - https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.8/report-object.json
+- Report
+  Array - https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.8/report-array.json

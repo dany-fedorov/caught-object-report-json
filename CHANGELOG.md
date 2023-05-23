@@ -1,3 +1,5 @@
+## [7.1.6](https://github.com/dany-fedorov/caught-object-report-json/compare/v7.1.5...v7.1.6) (2023-05-23)
+
 ## [7.1.5](https://github.com/dany-fedorov/caught-object-report-json/compare/v7.1.4...v7.1.5) (2023-05-07)
 
 ## [7.1.4](https://github.com/dany-fedorov/caught-object-report-json/compare/v7.1.3...v7.1.4) (2023-02-12)

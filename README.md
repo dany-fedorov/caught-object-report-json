@@ -696,7 +696,7 @@ event emitted by the `process` - https://www.npmjs.com/package/winston#exception
 Integration by monkey patching the exported class is not pretty, but this is the only way I found to make it work.
 
 This method keeps all the processing that is done by `winston` for the error object, but it replaces the `message` prop
-on the resulting JSON with an extended report instead of message + stack that `winston` uses by default.
+on the resulting JSON with an extended report instead of error message + stack that `winston` uses by default.
 
 This is the string that `winston` gives by default for this example.
 

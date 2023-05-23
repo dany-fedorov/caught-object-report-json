@@ -686,7 +686,7 @@ prints
 ]
 ```
 
-# 9. Winston integration
+# 9. [Winston integration](https://github.com/dany-fedorov/caught-object-report-json/blob/main/examples/example-9-winston-integration.ts)
 
 <sub>(Run with `npm run ts-file ./examples/example-9-winston-integration.ts`)</sub>
 

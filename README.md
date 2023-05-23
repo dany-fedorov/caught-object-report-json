@@ -693,7 +693,7 @@ prints
 This integration uses a feature of `winston` that allows to specify transports that will react to `uncaughtException`
 event emitted by the `process` - https://www.npmjs.com/package/winston#exceptions
 
-It is not pretty, but this is the only way I found to make it work.
+Integration by monkey patching the exported class is not pretty, but this is the only way I found to make it work.
 
 This method keeps all the processing that is done by `winston` for the error object, but it replaces the `message` prop
 on the resulting JSON with an extended report instead of message + stack that `winston` uses by default.
@@ -706,7 +706,7 @@ This is the string that `winston` gives by default for this example.
 
 `caught-object-report-json` does not loose any info, see the final JSON message below the code snippet.
 
-Also, winston breaks when you `throw null` or `throw undefined`.
+Also, winston breaks when you `throw null` or `throw undefined`. `caught-object-report-json` saves you from this edge case.
 
 ```typescript
 import { createLogger, transports, ExceptionHandler } from 'winston';

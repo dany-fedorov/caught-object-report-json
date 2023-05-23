@@ -22,7 +22,7 @@
     * [6. Nested errors: Nesting levels](#6-nested-errors-nesting-levels)
     * [7. Using CorjMaker instance to provide options just once](#7-using-corjmaker-instance-to-provide-options-just-once)
     * [8. Flat array report with Zod error](#8-flat-array-report-with-zod-error)
-    * [9. Logging uncaught exceptions and rejections with `winston`](#9-logging-uncaught-exceptions-and-rejections-with-winston)
+    * [9. Winston integration](#9-winston-integration)
 * [API](#api)
     * [makeCaughtObjectReportJson(caught)](#makecaughtobjectreportjsoncaught)
     * [makeCaughtObjectReportJsonArray(caught)](#makecaughtobjectreportjsonarraycaught)
@@ -686,7 +686,7 @@ prints
 ]
 ```
 
-# 9. Logging uncaught exceptions and rejections with `winston`
+# 9. Winston integration
 
 <sub>(Run with `npm run ts-file ./examples/example-9-winston-integration.ts`)</sub>
 

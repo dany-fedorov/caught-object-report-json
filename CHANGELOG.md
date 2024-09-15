@@ -1,3 +1,15 @@
+# [8.0.0](https://github.com/dany-fedorov/caught-object-report-json/compare/v7.2.0...v8.0.0) (2024-09-15)
+
+
+### Features
+
+* Bump version with breaking change ([157db66](https://github.com/dany-fedorov/caught-object-report-json/commit/157db661a2f0721632a6109a32982174f01e6120))
+
+
+### BREAKING CHANGES
+
+* need to bump the version!
+
 # [7.2.0](https://github.com/dany-fedorov/caught-object-report-json/compare/v7.1.7...v7.2.0) (2024-09-15)
 
 

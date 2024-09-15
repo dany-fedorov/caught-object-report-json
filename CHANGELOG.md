@@ -1,3 +1,12 @@
+# [7.2.0](https://github.com/dany-fedorov/caught-object-report-json/compare/v7.1.7...v7.2.0) (2024-09-15)
+
+
+### Features
+
+* Implement parseStackToArray, add handling of more insane edge cases, add tests ([92b396b](https://github.com/dany-fedorov/caught-object-report-json/commit/92b396b327895f80eb2bd36269f55d567fbd1193))
+* Redeploy ([f5b31b6](https://github.com/dany-fedorov/caught-object-report-json/commit/f5b31b6ab135d5a082c7822a96b7fd512128eb28))
+* Redeploy ([4f3e0d6](https://github.com/dany-fedorov/caught-object-report-json/commit/4f3e0d6a3a56542059223410141893e34ac6499d))
+
 ## [7.1.7](https://github.com/dany-fedorov/caught-object-report-json/compare/v7.1.6...v7.1.7) (2023-05-23)
 
 ## [7.1.6](https://github.com/dany-fedorov/caught-object-report-json/compare/v7.1.5...v7.1.6) (2023-05-23)

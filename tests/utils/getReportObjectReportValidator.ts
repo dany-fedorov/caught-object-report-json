@@ -4,7 +4,7 @@ import path from 'node:path';
 
 const ajv = new Ajv();
 
-const V = 'v0.8';
+const V = 'v0.9';
 
 ajv.addSchema(
   JSON.parse(
@@ -50,6 +50,16 @@ export function getReportObjectReportValidator<
   T = unknown,
 >(): ValidateFunction<T> {
   const validate = ajv.getSchema<T>('report-object');
+  if (!validate) {
+    throw new Error('Did not find report validator');
+  }
+  return validate;
+}
+
+export function getReportArrayReportValidator<
+  T = unknown,
+>(): ValidateFunction<T> {
+  const validate = ajv.getSchema<T>('report-array');
   if (!validate) {
     throw new Error('Did not find report validator');
   }

@@ -18,10 +18,10 @@ describe('Assertions about package exports', function () {
       CORJ_STRINGIFY_VERSION: CORJ_AS_STRING_FORMAT_STRING_COERCION,
     }).toMatchInlineSnapshot(`
       Object {
-        "CORJ_JSON_SCHEMA_LINK": "https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.8/report-object.json",
+        "CORJ_JSON_SCHEMA_LINK": "https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.9/report-object.json",
         "CORJ_SAFE_STABLE_STRINGIFY_VERSION": "safe-stable-stringify@2.4.1",
         "CORJ_STRINGIFY_VERSION": "String",
-        "CORJ_VERSION": "corj/v0.8",
+        "CORJ_VERSION": "corj/v0.9",
       }
     `);
   });
@@ -62,6 +62,7 @@ describe('Assertions about package exports', function () {
           "v": true,
         },
         "onCaughtMaking": [Function],
+        "parseStackToArray": false,
         "printWarningsOnUnhandledErrors": true,
       }
     `);

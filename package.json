@@ -46,7 +46,7 @@
     "@types/node": "^20.5.1",
     "@types/uuid": "^9.0.0",
     "@typescript-eslint/eslint-plugin": "5.62.0",
-    "@typescript-eslint/parser": "5.62.0",
+    "@typescript-eslint/parser": "8.5.0",
     "ajv": "^8.11.2",
     "axios": "^1.2.1",
     "chokidar": "^3.5.3",

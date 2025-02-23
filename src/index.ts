@@ -1,4 +1,4 @@
-import { configure as configureJsonStringify } from 'safe-stable-stringify';
+import { configure as configureJsonStringify } from './safe-stable-stringify';
 
 // ████████╗██╗   ██╗██████╗ ███████╗███████╗
 // ╚══██╔══╝╚██╗ ██╔╝██╔══██╗██╔════╝██╔════╝

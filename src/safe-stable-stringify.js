@@ -1,7 +1,11 @@
 'use strict';
 
 /**
- * @dany-fedorov: This is inlined version of safe-stable-stringify commit 0c192c2c1e26676ba5af1f7dbe066b98d76f353f
+ * @dany-fedorov: This is a copy of https://github.com/BridgeAR/safe-stable-stringify commit 0c192c2c1e26676ba5af1f7dbe066b98d76f353f
+ * Changes include
+ * - Disable array replacer
+ * - Disable indentation option
+ * - Add lengthLimit option, calculating JSON size and terminating early when size exceeds lengthLimit (currently WIP)
  */
 
 const { hasOwnProperty } = Object.prototype;

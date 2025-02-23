@@ -10,7 +10,7 @@ describe('makeCaughtObjectReportJson', function () {
     expect(report).toMatchInlineSnapshot(`
       Object {
         "as_json": Object {},
-        "as_json_format": "safe-stable-stringify@2.4.1",
+        "as_json_format": "safe-stable-stringify-with-length-limit",
         "as_string": "Error: I am an error!",
         "as_string_format": "String",
         "children_sources": Array [
@@ -21,7 +21,7 @@ describe('makeCaughtObjectReportJson', function () {
         "instanceof_error": true,
         "message": "I am an error!",
         "typeof": "object",
-        "v": "corj/v0.9",
+        "v": "corj/v0.10",
       }
     `);
   });
@@ -39,7 +39,7 @@ describe('makeCaughtObjectReportJson', function () {
     expect(report).toMatchInlineSnapshot(`
       Object {
         "as_json": null,
-        "as_json_format": "safe-stable-stringify@2.4.1",
+        "as_json_format": "safe-stable-stringify-with-length-limit",
         "as_string": "undefined",
         "as_string_format": "String",
         "children_sources": Array [
@@ -48,12 +48,12 @@ describe('makeCaughtObjectReportJson', function () {
         ],
         "instanceof_error": false,
         "typeof": "undefined",
-        "v": "corj/v0.9",
+        "v": "corj/v0.10",
       }
     `);
     expect(onCaughtMakingArray).toMatchInlineSnapshot(`
       Array [
-        [Error: Could not convert caught object to json string using safe-stable-stringify@2.4.1.],
+        [Error: Could not convert caught object to json string using safe-stable-stringify-with-length-limit.],
       ]
     `);
   });

@@ -291,7 +291,7 @@ export type CorjAsStringFormat =
   | typeof CORJ_AS_STRING_FORMAT_TO_CORJ_AS_STRING_METHOD;
 
 export type CorjAsJsonFormat =
-  | typeof CORJ_AS_JSON_FORMAT_SAFE_STABLE_STRINGIFY_2_4_1
+  | typeof CORJ_AS_JSON_FORMAT_SAFE_STABLE_STRINGIFY_WITH_LENGTH_LIMIT
   | typeof CORJ_AS_JSON_FORMAT_TO_CORJ_AS_JSON_METHOD;
 
 //  ██████╗ ██████╗ ███╗   ██╗███████╗████████╗ █████╗ ███╗   ██╗████████╗███████╗
@@ -304,12 +304,12 @@ export type CorjAsJsonFormat =
 export const CORJ_NESTED_OMITTED_REASONS = {
   REACHED_MAX_DEPTH: (maxDepth: number) => `Reached max depth - ${maxDepth}`,
 };
-export const CORJ_AS_JSON_FORMAT_SAFE_STABLE_STRINGIFY_2_4_1 =
-  'safe-stable-stringify@2.4.1';
+export const CORJ_AS_JSON_FORMAT_SAFE_STABLE_STRINGIFY_WITH_LENGTH_LIMIT =
+  'safe-stable-stringify-with-length-limit';
 export const CORJ_AS_JSON_FORMAT_TO_CORJ_AS_JSON_METHOD = '.toCorjAsJson';
 export const CORJ_AS_STRING_FORMAT_STRING_COERCION = 'String';
 export const CORJ_AS_STRING_FORMAT_TO_CORJ_AS_STRING_METHOD = '.toCorjAsString';
-export const CORJ_VERSION = 'corj/v0.9';
+export const CORJ_VERSION = 'corj/v0.10';
 export const CORJ_REPORT_OBJECT_JSON_SCHEMA_LINK = `https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/${CORJ_VERSION}/report-object.json`;
 export const CORJ_REPORT_ARRAY_JSON_SCHEMA_LINK = `https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/${CORJ_VERSION}/report-array.json`;
 export const CORJ_MAKER_DEFAULT_OPTIONS = Object.freeze({
@@ -327,10 +327,10 @@ export const CORJ_MAKER_DEFAULT_OPTIONS = Object.freeze({
     as_string_format: false,
     v: false,
   },
-  asJsonFormatsToApply: ['.toCorjAsJson', 'safe-stable-stringify@2.4.1'] as [
-    CorjAsJsonFormat,
-    CorjAsJsonFormat,
-  ],
+  asJsonFormatsToApply: [
+    '.toCorjAsJson',
+    'safe-stable-stringify-with-length-limit',
+  ] as [CorjAsJsonFormat, CorjAsJsonFormat],
   asStringFormatsToApply: ['.toCorjAsString', 'String'] as [
     CorjAsStringFormat,
     CorjAsStringFormat,
@@ -385,6 +385,7 @@ export const CORJ_MAKER_DEFAULT_OPTIONS = Object.freeze({
 const jsonStringify = configureJsonStringify({
   circularValue: '[caught-object-report-json: Circular]',
   deterministic: false,
+  lengthLimit: 100_000,
 });
 
 function handleCaught(
@@ -806,7 +807,7 @@ function makeProp_as_json(
               }
             }
           }
-          case CORJ_AS_JSON_FORMAT_SAFE_STABLE_STRINGIFY_2_4_1: {
+          case CORJ_AS_JSON_FORMAT_SAFE_STABLE_STRINGIFY_WITH_LENGTH_LIMIT: {
             const jsonString = jsonStringify(
               caught,
               function (this: object, key: string, value: unknown) {

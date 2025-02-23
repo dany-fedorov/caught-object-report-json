@@ -5,6 +5,7 @@
  * Changes include
  * - Disable array replacer
  * - Disable indentation option
+ * - Remove fn version without replacer, modify the one with replacer
  * - Add lengthLimit option, calculating JSON size and terminating early when size exceeds lengthLimit (currently WIP)
  */
 
@@ -221,7 +222,7 @@ function configure(options) {
     ) {
       value = value.toJSON(key);
     }
-    value = replacer.call(parent, key, value);
+    value = !replacer ? value : replacer.call(parent, key, value);
 
     switch (typeof value) {
       case 'string': {
@@ -241,14 +242,15 @@ function configure(options) {
         let res = '';
         let join = ',';
 
+        curLength += 2; // for braces or brackets
+
         if (Array.isArray(value)) {
           if (value.length === 0) {
-            curLength += 2;
-            return ['[]', curLength];
+            return ['[]', curLength]; // braces already counted
           }
           if (maximumDepth < stack.length + 1) {
             const val = '"[Array]"';
-            curLength += val.length;
+            curLength += val.length - 2; // braces already counted
             return [val, curLength];
           }
           stack.push(value);
@@ -258,6 +260,7 @@ function configure(options) {
           );
           let i = 0;
           for (; i < maximumValuesToStringify - 1; i++) {
+            curLength += join.length; // make sure to count the comma beforehand
             const [tmp, newCurLength] = stringifyFnReplacer(
               String(i),
               value,
@@ -276,7 +279,6 @@ function configure(options) {
               curLength += 4;
             }
             res += join;
-            curLength += join.length;
           }
           const [tmp, newCurLength] = stringifyFnReplacer(
             String(i),
@@ -304,19 +306,17 @@ function configure(options) {
             curLength += strToAdd.length;
           }
           stack.pop();
-          return [`[${res}]`, curLength + 2];
+          return [`[${res}]`, curLength]; // braces length is already counted
         }
 
         let keys = Object.keys(value);
         const keyLength = keys.length;
         if (keyLength === 0) {
-          const val = '{}';
-          curLength += val.length;
-          return [val, curLength];
+          return ['{}', curLength]; //braces already counted
         }
         if (maximumDepth < stack.length + 1) {
           const val = '"[Object]"';
-          curLength += val.length;
+          curLength += val.length - 2; // braces already counted
           return [val, curLength];
         }
         let whitespace = '';
@@ -359,7 +359,7 @@ function configure(options) {
           separator = join;
         }
         stack.pop();
-        return [`{${res}}`, curLength + 2];
+        return [`{${res}}`, curLength]; // braces already counted
       }
       case 'number': {
         const val = isFinite(value)
@@ -397,203 +397,23 @@ function configure(options) {
     }
   }
 
-  function stringifySimple(key, value, stack, curLength, isRoot) {
-    switch (typeof value) {
-      case 'string': {
-        const val = strEscape(value);
-        curLength += val.length;
-        return [val, curLength];
-      }
-      case 'object': {
-        if (value === null) {
-          return ['null', curLength + 4];
-        }
-        if (typeof value.toJSON === 'function') {
-          value = value.toJSON(key);
-          // Prevent calling `toJSON` again
-          if (typeof value !== 'object') {
-            return stringifySimple(key, value, stack, curLength, false);
-          }
-          if (value === null) {
-            return ['null', curLength + 4];
-          }
-        }
-        if (stack.indexOf(value) !== -1) {
-          return [circularValue, curLength + circularValue.length];
-        }
-
-        let res = '';
-
-        const hasLength = value.length !== undefined;
-        if (hasLength && Array.isArray(value)) {
-          if (value.length === 0) {
-            return ['[]', curLength + 2];
-          }
-          if (maximumDepth < stack.length + 1) {
-            const val = '"[Array]"';
-            return [val, curLength + val.length];
-          }
-          stack.push(value);
-          const maximumValuesToStringify = Math.min(
-            value.length,
-            maximumBreadth,
-          );
-          let i = 0;
-          for (; i < maximumValuesToStringify - 1; i++) {
-            const [tmp, newCurLength] = stringifySimple(
-              String(i),
-              value[i],
-              stack,
-              curLength,
-              false,
-            );
-            curLength += newCurLength;
-            if (tmp !== undefined) {
-              res += tmp;
-            } else {
-              res += 'null';
-              curLength += 4;
-            }
-            res += ',';
-            curLength += 1;
-          }
-          const [tmp, newCurLength] = stringifySimple(
-            String(i),
-            value[i],
-            stack,
-            curLength,
-            false,
-          );
-          curLength = newCurLength;
-          if (tmp !== undefined) {
-            res += tmp;
-          } else {
-            res += 'null';
-            curLength += 4;
-          }
-          if (value.length - 1 > maximumBreadth) {
-            const removedKeys = value.length - maximumBreadth - 1;
-            const newStr = `,"... ${getItemCount(
-              removedKeys,
-            )} not stringified"`;
-            res += newStr;
-            curLength += newStr.length;
-          }
-          stack.pop();
-          return [`[${res}]`, curLength + 2];
-        }
-
-        let keys = Object.keys(value);
-        const keyLength = keys.length;
-        if (keyLength === 0) {
-          return ['{}', curLength + 2];
-        }
-        if (maximumDepth < stack.length + 1) {
-          const val = '"[Object]"';
-          return [val, curLength + val.length];
-        }
-        let separator = '';
-        let maximumPropertiesToStringify = Math.min(keyLength, maximumBreadth);
-        if (hasLength && isTypedArrayWithEntries(value)) {
-          const newStr = stringifyTypedArray(value, ',', maximumBreadth);
-          res += newStr;
-          curLength += newStr.length;
-          keys = keys.slice(value.length);
-          maximumPropertiesToStringify -= value.length;
-          separator = ',';
-        }
-        if (deterministic) {
-          keys = sort(keys, comparator);
-        }
-        stack.push(value);
-        for (let i = 0; i < maximumPropertiesToStringify; i++) {
-          const key = keys[i];
-          const [tmp, newCurLength] = stringifySimple(
-            key,
-            value[key],
-            stack,
-            curLength,
-            false,
-          );
-          curLength = newCurLength;
-          if (tmp !== undefined) {
-            const prefix = `${separator}${strEscape(key)}:`;
-            res += `${prefix}${tmp}`;
-            curLength += prefix.length;
-            separator = ',';
-          }
-        }
-        if (keyLength > maximumBreadth) {
-          const removedKeys = keyLength - maximumBreadth;
-          const newStr = `${separator}"...":"${getItemCount(
-            removedKeys,
-          )} not stringified"`;
-          res += newStr;
-          curLength += newStr.length;
-        }
-        stack.pop();
-        return [`{${res}}`, curLength + 2];
-      }
-      case 'number': {
-        const val = isFinite(value)
-          ? String(value)
-          : fail
-          ? fail(value)
-          : 'null';
-        curLength += typeof val?.length === 'number' ? val.length : 0;
-        return [val, curLength];
-      }
-      case 'boolean': {
-        const val = value === true ? 'true' : 'false';
-        curLength += val.length;
-        return [val, curLength];
-      }
-      case 'undefined':
-        return [undefined, curLength];
-      case 'bigint': {
-        if (bigint) {
-          const val = String(value);
-          curLength += val.length;
-          return [val, curLength];
-        } else {
-          const val = fail ? fail(value) : undefined;
-          curLength += typeof val?.length === 'number' ? val.length : 0;
-          return [val, curLength];
-        }
-      }
-      // fallthrough
-      default: {
-        const val = fail ? fail(value) : undefined;
-        curLength += typeof val?.length === 'number' ? val.length : 0;
-        return [val, curLength];
-      }
+  function stringify(value, replacer = null) {
+    if (Array.isArray(replacer)) {
+      throw new Error(
+        'caught-object-report-json::Internal Error: Array replacer is not supported',
+      );
     }
-  }
-
-  function stringify(value, replacer) {
-    if (arguments.length > 1) {
-      if (replacer != null) {
-        if (typeof replacer === 'function') {
-          const [res, _length] = stringifyFnReplacer(
-            '',
-            { '': value },
-            [],
-            replacer,
-            null,
-            '',
-            0,
-            true,
-          );
-          return res;
-        }
-        if (Array.isArray(replacer)) {
-          throw new Error(
-            'caught-object-report-json::Internal Error: Array replacer is not supported',
-          );
-        }
-      }
-    }
-    const [res, _length] = stringifySimple('', value, [], 0, true);
+    const [res, length] = stringifyFnReplacer(
+      '',
+      { '': value },
+      [],
+      replacer,
+      null,
+      '',
+      0,
+      true,
+    );
+    console.log({ length, resLength: res.length, res });
     return res;
   }
 

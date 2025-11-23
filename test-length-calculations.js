@@ -10,7 +10,7 @@ const testLengthCalculations = () => {
     e: 4,
     ee: [1, 2, 'eee'],
     f: [{ fe: 'fe' }, { 'hop': 'hey' }],
-    g: [null, undefined, new Map()],
+    g: [null, undefined, new Map(), new Set(), Buffer.from('123')],
   };
   const r = jsonStringify(obj);
   // console.log(r.length, r);

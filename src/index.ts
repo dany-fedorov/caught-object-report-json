@@ -595,6 +595,9 @@ function mergeOptions(
             metadataFields:
               typeof newOptions?.metadataFields === 'boolean'
                 ? newOptions.metadataFields
+                : newOptions?.metadataFields === undefined &&
+                  typeof baseOptions.metadataFields === 'boolean'
+                ? baseOptions.metadataFields
                 : {
                     ...CORJ_MAKER_DEFAULT_OPTIONS.metadataFields,
                     ...(typeof baseOptions.metadataFields === 'boolean'
@@ -605,6 +608,9 @@ function mergeOptions(
             childrenMetadataFields:
               typeof newOptions?.childrenMetadataFields === 'boolean'
                 ? newOptions.childrenMetadataFields
+                : newOptions?.childrenMetadataFields === undefined &&
+                  typeof baseOptions.childrenMetadataFields === 'boolean'
+                ? baseOptions.childrenMetadataFields
                 : {
                     ...CORJ_MAKER_DEFAULT_OPTIONS.childrenMetadataFields,
                     ...(typeof baseOptions.childrenMetadataFields === 'boolean'

@@ -442,12 +442,9 @@ function configure(options) {
 
     const result = serialize(read('', { '': value }), lengthLimit);
     if (truncated && onTruncate) onTruncate();
-    // Tiny budgets cannot hold the marker. This fallback is always valid JSON.
-    return result === overflow
-      ? markerSize <= lengthLimit
-        ? markerJson
-        : 'null'
-      : result;
+    // Strings and containers already return the marker whenever it fits.
+    // Root overflow therefore means a tiny budget; null always fits that budget.
+    return result === overflow ? 'null' : result;
   }
 
   return stringify;

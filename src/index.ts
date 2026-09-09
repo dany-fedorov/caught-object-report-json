@@ -1117,14 +1117,15 @@ function makeParentObjectSelfEntries(
   caught: unknown,
   nestedCfg: NestedCfg | null,
 ): { mainEntries: [string, unknown][]; metadataEntries: [string, unknown][] } {
-  let instanceof_error: CaughtObjectReportJson['instanceof_error'];
-  let typeof_prop: CaughtObjectReportJson['typeof'] | undefined;
+  // Preserve required fields even when a proxy throws during instanceof.
+  let instanceof_error: CaughtObjectReportJson['instanceof_error'] = false;
+  const typeof_prop: CaughtObjectReportJson['typeof'] = typeof caught;
   let constructor_name: CaughtObjectReportJson['constructor_name'] | undefined;
   let message: CaughtObjectReportJson['message'] | undefined;
   let as_string_format: CaughtObjectReportJson['as_string_format'] | undefined;
-  let as_string: CaughtObjectReportJson['as_string'];
+  let as_string: CaughtObjectReportJson['as_string'] = null;
   let as_json_format: CaughtObjectReportJson['as_json_format'] | undefined;
-  let as_json: CaughtObjectReportJson['as_json'];
+  let as_json: CaughtObjectReportJson['as_json'] = null;
   let truncated: true | undefined;
   let stack: CaughtObjectReportJson['stack'] | undefined;
   let v: CaughtObjectReportJson['v'] | undefined;
@@ -1138,7 +1139,6 @@ function makeParentObjectSelfEntries(
 
     // Less likely to throw in onCaughtMaking
     instanceof_error = caught instanceof Error;
-    typeof_prop = typeof caught;
     constructor_name = makeProp_constructor_name(
       caught,
       maker.options,
@@ -1171,16 +1171,10 @@ function makeParentObjectSelfEntries(
     });
   }
   const mainEntries = [
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-expect-error
     ['as_string', as_string],
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-expect-error
     ['as_json', as_json],
     ['truncated', truncated],
     ['stack', stack],
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-expect-error
     ['instanceof_error', instanceof_error],
     ['typeof', typeof_prop],
     ['constructor_name', constructor_name],
@@ -1244,7 +1238,8 @@ export class CorjMaker {
       unknown,
     ][] as CaughtObjectReportJsonEntries;
     const report = Object.fromEntries(entries) as CaughtObjectReportJson;
-    if (report.children?.some((child) => child?.truncated))
+    // Each child was just constructed with Object.fromEntries above.
+    if (report.children?.some((child) => child!.truncated))
       report.truncated = true;
     return Object.entries(
       limitReportSize(report, this.options),

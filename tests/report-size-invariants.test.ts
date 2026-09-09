@@ -110,6 +110,8 @@ describe('whole-report invariants', () => {
         ? unlimitedMaker.makeReportArray(caught)
         : unlimitedMaker.makeReportObject(caught);
 
+      expect(JSON.parse(JSON.stringify(report))).toStrictEqual(report);
+      expect(JSON.parse(JSON.stringify(unlimited))).toStrictEqual(unlimited);
       expect(measure(report, unit)).toBeLessThanOrEqual(limit);
       const validate = array
         ? getReportArrayReportValidator()

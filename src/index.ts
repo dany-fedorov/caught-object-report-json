@@ -4,6 +4,8 @@ import {
   DEFAULT_MAX_REPORT_SIZE,
   DEFAULT_REPORT_SIZE_UNIT,
   limitReportSize,
+  makeMinimalReport,
+  maxReportSizeOmittedReason,
   resolveReportSizeOptions,
 } from './report-size';
 
@@ -272,7 +274,8 @@ export type CorjMakerOptions = {
    */
   childrenSources: string[];
   /**
-   *
+   * Called once per discovered child report, and once for the root of an array report.
+   * The returned ID is reused in references to that report.
    */
   makeReportId: (context: {
     index: number;
@@ -325,6 +328,7 @@ export type CorjAsJsonFormat =
 
 export const CORJ_NESTED_OMITTED_REASONS = {
   REACHED_MAX_DEPTH: (maxDepth: number) => `Reached max depth - ${maxDepth}`,
+  REACHED_MAX_REPORT_SIZE: maxReportSizeOmittedReason,
 };
 export const CORJ_AS_JSON_FORMAT_SAFE_STABLE_STRINGIFY_WITH_LENGTH_LIMIT =
   'safe-stable-stringify-with-length-limit';
@@ -434,6 +438,27 @@ function handleCaught(
       );
     }
   }
+}
+
+function finishReport<
+  T extends CaughtObjectReportJson | CaughtObjectReportJsonChild[],
+>(report: T, options: CorjMakerOptions): T {
+  try {
+    return limitReportSize(report, options);
+  } catch (caught: unknown) {
+    return reportLimitFailure(report, options, caught);
+  }
+}
+
+function reportLimitFailure<
+  T extends CaughtObjectReportJson | CaughtObjectReportJsonChild[],
+>(report: T, options: CorjMakerOptions, caught: unknown): T {
+  handleCaught(caught, options, {
+    reason: 'unknown',
+    caughtObjectNestingInfo: null,
+    caughtWhenProcessingReportKey: null,
+  });
+  return makeMinimalReport(report, 'Could not limit report size');
 }
 
 function screenOptionsForAccessorErrors(
@@ -592,6 +617,14 @@ function mergeOptions(
         : {
             ...baseOptions,
             ...(newOptions ?? {}),
+            ...(newOptions?.maxReportSize === undefined &&
+            baseOptions.maxReportSize !== undefined
+              ? { maxReportSize: baseOptions.maxReportSize }
+              : {}),
+            ...(newOptions?.reportSizeUnit === undefined &&
+            baseOptions.reportSizeUnit !== undefined
+              ? { reportSizeUnit: baseOptions.reportSizeUnit }
+              : {}),
             metadataFields:
               typeof newOptions?.metadataFields === 'boolean'
                 ? newOptions.metadataFields
@@ -1050,21 +1083,23 @@ function makeChildrenEntries(
       continue;
     }
     const withIds = nestedObjectsOf.map((n) => {
-      return {
+      const child = {
         index: index++,
         obj: n.obj,
         path: cur.path + n.path,
         level: thisLevel,
       };
+      return {
+        ...child,
+        id: maker.options.makeReportId({
+          caught: child.obj,
+          index: child.index,
+          path: child.path,
+          level: child.level,
+        }),
+      };
     });
-    cur.nestedIds = withIds.map((n) =>
-      maker.options.makeReportId({
-        caught: n.obj,
-        index: n.index,
-        path: n.path,
-        level: n.level,
-      }),
-    );
+    cur.nestedIds = withIds.map((n) => n.id);
     childrenObject.push(...withIds);
     stack.push(...withIds);
   }
@@ -1089,15 +1124,7 @@ function makeChildrenEntries(
           },
         );
         return [
-          [
-            'id',
-            maker.options.makeReportId({
-              caught: no.obj,
-              index: no.index,
-              path: no.path,
-              level: no.level,
-            }),
-          ],
+          ['id', no.id],
           ['path', no.path],
           ['level', no.level],
           ...mainEntries,
@@ -1242,7 +1269,7 @@ export class CorjMaker {
     if (report.children?.some((child) => child!.truncated))
       report.truncated = true;
     return Object.entries(
-      limitReportSize(report, this.options),
+      finishReport(report, this.options),
     ) as CaughtObjectReportJsonEntries;
   }
 
@@ -1255,9 +1282,24 @@ export class CorjMaker {
   makeReportArrayEntries(
     caught: unknown,
   ): CaughtObjectReportJsonNestedEntries[] {
-    const effectiveMaker = this.cloneWith({
-      childrenMetadataFields: this.options.metadataFields,
-    });
+    let effectiveMaker: CorjMaker;
+    try {
+      effectiveMaker = this.cloneWith({
+        childrenMetadataFields: this.options.metadataFields,
+      });
+    } catch (failure: unknown) {
+      const { mainEntries } = makeParentObjectSelfEntries(this, caught, null);
+      const root = Object.fromEntries([
+        ['id', 'root'],
+        ['path', '$'],
+        ['level', 0],
+        ...mainEntries,
+      ]) as CaughtObjectReportJsonChild;
+      const fallback = reportLimitFailure([root], this.options, failure);
+      return fallback.map((row) =>
+        Object.entries(row),
+      ) as CaughtObjectReportJsonNestedEntries[];
+    }
     const { mainEntries, metadataEntries } = makeParentObjectSelfEntries(
       effectiveMaker,
       caught,
@@ -1289,7 +1331,7 @@ export class CorjMaker {
       Object.fromEntries(row),
     ) as CaughtObjectReportJsonChild[];
     if (report.some((row) => row.truncated)) report[0]!.truncated = true;
-    return limitReportSize(report, this.options).map((row) =>
+    return finishReport(report, this.options).map((row) =>
       Object.entries(row),
     ) as CaughtObjectReportJsonNestedEntries[];
   }

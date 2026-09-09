@@ -37,6 +37,13 @@ describe('serializer configuration contracts', () => {
     },
   );
 
+  test.each(['maximumDepth', 'maximumBreadth', 'lengthLimit', 'lengthUnit'])(
+    'rejects an explicitly undefined %s before serialization',
+    (key) => {
+      expect(() => configure({ [key]: undefined })).toThrow(TypeError);
+    },
+  );
+
   test.each([null, 1, 'true', undefined])(
     'rejects nonboolean strict settings: %j',
     (strict) => {
@@ -110,6 +117,34 @@ describe('serializer configuration contracts', () => {
 });
 
 describe('stable serializer traversal', () => {
+  test.each(['utf8-bytes', 'utf16-code-units'])(
+    'preserves nested Unicode values without a limit and at an exact fit (%s)',
+    (lengthUnit) => {
+      const value = {
+        first: ['Ж', { '😀': '界\n' }],
+        last: { escaped: '\ud800', values: [true, null, 123] },
+      };
+      const expected = JSON.stringify(value);
+      const measure = (json: string) =>
+        lengthUnit === 'utf8-bytes'
+          ? Buffer.byteLength(json, 'utf8')
+          : json.length;
+      const exactSize = measure(expected);
+
+      expect(configure({ lengthUnit })(value)).toBe(expected);
+      expect(configure({ lengthUnit, lengthLimit: exactSize })(value)).toBe(
+        expected,
+      );
+      const truncated = configure({
+        lengthUnit,
+        lengthLimit: exactSize - 1,
+      })(value)!;
+      expect(measure(truncated)).toBeLessThanOrEqual(exactSize - 1);
+      expect(JSON.parse(truncated)).not.toStrictEqual(value);
+      expect(truncated).toContain('[caught-object-report-json: Truncated]');
+    },
+  );
+
   test('sorts small objects lexicographically regardless of insertion order', () => {
     expect(configure()({ z: 1, c: 2, b: 3, a: 4 })).toBe(
       '{"a":4,"b":3,"c":2,"z":1}',

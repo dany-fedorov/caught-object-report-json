@@ -58,6 +58,38 @@ const metadataKeys = [
 ] as const;
 const marker = '[caught-object-report-json: Truncated]';
 
+export function maxReportSizeOmittedReason(
+  maxReportSize?: number,
+  reportSizeUnit: JsonSizeUnit = DEFAULT_REPORT_SIZE_UNIT,
+) {
+  return maxReportSize === undefined
+    ? 'Reached max report size'
+    : `Reached max report size - ${maxReportSize} ${reportSizeUnit}`;
+}
+
+/** A root-only report that fits the minimum supported budget without serialization. */
+export function makeMinimalReport<T extends Report>(
+  report: T,
+  omittedReason = maxReportSizeOmittedReason(),
+): T {
+  const isArray = Array.isArray(report);
+  const root = (isArray ? report[0] : report) as CaughtObjectReportJson;
+  const hasChildren = isArray
+    ? report.length > 1
+    : (root.children ?? []).length > 0;
+  const minimal = {
+    instanceof_error: root.instanceof_error,
+    typeof: root.typeof,
+    as_string: marker,
+    as_json: null,
+    truncated: true,
+    ...(hasChildren ? { children_omitted_reason: omittedReason } : {}),
+  };
+  return (
+    isArray ? [{ id: 'root', path: '$', level: 0, ...minimal }] : minimal
+  ) as T;
+}
+
 /** Trim report content while keeping report schemas and retained child links valid. */
 export function limitReportSize<T extends Report>(
   report: T,
@@ -86,8 +118,11 @@ export function limitReportSize<T extends Report>(
   const root = (isArray ? report[0] : report) as CaughtObjectReportJsonChild;
   const children = (
     isArray ? report.slice(1) : root.children ?? []
-  ) as CaughtObjectReportJsonChild[];
-  const omittedReason = `Reached max report size - ${maxReportSize} ${reportSizeUnit}`;
+  ) as (CaughtObjectReportJsonChild | null)[];
+  const omittedReason = maxReportSizeOmittedReason(
+    maxReportSize,
+    reportSizeUnit,
+  );
 
   function candidate(
     valueLimit: number,
@@ -104,7 +139,11 @@ export function limitReportSize<T extends Report>(
       },
     });
     const retained = children.slice(0, childCount);
-    const retainedIds = new Set(retained.map((child) => child.id));
+    const retainedIds = new Set(
+      retained
+        .filter((child): child is CaughtObjectReportJsonChild => child !== null)
+        .map((child) => child.id),
+    );
 
     function trimNode(
       source: CaughtObjectReportJsonChild,
@@ -149,7 +188,9 @@ export function limitReportSize<T extends Report>(
     }
 
     const resultRoot = trimNode(root, isArray);
-    const resultChildren = retained.map((child) => trimNode(child, true));
+    const resultChildren = retained.map((child) =>
+      child === null ? null : trimNode(child, true),
+    );
     resultRoot.truncated = true;
     if (childCount < children.length)
       resultRoot.children_omitted_reason = omittedReason;
@@ -162,34 +203,22 @@ export function limitReportSize<T extends Report>(
   }
 
   // Reserve enough content per field to retain a useful diagnostic prefix.
-  // If that cannot fit even for the root, use the four-byte null fallback.
+  // Prefer useful content over optional metadata, then use the null fallback.
   let minimumValueLimit = 64;
   let keepMetadata = true;
   let best = candidate(minimumValueLimit, 0, keepMetadata);
-  if (!fits(best)) {
-    minimumValueLimit = 4;
-    best = candidate(minimumValueLimit, 0, keepMetadata);
-  }
   if (!fits(best)) {
     keepMetadata = false;
     best = candidate(minimumValueLimit, 0, keepMetadata);
   }
   if (!fits(best)) {
+    minimumValueLimit = 4;
+    best = candidate(minimumValueLimit, 0, keepMetadata);
+  }
+  if (!fits(best)) {
     // Custom IDs/paths can themselves exceed the entire budget. A minimal
     // root-only report has no references to break and fits the 256-unit floor.
-    const minimal = {
-      instanceof_error: root.instanceof_error,
-      typeof: root.typeof,
-      as_string: marker,
-      as_json: null,
-      truncated: true,
-      ...(children.length
-        ? { children_omitted_reason: 'Reached max report size' }
-        : {}),
-    };
-    return (
-      isArray ? [{ id: 'root', path: '$', level: 0, ...minimal }] : minimal
-    ) as T;
+    return makeMinimalReport(report);
   }
 
   // Keep complete child report records; never insert a string into children.

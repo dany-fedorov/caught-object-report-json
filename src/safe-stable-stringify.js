@@ -43,20 +43,12 @@ const { hasOwnProperty } = Object.prototype;
 
 const stringify = configure();
 
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-expect-error
 stringify.configure = configure;
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-expect-error
 stringify.stringify = stringify;
 
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-expect-error
 stringify.default = stringify;
 
-// @ts-expect-error used for named export
 exports.stringify = stringify;
-// @ts-expect-error used for named export
 exports.configure = configure;
 
 module.exports = stringify;
@@ -368,7 +360,7 @@ function configure(options) {
       let length = 2;
 
       function append(key, json) {
-        const size = measure(json);
+        const size = budget === Infinity ? 0 : measure(json);
         length += (entries.length ? 1 : 0) + size;
         entries.push({ key, json, size });
       }

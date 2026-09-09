@@ -33,7 +33,7 @@
     * [GitHub](#github)
     * [Npm](#npm)
     * [Deno Land](#deno-land)
-    * [CORJ JSON Schema - corj/v0.10](#corj-json-schema---corjv08)
+    * [CORJ JSON Schema - corj/v0.10](#corj-json-schema---corjv010)
 
 # Motivation
 
@@ -133,13 +133,26 @@ root (the first element for array reports) and keep valid partial content:
   prefix of complete child reports, and distributes remaining room across fields.
 - Omitted children get a `children_omitted_reason`; references to removed children
   are removed too. Required report fields remain present and reports remain schema-valid.
+  `CORJ_NESTED_OMITTED_REASONS.REACHED_MAX_REPORT_SIZE(limit, unit)` returns the
+  corresponding reason; call it without arguments for the minimal-root fallback reason.
+  Custom `makeReportId` callbacks run once per discovered child (and array root),
+  and the returned IDs are reused in references.
 
 A marker inside a nested JSON value also means later siblings may have been
 omitted. Earlier entries may be removed to fit the marker and closing punctuation.
-Very small remaining field budgets use `null`; tight report budgets may omit
-optional metadata. If custom identifiers alone exceed the budget, the array
+Optional metadata is dropped before reducing diagnostic content to the `null`
+fallback used by very small field budgets. If custom identifiers alone exceed the budget, the array
 falls back to a minimal root report with ID `root` and no child references.
 Truncation does not trigger `onCaughtMaking`.
+
+Errors during final size limiting are reported through `onCaughtMaking` and
+produce a minimal root report. This also contains size-option errors introduced
+by mutating an existing maker; invalid configurations passed to the constructor
+still throw. Size options set to `undefined` in `cloneWith()` inherit the maker's
+existing settings.
+
+Child discovery and custom formatters run before the final budget is allocated,
+so input size still affects processing time and memory.
 
 ## Partial JSON example
 

@@ -1,5 +1,9 @@
 'use strict';
 
+// This bundled serializer is a CommonJS module.
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { measureStringSize } = require('./json-size');
+
 /**
  * @dany-fedorov: This is a copy of https://github.com/BridgeAR/safe-stable-stringify commit 0c192c2c1e26676ba5af1f7dbe066b98d76f353f
  * Changes include
@@ -164,6 +168,19 @@ function getPositiveIntegerOption(options, key) {
   return value === undefined ? Infinity : value;
 }
 
+function getLengthUnitOption(options) {
+  if (!hasOwnProperty.call(options, 'lengthUnit')) return 'utf16-code-units';
+  if (
+    options.lengthUnit !== 'utf8-bytes' &&
+    options.lengthUnit !== 'utf16-code-units'
+  ) {
+    throw new TypeError(
+      'The "lengthUnit" argument must be "utf8-bytes" or "utf16-code-units"',
+    );
+  }
+  return options.lengthUnit;
+}
+
 function getItemCount(number) {
   if (number === 1) {
     return '1 item';
@@ -206,6 +223,12 @@ function configure(options) {
   const maximumDepth = getPositiveIntegerOption(options, 'maximumDepth');
   const maximumBreadth = getPositiveIntegerOption(options, 'maximumBreadth');
   const lengthLimit = getPositiveIntegerOption(options, 'lengthLimit');
+  const lengthUnit = getLengthUnitOption(options);
+  const onTruncate = options.onTruncate;
+  if (onTruncate !== undefined && typeof onTruncate !== 'function') {
+    throw new TypeError('The "onTruncate" argument must be of type function');
+  }
+  const measure = (text) => measureStringSize(text, lengthUnit);
 
   // Four characters allow a valid fallback (null) even if a marker cannot fit.
   if (lengthLimit < 4) {
@@ -228,40 +251,49 @@ function configure(options) {
     const overflow = Symbol('length limit');
     const marker = '[caught-object-report-json: Truncated]';
     const markerJson = strEscape(marker);
+    const markerSize = measure(markerJson);
     let truncated = false;
 
     function fit(json, budget) {
-      if (json === undefined || json.length <= budget) return json;
+      if (json === undefined || budget === Infinity || measure(json) <= budget)
+        return json;
       truncated = true;
       return overflow;
     }
 
     function truncateString(value, budget) {
       truncated = true;
-      if (markerJson.length > budget) return overflow;
+      if (markerSize > budget) return overflow;
       // Search only a bounded prefix, without serializing a potentially huge string.
       let low = 0;
-      let high = Math.min(value.length, budget - markerJson.length);
+      let high = Math.min(value.length, budget - markerSize);
+
+      function completePrefixLength(length) {
+        // A split surrogate pair creates an escape that can be longer than the
+        // complete pair. Search whole code points so measured sizes stay monotonic.
+        if (
+          length > 0 &&
+          length < value.length &&
+          value.charCodeAt(length - 1) >= 0xd800 &&
+          value.charCodeAt(length - 1) <= 0xdbff &&
+          value.charCodeAt(length) >= 0xdc00 &&
+          value.charCodeAt(length) <= 0xdfff
+        ) {
+          return length - 1;
+        }
+        return length;
+      }
+
       while (low < high) {
         const middle = Math.ceil((low + high) / 2);
-        if (strEscape(value.slice(0, middle) + marker).length <= budget) {
+        const prefix = value.slice(0, completePrefixLength(middle));
+        if (measure(strEscape(prefix + marker)) <= budget) {
           low = middle;
         } else {
           high = middle - 1;
         }
       }
-      // Do not split a UTF-16 surrogate pair at the truncation boundary.
-      if (
-        low > 0 &&
-        low < value.length &&
-        value.charCodeAt(low - 1) >= 0xd800 &&
-        value.charCodeAt(low - 1) <= 0xdbff &&
-        value.charCodeAt(low) >= 0xdc00 &&
-        value.charCodeAt(low) <= 0xdfff
-      ) {
-        low--;
-      }
-      return strEscape(value.slice(0, low) + marker);
+      return strEscape(value.slice(0, completePrefixLength(low)) + marker);
     }
 
     function read(key, parent) {
@@ -281,7 +313,7 @@ function configure(options) {
         case 'string': {
           if (value.length + 2 <= budget) {
             const json = strEscape(value);
-            if (json.length <= budget) return json;
+            if (budget === Infinity || measure(json) <= budget) return json;
           }
           return truncateString(value, budget);
         }
@@ -336,8 +368,9 @@ function configure(options) {
       let length = 2;
 
       function append(key, json) {
-        length += (entries.length ? 1 : 0) + json.length;
-        entries.push({ key, json });
+        const size = measure(json);
+        length += (entries.length ? 1 : 0) + size;
+        entries.push({ key, json, size });
       }
 
       function finishTruncated() {
@@ -348,15 +381,16 @@ function configure(options) {
           const index = entries.findIndex((entry) => entry.key === '...');
           if (index !== -1) {
             const [entry] = entries.splice(index, 1);
-            length -= entry.json.length + (entries.length ? 1 : 0);
+            length -= entry.size + (entries.length ? 1 : 0);
           }
         }
         const tail = isArray ? markerJson : '"...":' + markerJson;
-        while (entries.length && length + 1 + tail.length > budget) {
+        const tailSize = measure(tail);
+        while (entries.length && length + 1 + tailSize > budget) {
           const entry = entries.pop();
-          length -= entry.json.length + (entries.length ? 1 : 0);
+          length -= entry.size + (entries.length ? 1 : 0);
         }
-        if (length + (entries.length ? 1 : 0) + tail.length > budget) {
+        if (length + (entries.length ? 1 : 0) + tailSize > budget) {
           return fit(markerJson, budget);
         }
         append('...', tail);
@@ -380,7 +414,7 @@ function configure(options) {
             : strEscape(key) + ':';
           let json = serialize(
             child,
-            prefix === null ? 0 : available - prefix.length,
+            prefix === null ? 0 : available - measure(prefix),
           );
           if (json === undefined) {
             if (!isArray) continue;
@@ -396,7 +430,7 @@ function configure(options) {
           const tail = isArray
             ? strEscape('... ' + omitted)
             : '"...":' + strEscape(omitted);
-          if (length + (entries.length ? 1 : 0) + tail.length > budget)
+          if (length + (entries.length ? 1 : 0) + measure(tail) > budget)
             return finishTruncated();
           append('...', tail);
         }
@@ -407,9 +441,10 @@ function configure(options) {
     }
 
     const result = serialize(read('', { '': value }), lengthLimit);
+    if (truncated && onTruncate) onTruncate();
     // Tiny budgets cannot hold the marker. This fallback is always valid JSON.
     return result === overflow
-      ? markerJson.length <= lengthLimit
+      ? markerSize <= lengthLimit
         ? markerJson
         : 'null'
       : result;

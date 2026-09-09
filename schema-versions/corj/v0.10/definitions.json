@@ -14,6 +14,10 @@
         "as_json"
       ],
       "properties": {
+        "truncated": {
+          "description": "Present when content or child reports were omitted to meet the configured whole-report size limit. On the root of an array report, this flag applies to the entire array.",
+          "const": true
+        },
         "instanceof_error": {
           "description": "Required base property. Result of `caught instanceof Error`.",
           "type": "boolean"
@@ -65,7 +69,7 @@
           ]
         },
         "as_json": {
-          "description": "Required base property. JSON representation of `caught` created using the format in field `as_json_format` described in this schema. The default implementation limits each serialized value to 100,000 UTF-16 code units and marks partial values with [caught-object-report-json: Truncated]. Set to `null` if creating JSON representation throws.",
+          "description": "Required base property. JSON representation of `caught` created using the format in field `as_json_format` described in this schema. The default implementation shares a configurable whole-report size budget across all fields and children (100,000 UTF-8 bytes by default) and marks partial values with [caught-object-report-json: Truncated]. Set to `null` if creating JSON representation throws.",
           "oneOf": [
             {
               "type": "null"

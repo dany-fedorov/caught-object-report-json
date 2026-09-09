@@ -2,6 +2,173 @@ import { configure } from '../src/safe-stable-stringify';
 
 const marker = '[caught-object-report-json: Truncated]';
 
+describe('UTF-8 length-limited serialization', () => {
+  test.each(['Ж', '界', '😀', '\n', '"', '\\', '\ud800'])(
+    'counts serialized bytes when truncating strings containing %j',
+    (character) => {
+      const result = configure({
+        lengthLimit: 80,
+        lengthUnit: 'utf8-bytes',
+      })(character.repeat(200))!;
+      expect(Buffer.byteLength(result, 'utf8')).toBeLessThanOrEqual(80);
+      const parsed: string = JSON.parse(result);
+      expect(parsed.endsWith(marker)).toBe(true);
+      expect(parsed.length).toBeGreaterThan(marker.length);
+      if (character === '😀') {
+        expect(parsed.slice(0, -marker.length)).toMatch(/^(😀)+$/u);
+      }
+    },
+  );
+
+  test.each([
+    ['"Ж"', 'Ж'],
+    ['"😀"', '😀'],
+    ['"\\ud800"', '\ud800'],
+    ['{"ключ":"😀"}', { ключ: '😀' }],
+    ['["Ж","界","😀"]', ['Ж', '界', '😀']],
+  ])('preserves exact UTF-8 fits: %s', (expected, value) => {
+    expect(
+      configure({
+        lengthLimit: Buffer.byteLength(expected, 'utf8'),
+        lengthUnit: 'utf8-bytes',
+      })(value),
+    ).toBe(expected);
+  });
+
+  test('uses UTF-16 code units by default and accepts that unit explicitly', () => {
+    const value = '😀'.repeat(8);
+    const json = JSON.stringify(value);
+    expect(configure({ lengthLimit: json.length })(value)).toBe(json);
+    expect(
+      configure({ lengthLimit: json.length, lengthUnit: 'utf16-code-units' })(
+        value,
+      ),
+    ).toBe(json);
+    expect(
+      configure({ lengthLimit: json.length, lengthUnit: 'utf8-bytes' })(value),
+    ).toBe('null');
+  });
+
+  test.each([
+    ['utf8-bytes', 43, ''],
+    ['utf8-bytes', 44, '😀'],
+    ['utf8-bytes', 48, '😀😀'],
+    ['utf16-code-units', 41, ''],
+    ['utf16-code-units', 42, '😀'],
+    ['utf16-code-units', 44, '😀😀'],
+  ])(
+    'preserves every complete emoji that fits %s limit %i',
+    (lengthUnit, lengthLimit, prefix) => {
+      const result = configure({ lengthLimit, lengthUnit })('😀'.repeat(200));
+      expect(JSON.parse(result!)).toBe(prefix + marker);
+    },
+  );
+
+  test('counts Unicode keys, ancestor punctuation, and object truncation metadata', () => {
+    const value = {
+      ключ: [{ '\n😀': { текст: 'Ж'.repeat(200) } }],
+      later: true,
+    };
+    const result = configure({
+      deterministic: false,
+      lengthLimit: 100,
+      lengthUnit: 'utf8-bytes',
+    })(value)!;
+    expect(Buffer.byteLength(result, 'utf8')).toBeLessThanOrEqual(100);
+    expect(JSON.parse(result)).not.toHaveProperty('later');
+    expect(result).toContain(marker);
+  });
+
+  test('counts Unicode entries when making room for container markers', () => {
+    const stringify = configure({
+      deterministic: false,
+      lengthLimit: 65,
+      lengthUnit: 'utf8-bytes',
+    });
+    for (const value of [
+      Array.from({ length: 30 }, () => '😀'),
+      Object.fromEntries(
+        Array.from({ length: 30 }, (_, i) => [`ключ${i}`, 'Ж']),
+      ),
+    ]) {
+      const result = stringify(value)!;
+      expect(Buffer.byteLength(result, 'utf8')).toBeLessThanOrEqual(65);
+      expect(() => JSON.parse(result)).not.toThrow();
+      expect(result).toContain(marker);
+    }
+  });
+
+  test('counts escaped circular markers in UTF-8 bytes', () => {
+    const value: Record<string, unknown> = {};
+    value['self'] = value;
+    const result = configure({
+      circularValue: '😀'.repeat(20) + '\n',
+      lengthLimit: 60,
+      lengthUnit: 'utf8-bytes',
+    })(value)!;
+    expect(Buffer.byteLength(result, 'utf8')).toBeLessThanOrEqual(60);
+    expect(JSON.parse(result)).toEqual({ '...': marker });
+  });
+
+  test('reclaims the measured size of an existing truncation metadata key', () => {
+    const result = configure({
+      deterministic: false,
+      lengthLimit: 70,
+      lengthUnit: 'utf8-bytes',
+    })({ '...': '😀😀', keep: 'Ж', long: '界'.repeat(200) })!;
+    expect(Buffer.byteLength(result, 'utf8')).toBeLessThanOrEqual(70);
+    expect(JSON.parse(result)).toEqual({ keep: 'Ж', '...': marker });
+    expect(result.match(/"\.\.\.":/g)).toHaveLength(1);
+  });
+
+  test.each(['bytes', 'utf8', '', null, 8])(
+    'rejects an unknown length unit: %j',
+    (lengthUnit) => {
+      expect(() => configure({ lengthUnit })).toThrow(TypeError);
+    },
+  );
+
+  test('notifies once per successful truncation and keeps later calls isolated', () => {
+    let truncations = 0;
+    const stringify = configure({
+      lengthLimit: 80,
+      lengthUnit: 'utf8-bytes',
+      onTruncate: () => truncations++,
+    });
+    expect(stringify('fits')).toBe('"fits"');
+    expect(truncations).toBe(0);
+    stringify('😀'.repeat(200));
+    expect(truncations).toBe(1);
+    stringify({ outer: { inner: ['Ж'.repeat(200)] } });
+    expect(truncations).toBe(2);
+    expect(stringify('still fits')).toBe('"still fits"');
+    expect(truncations).toBe(2);
+  });
+
+  test('does not notify about truncation when serialization throws', () => {
+    let truncations = 0;
+    const stringify = configure({
+      lengthLimit: 80,
+      onTruncate: () => truncations++,
+    });
+    expect(() =>
+      stringify({
+        get broken(): never {
+          throw new Error('Getter failed');
+        },
+      }),
+    ).toThrow('Getter failed');
+    expect(truncations).toBe(0);
+  });
+
+  test.each([null, 1, 'callback', false])(
+    'rejects an invalid truncation callback: %j',
+    (onTruncate) => {
+      expect(() => configure({ onTruncate })).toThrow(TypeError);
+    },
+  );
+});
+
 describe('length-limited serialization', () => {
   afterEach(() => jest.restoreAllMocks());
 

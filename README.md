@@ -93,24 +93,94 @@ Compared to the method above, `caught-object-report-json` gives you the followin
 
 # JSON size limit
 
-Each `as_json` value is limited to 100,000 characters of compact serialized JSON
-(UTF-16 code units, including escaped characters, property names, and punctuation).
-This applies both to the default serializer and to values returned by `.toCorjAsJson()`.
-Each child report has its own limit. Other fields such as `message`, `stack`, and
-`as_string` are unchanged, so this is not a size limit on the entire report.
+The **entire CORJ report** is limited to **100,000 UTF-8 bytes** by default.
+All fields, metadata, JSON escaping, punctuation, and children share that budget.
+For `makeReportArray`, the limit applies to the complete array. The entries APIs
+apply the same limit to the object or array reconstructed from their entries.
 
-Values that fit are preserved. When the limit is reached, serialization stops
-visiting later values and returns valid partial JSON:
+Configure it through the regular options:
+
+```typescript
+const corj = CorjMaker.withDefaults({
+  maxReportSize: 64_000,
+  reportSizeUnit: 'utf8-bytes',
+});
+```
+
+`maxReportSize` must be a safe integer of at least 256, or `null` to disable size
+limiting. Invalid limits and measurement units throw during maker construction.
+The minimum leaves room for a valid report with its required fields and a
+truncation indicator. Supported measurement modes are:
+
+| `reportSizeUnit` | Measures compact `JSON.stringify(report)` output as |
+| --- | --- |
+| `'utf8-bytes'` (default) | UTF-8 bytes; equivalent to `Buffer.byteLength(json, 'utf8')` in Node.js |
+| `'utf16-code-units'` | JavaScript string length; equivalent to `json.length` |
+
+The limit covers compact JSON produced by this library. Pretty-printing and
+fields added later by a logger increase the final log entry size; reserve room
+for those at integration time.
+
+Reports that fit are preserved. Oversized reports set `truncated: true` on the
+root (the first element for array reports) and keep valid partial content:
 
 - Strings retain a prefix followed by `[caught-object-report-json: Truncated]`.
-- Arrays retain leading elements and append the marker when remaining elements are omitted.
-- Objects retain leading properties and add `"...": "[caught-object-report-json: Truncated]"`
-  when remaining properties are omitted. The `...` key is reserved in truncated objects.
+- Arrays inside `as_json` retain leading elements and append the marker.
+- Objects inside `as_json` retain leading properties and may add
+  `"...": "[caught-object-report-json: Truncated]"`. That key is reserved in truncated objects.
+- All content fields, including `message`, `stack`, and `as_string`, share the
+  budget. The limiter reserves a small amount of content per field, retains a
+  prefix of complete child reports, and distributes remaining room across fields.
+- Omitted children get a `children_omitted_reason`; references to removed children
+  are removed too. Required report fields remain present and reports remain schema-valid.
 
-A marker inside a nested value also means later siblings may have been omitted.
-Earlier entries may be removed to make room for the marker and closing punctuation;
-if a container cannot fit with its marker, it is replaced by the marker itself.
-Truncation is intentional and does not trigger `onCaughtMaking`.
+A marker inside a nested JSON value also means later siblings may have been
+omitted. Earlier entries may be removed to fit the marker and closing punctuation.
+Very small remaining field budgets use `null`; tight report budgets may omit
+optional metadata. If custom identifiers alone exceed the budget, the array
+falls back to a minimal root report with ID `root` and no child references.
+Truncation does not trigger `onCaughtMaking`.
+
+## Partial JSON example
+
+Run `npm run ts-file ./examples/example-10-report-size-limit.ts`:
+
+```typescript
+const report = makeCaughtObjectReportJson(
+  { code: 'FETCH_FAILED', attempts: Array(100).fill('timeout') },
+  {
+    maxReportSize: 256,
+    reportSizeUnit: 'utf8-bytes',
+    metadataFields: false,
+  },
+);
+
+const json = JSON.stringify(report);
+console.log(Buffer.byteLength(json, 'utf8')); // 247
+```
+
+The complete result is shown below, formatted for readability. Its **compact
+serialization** is 247 bytes:
+
+```json
+{
+  "as_string": "[object Object]",
+  "as_json": {
+    "code": "FETCH_FAILED",
+    "attempts": [
+      "timeout",
+      "timeout",
+      "timeout",
+      "timeout",
+      "[caught-object-report-json: Truncated]"
+    ]
+  },
+  "truncated": true,
+  "instanceof_error": false,
+  "typeof": "object",
+  "constructor_name": "Object"
+}
+```
 
 Reports use schema `corj/v0.10` and format `safe-stable-stringify-with-length-limit`.
 When upgrading from v8, replace imports of

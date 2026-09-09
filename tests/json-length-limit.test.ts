@@ -12,18 +12,18 @@ import {
 const marker = '[caught-object-report-json: Truncated]';
 
 describe('report JSON length limit', () => {
-  test('preserves a value at the 100,000-character boundary and truncates the next character', () => {
+  test('shares the default budget between string and JSON representations', () => {
     const maker = new CorjMaker({
       ...CORJ_MAKER_DEFAULT_OPTIONS,
       onCaughtMaking: null,
     });
-    const fitting = 'x'.repeat(99_998);
-    expect(maker.makeReportObject(fitting).as_json).toBe(fitting);
-
-    const report = maker.makeReportObject(fitting + 'x');
-    expect(JSON.stringify(report.as_json).length).toBeLessThanOrEqual(100_000);
+    const report = maker.makeReportObject('x'.repeat(100_000));
+    expect(Buffer.byteLength(JSON.stringify(report))).toBeLessThanOrEqual(
+      100_000,
+    );
     expect(String(report.as_json).endsWith(marker)).toBe(true);
-    expect(report.as_string).toBe(fitting + 'x');
+    expect(String(report.as_string).endsWith(marker)).toBe(true);
+    expect(report.truncated).toBe(true);
     expect(report.as_json_format).toBe(
       CORJ_AS_JSON_FORMAT_SAFE_STABLE_STRINGIFY_WITH_LENGTH_LIMIT,
     );
@@ -49,7 +49,7 @@ describe('report JSON length limit', () => {
     expect(getReportObjectReportValidator()(report)).toBe(true);
   });
 
-  test('gives each nested report its own budget and excludes child sources from parent JSON', () => {
+  test('shares the budget with nested reports and excludes child sources from parent JSON', () => {
     const maker = new CorjMaker({
       ...CORJ_MAKER_DEFAULT_OPTIONS,
       onCaughtMaking: null,
@@ -64,6 +64,9 @@ describe('report JSON length limit', () => {
     expect(report.as_json).not.toHaveProperty('cause');
     expect(report.children).toHaveLength(1);
     expect(report.children![0]!.as_json).toMatchObject({ message: 'child' });
+    expect(Buffer.byteLength(JSON.stringify(report))).toBeLessThanOrEqual(
+      100_000,
+    );
     for (const item of [report, ...report.children!]) {
       expect(JSON.stringify(item!.as_json).length).toBeLessThanOrEqual(100_000);
       expect(JSON.stringify(item!.as_json)).toContain(marker);
@@ -71,6 +74,9 @@ describe('report JSON length limit', () => {
     expect(getReportObjectReportValidator()(report)).toBe(true);
 
     const array = maker.makeReportArray(caught);
+    expect(Buffer.byteLength(JSON.stringify(array))).toBeLessThanOrEqual(
+      100_000,
+    );
     expect(array).toHaveLength(2);
     expect(getReportArrayReportValidator()(array)).toBe(true);
     for (const item of array) {

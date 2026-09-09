@@ -54,6 +54,7 @@ describe('Assertions about package exports', function () {
         ],
         "makeReportId": [Function],
         "maxChildrenLevel": 5,
+        "maxReportSize": 100000,
         "metadataFields": Object {
           "$schema": false,
           "as_json_format": true,
@@ -64,6 +65,7 @@ describe('Assertions about package exports', function () {
         "onCaughtMaking": [Function],
         "parseStackToArray": false,
         "printWarningsOnUnhandledErrors": true,
+        "reportSizeUnit": "utf8-bytes",
       }
     `);
   });

@@ -6,8 +6,34 @@
  * - Disable array replacer
  * - Disable indentation option
  * - Remove fn version without replacer, modify the one with replacer
- * - Add lengthLimit option, calculating JSON size and terminating early when size exceeds lengthLimit (currently WIP)
+ * - Add lengthLimit with valid partial JSON and early termination
+ *
+ * Copyright (c) Ruben Bridgewater. MIT license; see the notice below.
  */
+
+/*
+The MIT License (MIT)
+
+Copyright (c) Ruben Bridgewater
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+*/
 
 const { hasOwnProperty } = Object.prototype;
 
@@ -74,26 +100,14 @@ function isTypedArrayWithEntries(value) {
   );
 }
 
-function stringifyTypedArray(array, separator, maximumBreadth) {
-  if (array.length < maximumBreadth) {
-    maximumBreadth = array.length;
-  }
-  const whitespace = separator === ',' ? '' : ' ';
-  let res = `"0":${whitespace}${array[0]}`;
-  for (let i = 1; i < maximumBreadth; i++) {
-    res += `${separator}"${i}":${whitespace}${array[i]}`;
-  }
-  return res;
-}
-
 function getCircularValueOption(options) {
   if (hasOwnProperty.call(options, 'circularValue')) {
     const circularValue = options.circularValue;
     if (typeof circularValue === 'string') {
-      return `"${circularValue}"`;
+      return strEscape(circularValue);
     }
     if (circularValue == null) {
-      return circularValue;
+      return circularValue === null ? 'null' : undefined;
     }
     if (circularValue === Error || circularValue === TypeError) {
       return {
@@ -157,16 +171,6 @@ function getItemCount(number) {
   return `${number} items`;
 }
 
-function getUniqueReplacerSet(replacerArray) {
-  const replacerSet = new Set();
-  for (const value of replacerArray) {
-    if (typeof value === 'string' || typeof value === 'number') {
-      replacerSet.add(String(value));
-    }
-  }
-  return replacerSet;
-}
-
 function getStrictOption(options) {
   if (hasOwnProperty.call(options, 'strict')) {
     const value = options.strict;
@@ -203,218 +207,212 @@ function configure(options) {
   const maximumBreadth = getPositiveIntegerOption(options, 'maximumBreadth');
   const lengthLimit = getPositiveIntegerOption(options, 'lengthLimit');
 
-  function stringifyFnReplacer(
-    key,
-    parent,
-    stack,
-    replacer,
-    _spacer,
-    indentation,
-    curLength,
-    _isRoot,
-  ) {
-    let value = parent[key];
-
-    if (
-      typeof value === 'object' &&
-      value !== null &&
-      typeof value.toJSON === 'function'
-    ) {
-      value = value.toJSON(key);
-    }
-    value = !replacer ? value : replacer.call(parent, key, value);
-
-    switch (typeof value) {
-      case 'string': {
-        const val = strEscape(value);
-        curLength += val.length;
-        return [val, curLength];
-      }
-      case 'object': {
-        if (value === null) {
-          return ['null', curLength + 4];
-        }
-        if (stack.indexOf(value) !== -1) {
-          curLength += circularValue.length;
-          return [circularValue, curLength];
-        }
-
-        let res = '';
-        let join = ',';
-
-        curLength += 2; // for braces or brackets
-
-        if (Array.isArray(value)) {
-          if (value.length === 0) {
-            return ['[]', curLength]; // braces already counted
-          }
-          if (maximumDepth < stack.length + 1) {
-            const val = '"[Array]"';
-            curLength += val.length - 2; // braces already counted
-            return [val, curLength];
-          }
-          stack.push(value);
-          const maximumValuesToStringify = Math.min(
-            value.length,
-            maximumBreadth,
-          );
-          let i = 0;
-          for (; i < maximumValuesToStringify - 1; i++) {
-            curLength += join.length; // make sure to count the comma beforehand
-            const [tmp, newCurLength] = stringifyFnReplacer(
-              String(i),
-              value,
-              stack,
-              replacer,
-              null,
-              indentation,
-              curLength,
-              false,
-            );
-            curLength = newCurLength;
-            if (tmp !== undefined) {
-              res += tmp;
-            } else {
-              res += 'null';
-              curLength += 4;
-            }
-            res += join;
-          }
-          const [tmp, newCurLength] = stringifyFnReplacer(
-            String(i),
-            value,
-            stack,
-            replacer,
-            null,
-            indentation,
-            curLength,
-            false,
-          );
-          curLength = newCurLength;
-          if (tmp !== undefined) {
-            res += tmp;
-          } else {
-            res += 'null';
-            curLength += 4;
-          }
-          if (value.length - 1 > maximumBreadth) {
-            const removedKeys = value.length - maximumBreadth - 1;
-            const strToAdd = `${join}"... ${getItemCount(
-              removedKeys,
-            )} not stringified"`;
-            res += strToAdd;
-            curLength += strToAdd.length;
-          }
-          stack.pop();
-          return [`[${res}]`, curLength]; // braces length is already counted
-        }
-
-        let keys = Object.keys(value);
-        const keyLength = keys.length;
-        if (keyLength === 0) {
-          return ['{}', curLength]; //braces already counted
-        }
-        if (maximumDepth < stack.length + 1) {
-          const val = '"[Object]"';
-          curLength += val.length - 2; // braces already counted
-          return [val, curLength];
-        }
-        let whitespace = '';
-        let separator = '';
-        const maximumPropertiesToStringify = Math.min(
-          keyLength,
-          maximumBreadth,
-        );
-        if (deterministic && !isTypedArrayWithEntries(value)) {
-          keys = sort(keys, comparator);
-        }
-        stack.push(value);
-        for (let i = 0; i < maximumPropertiesToStringify; i++) {
-          const key = keys[i];
-          const [tmp, newCurLength] = stringifyFnReplacer(
-            key,
-            value,
-            stack,
-            replacer,
-            null,
-            indentation,
-            curLength,
-            false,
-          );
-          curLength = newCurLength;
-          if (tmp !== undefined) {
-            const prefix = `${separator}${strEscape(key)}:${whitespace}`;
-            curLength += prefix.length;
-            res += `${prefix}${tmp}`;
-            separator = join;
-          }
-        }
-        if (keyLength > maximumBreadth) {
-          const removedKeys = keyLength - maximumBreadth;
-          const newStr = `${separator}"...":${whitespace}"${getItemCount(
-            removedKeys,
-          )} not stringified"`;
-          res += newStr;
-          curLength += newStr;
-          separator = join;
-        }
-        stack.pop();
-        return [`{${res}}`, curLength]; // braces already counted
-      }
-      case 'number': {
-        const val = isFinite(value)
-          ? String(value)
-          : fail
-          ? fail(value)
-          : 'null';
-        curLength += typeof val?.length === 'number' ? val.length : 0;
-        return [val, curLength];
-      }
-      case 'boolean': {
-        const val = value === true ? 'true' : 'false';
-        curLength += val.length;
-        return [val, curLength];
-      }
-      case 'undefined':
-        return [undefined, curLength];
-      case 'bigint': {
-        if (bigint) {
-          const val = String(value);
-          curLength += val.length;
-          return [val, curLength];
-        } else {
-          const val = fail ? fail(value) : undefined;
-          curLength += typeof val?.length === 'number' ? val.length : 0;
-          return [val, curLength];
-        }
-      }
-      // fallthrough
-      default: {
-        const val = fail ? fail(value) : undefined;
-        curLength += typeof val?.length === 'number' ? val.length : 0;
-        return [val, curLength];
-      }
-    }
+  // Four characters allow a valid fallback (null) even if a marker cannot fit.
+  if (lengthLimit < 4) {
+    throw new RangeError('The "lengthLimit" argument must be >= 4');
   }
 
+  /**
+   * @param {unknown} value
+   * @param {((this: object, key: string, value: any) => any) | null} [replacer]
+   * @returns {string | undefined}
+   */
   function stringify(value, replacer = null) {
     if (Array.isArray(replacer)) {
       throw new Error(
         'caught-object-report-json::Internal Error: Array replacer is not supported',
       );
     }
-    const [res, length] = stringifyFnReplacer(
-      '',
-      { '': value },
-      [],
-      replacer,
-      null,
-      '',
-      0,
-      true,
-    );
-    console.log({ length, resLength: res.length, res });
-    return res;
+    // State belongs to this call so a replacer can safely invoke stringify again.
+    const stack = [];
+    const overflow = Symbol('length limit');
+    const marker = '[caught-object-report-json: Truncated]';
+    const markerJson = strEscape(marker);
+    let truncated = false;
+
+    function fit(json, budget) {
+      if (json === undefined || json.length <= budget) return json;
+      truncated = true;
+      return overflow;
+    }
+
+    function truncateString(value, budget) {
+      truncated = true;
+      if (markerJson.length > budget) return overflow;
+      // Search only a bounded prefix, without serializing a potentially huge string.
+      let low = 0;
+      let high = Math.min(value.length, budget - markerJson.length);
+      while (low < high) {
+        const middle = Math.ceil((low + high) / 2);
+        if (strEscape(value.slice(0, middle) + marker).length <= budget) {
+          low = middle;
+        } else {
+          high = middle - 1;
+        }
+      }
+      // Do not split a UTF-16 surrogate pair at the truncation boundary.
+      if (
+        low > 0 &&
+        low < value.length &&
+        value.charCodeAt(low - 1) >= 0xd800 &&
+        value.charCodeAt(low - 1) <= 0xdbff &&
+        value.charCodeAt(low) >= 0xdc00 &&
+        value.charCodeAt(low) <= 0xdfff
+      ) {
+        low--;
+      }
+      return strEscape(value.slice(0, low) + marker);
+    }
+
+    function read(key, parent) {
+      let value = parent[key];
+      if (
+        typeof value === 'object' &&
+        value !== null &&
+        typeof value.toJSON === 'function'
+      ) {
+        value = value.toJSON(key);
+      }
+      return replacer ? replacer.call(parent, key, value) : value;
+    }
+
+    function serialize(value, budget) {
+      switch (typeof value) {
+        case 'string': {
+          if (value.length + 2 <= budget) {
+            const json = strEscape(value);
+            if (json.length <= budget) return json;
+          }
+          return truncateString(value, budget);
+        }
+        case 'number':
+          return fit(
+            isFinite(value) ? String(value) : fail ? fail(value) : 'null',
+            budget,
+          );
+        case 'boolean':
+          return fit(value ? 'true' : 'false', budget);
+        case 'undefined':
+          return undefined;
+        case 'bigint':
+          // Reports parse this text back to JSON values. Count the eventual
+          // number representation, which can grow when a bigint is rounded.
+          return fit(
+            bigint
+              ? JSON.stringify(Number(value))
+              : fail
+              ? fail(value)
+              : undefined,
+            budget,
+          );
+        case 'object':
+          break;
+        default:
+          return fail ? fail(value) : undefined;
+      }
+      if (value === null) return fit('null', budget);
+      if (stack.indexOf(value) !== -1) {
+        return fit(
+          circularValue === undefined ? undefined : String(circularValue),
+          budget,
+        );
+      }
+
+      const isArray = Array.isArray(value);
+      const open = isArray ? '[' : '{';
+      const close = isArray ? ']' : '}';
+      if (budget < 2) return fit(open + close, budget);
+      let keys = isArray ? null : Object.keys(value);
+      const count = isArray ? value.length : keys.length;
+      if (count === 0) return open + close;
+      if (maximumDepth < stack.length + 1) {
+        return fit(isArray ? '"[Array]"' : '"[Object]"', budget);
+      }
+      if (!isArray && deterministic && !isTypedArrayWithEntries(value)) {
+        keys = sort(keys, comparator);
+      }
+      const entries = [];
+      // Reserve the closing delimiter before visiting any child.
+      let length = 2;
+
+      function append(key, json) {
+        length += (entries.length ? 1 : 0) + json.length;
+        entries.push({ key, json });
+      }
+
+      function finishTruncated() {
+        truncated = true;
+        // "..." is reserved for truncation metadata in an incomplete object.
+        // Remove an existing occurrence rather than emit duplicate JSON keys.
+        if (!isArray) {
+          const index = entries.findIndex((entry) => entry.key === '...');
+          if (index !== -1) {
+            const [entry] = entries.splice(index, 1);
+            length -= entry.json.length + (entries.length ? 1 : 0);
+          }
+        }
+        const tail = isArray ? markerJson : '"...":' + markerJson;
+        while (entries.length && length + 1 + tail.length > budget) {
+          const entry = entries.pop();
+          length -= entry.json.length + (entries.length ? 1 : 0);
+        }
+        if (length + (entries.length ? 1 : 0) + tail.length > budget) {
+          return fit(markerJson, budget);
+        }
+        append('...', tail);
+        return open + entries.map((entry) => entry.json).join(',') + close;
+      }
+
+      stack.push(value);
+      try {
+        const maximum = Math.min(count, maximumBreadth);
+        for (let i = 0; i < maximum; i++) {
+          const key = isArray ? String(i) : keys[i];
+          const available = budget - length - (entries.length ? 1 : 0);
+          if (isArray && available < 1) return finishTruncated();
+          const child = read(key, value);
+          // An overlong key need not be escaped, but its value must still pass
+          // through the replacer: omitted properties consume no output space.
+          const prefix = isArray
+            ? ''
+            : key.length + 3 > available
+            ? null
+            : strEscape(key) + ':';
+          let json = serialize(
+            child,
+            prefix === null ? 0 : available - prefix.length,
+          );
+          if (json === undefined) {
+            if (!isArray) continue;
+            json = fit('null', available);
+          }
+          if (json === overflow || prefix === null) return finishTruncated();
+          append(key, prefix + json);
+          if (truncated) break;
+        }
+        if (!truncated && count > maximumBreadth) {
+          const omitted =
+            getItemCount(count - maximumBreadth) + ' not stringified';
+          const tail = isArray
+            ? strEscape('... ' + omitted)
+            : '"...":' + strEscape(omitted);
+          if (length + (entries.length ? 1 : 0) + tail.length > budget)
+            return finishTruncated();
+          append('...', tail);
+        }
+        return open + entries.map((entry) => entry.json).join(',') + close;
+      } finally {
+        stack.pop();
+      }
+    }
+
+    const result = serialize(read('', { '': value }), lengthLimit);
+    // Tiny budgets cannot hold the marker. This fallback is always valid JSON.
+    return result === overflow
+      ? markerJson.length <= lengthLimit
+        ? markerJson
+        : 'null'
+      : result;
   }
 
   return stringify;

@@ -7,7 +7,7 @@ const config: Config.InitialOptions = {
     '^.+\\.ts?$': 'ts-jest',
   },
   testRegex: '/(tests|src)/.*.test(\\..+)?\\.ts$',
-  'collectCoverageFrom': ['src/**/*.ts'],
+  'collectCoverageFrom': ['src/**/*.{ts,js}'],
   coverageReporters: ['json-summary', 'text', 'lcov'],
 };
 

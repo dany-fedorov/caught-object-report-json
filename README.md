@@ -33,7 +33,7 @@
     * [GitHub](#github)
     * [Npm](#npm)
     * [Deno Land](#deno-land)
-    * [CORJ JSON Schema - corj/v0.8](#corj-json-schema---corjv08)
+    * [CORJ JSON Schema - corj/v0.10](#corj-json-schema---corjv08)
 
 # Motivation
 
@@ -91,6 +91,33 @@ Compared to the method above, `caught-object-report-json` gives you the followin
     2. Has metadata fields that hint into how it was produced (configurable).
     3. Has JSON Schema as a source of truth.
 
+# JSON size limit
+
+Each `as_json` value is limited to 100,000 characters of compact serialized JSON
+(UTF-16 code units, including escaped characters, property names, and punctuation).
+This applies both to the default serializer and to values returned by `.toCorjAsJson()`.
+Each child report has its own limit. Other fields such as `message`, `stack`, and
+`as_string` are unchanged, so this is not a size limit on the entire report.
+
+Values that fit are preserved. When the limit is reached, serialization stops
+visiting later values and returns valid partial JSON:
+
+- Strings retain a prefix followed by `[caught-object-report-json: Truncated]`.
+- Arrays retain leading elements and append the marker when remaining elements are omitted.
+- Objects retain leading properties and add `"...": "[caught-object-report-json: Truncated]"`
+  when remaining properties are omitted. The `...` key is reserved in truncated objects.
+
+A marker inside a nested value also means later siblings may have been omitted.
+Earlier entries may be removed to make room for the marker and closing punctuation;
+if a container cannot fit with its marker, it is replaced by the marker itself.
+Truncation is intentional and does not trigger `onCaughtMaking`.
+
+Reports use schema `corj/v0.10` and format `safe-stable-stringify-with-length-limit`.
+When upgrading from v8, replace imports of
+`CORJ_AS_JSON_FORMAT_SAFE_STABLE_STRINGIFY_2_4_1` with
+`CORJ_AS_JSON_FORMAT_SAFE_STABLE_STRINGIFY_WITH_LENGTH_LIMIT`, and update any explicit
+`asJsonFormatsToApply` entries and schema validators to the new format/version.
+
 # Examples
 
 ## 1. [Syntax error](https://github.com/dany-fedorov/caught-object-report-json/blob/main/examples/example-1-syntax-error.ts)
@@ -122,8 +149,8 @@ prints
     "errors"
   ],
   "as_string_format": "String",
-  "as_json_format": "safe-stable-stringify@2.4.1",
-  "v": "corj/v0.6"
+  "as_json_format": "safe-stable-stringify-with-length-limit",
+  "v": "corj/v0.10"
 }
 ```
 
@@ -251,8 +278,8 @@ prints
     "errors"
   ],
   "as_string_format": "String",
-  "as_json_format": "safe-stable-stringify@2.4.1",
-  "v": "corj/v0.6"
+  "as_json_format": "safe-stable-stringify-with-length-limit",
+  "v": "corj/v0.10"
 }
 ```
 
@@ -288,7 +315,7 @@ onCaughtMaking:: {
   }
 }
 onCaughtMaking:: {
-  caught: Error: Could not convert caught object to json string using safe-stable-stringify@2.4.1.
+  caught: Error: Could not convert caught object to json string using safe-stable-stringify-with-length-limit.
       at makeProp_as_json (/home/user/work-dir/caught-object-report-json/src/index.ts:546:19)
       at makeEntriesWithoutNested (/home/user/work-dir/caught-object-report-json/src/index.ts:903:20)
       at CorjMaker.entries (/home/user/work-dir/caught-object-report-json/src/index.ts:951:46)
@@ -310,8 +337,8 @@ and then prints form catch block
     "errors"
   ],
   "as_string_format": "String",
-  "as_json_format": "safe-stable-stringify@2.4.1",
-  "v": "corj/v0.6"
+  "as_json_format": "safe-stable-stringify-with-length-limit",
+  "v": "corj/v0.10"
 }
 ```
 
@@ -661,8 +688,8 @@ prints
       "errors"
     ],
     "as_string_format": "String",
-    "as_json_format": "safe-stable-stringify@2.4.1",
-    "v": "corj/v0.8"
+    "as_json_format": "safe-stable-stringify-with-length-limit",
+    "v": "corj/v0.10"
   },
   {
     "id": "0",
@@ -748,7 +775,7 @@ prints an inline version of the following JSON
   "level": "error",
   "message": {
     "as_json": {},
-    "as_json_format": "safe-stable-stringify@2.4.1",
+    "as_json_format": "safe-stable-stringify-with-length-limit",
     "as_string": "AggregateError",
     "as_string_format": "String",
     "children": [
@@ -795,7 +822,7 @@ prints an inline version of the following JSON
     "message": "",
     "stack": "AggregateError\n    at Object.<anonymous> (/home/df/wd/personal/caught-object-report-json/examples/example-9-winston-integration.ts:30:7)\n    at Module._compile (node:internal/modules/cjs/loader:1267:14)\n    at Module.m._compile (/home/df/wd/personal/caught-object-report-json/node_modules/ts-node/src/index.ts:1618:23)\n    at Module._extensions..js (node:internal/modules/cjs/loader:1321:10)\n    at Object.require.extensions.<computed> [as .ts] (/home/df/wd/personal/caught-object-report-json/node_modules/ts-node/src/index.ts:1621:12)\n    at Module.load (node:internal/modules/cjs/loader:1125:32)\n    at Function.Module._load (node:internal/modules/cjs/loader:965:12)\n    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:83:12)\n    at phase4 (/home/df/wd/personal/caught-object-report-json/node_modules/ts-node/src/bin.ts:649:14)\n    at bootstrap (/home/df/wd/personal/caught-object-report-json/node_modules/ts-node/src/bin.ts:95:10)",
     "typeof": "object",
-    "v": "corj/v0.8"
+    "v": "corj/v0.10"
   },
   "os": {
     "loadavg": [
@@ -949,13 +976,13 @@ https://www.npmjs.com/package/caught-object-report-json
 
 https://deno.land/x/caught_object_report_json
 
-##### CORJ JSON Schema - corj/v0.8
+##### CORJ JSON Schema - corj/v0.10
 
 -
 
-Definitions - https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.8/definitions.json
+Definitions - https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.10/definitions.json
 
 - Report
-  Object - https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.8/report-object.json
+  Object - https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.10/report-object.json
 - Report
-  Array - https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.8/report-array.json
+  Array - https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.10/report-array.json

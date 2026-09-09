@@ -76,8 +76,9 @@ export type CaughtObjectReportJson = {
    * `null` value means that producing `as_json` property  failed.<br>
    * Use `onCaughtMaking` option to access objects thrown when report JSON was being created.
    *
-   * Links
-   * - [safe-stable-stringify@2.4.1 on NPM](https://www.npmjs.com/package/safe-stable-stringify)
+   * Limited to 100,000 serialized UTF-16 code units, including JSON escaping and punctuation.
+   * Oversized values retain a prefix with a `[caught-object-report-json: Truncated]` marker.
+   * This also applies to values returned by `.toCorjAsJson()`.
    */
   as_json: CorjJsonValue<CorjJsonPrimitive>;
   /**
@@ -131,7 +132,8 @@ export type CaughtObjectReportJson = {
   as_string_format?: CorjAsStringFormat | null;
   /**
    * Indicates a method used to obtain the value of `as_json`.<br>
-   * - "safe-stable-stringify@2.4.1" means value was obtained with safe-stable-stringify library.`
+   * - "safe-stable-stringify-with-length-limit" uses the bundled safe-stable-stringify
+   *   serializer with a 100,000-character output limit.
    *
    * Adding this field is controlled by {@link CorjMakerOptions | CorjMakerOptions['metadataFields']['as_json_format']}).
    */

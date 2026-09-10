@@ -1,0 +1,217 @@
+{
+  "$id": "https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.11-full/definitions.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Caught Object Report JSON",
+  "description": "A JS caught object representation. Default implementation is https://www.npmjs.com/package/caught-object-report-json.",
+  "$defs": {
+    "BASE_PROPERTIES_MIXIN": {
+      "$id": "https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.11-full/definitions.json/$defs/BASE_PROPERTIES_MIXIN",
+      "type": "object",
+      "description": "Base properties shared by all report objects. This is the complete form of corj/v0.11: the default implementation produces it with `omitExpectedValues: false`, and `restoreExpectedValues` converts a corj/v0.11 report into it. No field is omitted for holding its expected value.",
+      "required": [
+        "instanceof_error",
+        "typeof",
+        "as_string",
+        "as_json"
+      ],
+      "properties": {
+        "truncated": {
+          "description": "Present when content or child reports were omitted to meet the configured whole-report size limit. On the root of an array report, this flag applies to the entire array.",
+          "const": true
+        },
+        "instanceof_error": {
+          "description": "Required base property. Result of `caught instanceof Error`.",
+          "type": "boolean"
+        },
+        "typeof": {
+          "description": "Required base property. Result of `typeof caught`.",
+          "enum": [
+            "undefined",
+            "object",
+            "boolean",
+            "number",
+            "bigint",
+            "string",
+            "symbol",
+            "function"
+          ]
+        },
+        "constructor_name": {
+          "description": "Optional base property. Result of `caught.constructor.name`. Not set if `caught` does not have a `constructor.name`. Set to `null` if accessing `caught.constructor.name` throws.",
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "message": {
+          "description": "Optional base property. Result of `caught.message`. Not set if `caught` does not have a `message`. Set to `null` if accessing `caught.message` throws.",
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "as_string": {
+          "description": "Required base property. String representation of `caught` created using the format in `as_string_format` described in this schema. Set to `null` if creating string representation throws.",
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "as_json": {
+          "description": "Required base property. JSON representation of `caught` created using the format in field `as_json_format` described in this schema. The default implementation shares a configurable whole-report size budget across all fields and children (100,000 UTF-8 bytes by default) and marks partial values with [caught-object-report-json: Truncated]. Set to `null` if creating JSON representation throws.",
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "array"
+            },
+            {
+              "type": "object"
+            }
+          ]
+        },
+        "stack": {
+          "description": "Optional base property. Result of `caught.stack`. Not set if `caught` does not have a string `stack`. Set to `null` if accessing `caught.stack` throws. The default implementation stores `stack.split(\"\\n\")` as an array of lines (`parseStackToArray`, on by default); the raw string is stored when that option is off.",
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          ]
+        },
+        "children_omitted_reason": {
+          "description": "Optional base property. Is set if this `caught` object has fields reported in `children_sources`, but they were omitted by implementation.",
+          "type": "string"
+        },
+        "v": {
+          "description": "Optional base property. Metadata property. A version of report, can be omitted. `corj/v0.11-full` marks a complete report.",
+          "enum": [
+            "corj/v0.11-full"
+          ]
+        },
+        "as_string_format": {
+          "description": "Optional base property. Metadata property. A format of `as_string` field, can be omitted.",
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "enum": [
+                ".toCorjAsString",
+                "String"
+              ]
+            }
+          ]
+        },
+        "as_json_format": {
+          "description": "Optional base property. Metadata property. A format of `as_json` field, can be omitted.",
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "enum": [
+                ".toCorjAsJson",
+                "safe-stable-stringify-with-length-limit"
+              ]
+            }
+          ]
+        },
+        "children_sources": {
+          "description": "Optional base property. Metadata property. Array of property names of caught object to collect into `children` property.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "REPORT_OBJECT_PROPERTIES_MIXIN": {
+      "$id": "https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.11-full/definitions.json/$defs/REPORT_OBJECT_PROPERTIES_MIXIN",
+      "type": "object",
+      "properties": {
+        "children": {
+          "description": "Optional top-level property. Children collected from `children_sources`, tree flattened to array. This is different from `children` property for nested reports.",
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "allOf": [
+                  {
+                    "$ref": "https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.11-full/definitions.json/$defs/BASE_PROPERTIES_MIXIN"
+                  },
+                  {
+                    "$ref": "https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.11-full/definitions.json/$defs/REPORT_OBJECT_IN_ARRAY_PROPERTIES_MIXIN"
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      }
+    },
+    "REPORT_OBJECT_IN_ARRAY_PROPERTIES_MIXIN": {
+      "$id": "https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.11-full/definitions.json/$defs/REPORT_OBJECT_IN_ARRAY_PROPERTIES_MIXIN",
+      "type": "object",
+      "required": [
+        "id",
+        "path",
+        "level"
+      ],
+      "properties": {
+        "id": {
+          "description": "Required array-element property. Integer id unique for this report.",
+          "type": "string"
+        },
+        "path": {
+          "description": "Required array-element property. JSONPath from top-level caught object.",
+          "type": "string"
+        },
+        "level": {
+          "description": "Required array-element property. Level of this object in the tree of nested error objects. Top-level is 0.",
+          "type": "number"
+        },
+        "children": {
+          "description": "Optional array-element property. Array of children ids. This is different from `children` property for top-level object.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

@@ -15,6 +15,7 @@ describe('maker option and failure boundaries', () => {
       errors.push(message);
     });
     const maker = CorjMaker.withDefaults({
+      omitExpectedValues: false,
       metadataFields: { as_string_format: false },
       childrenMetadataFields: { as_json_format: true },
     });
@@ -51,6 +52,7 @@ describe('maker option and failure boundaries', () => {
       errors.push(message);
     });
     const maker = CorjMaker.withDefaults({
+      omitExpectedValues: false,
       metadataFields: false,
       childrenMetadataFields: false,
     });
@@ -82,6 +84,7 @@ describe('maker option and failure boundaries', () => {
 
   test('individual flags can replace disabled metadata without changing the original maker', () => {
     const maker = CorjMaker.withDefaults({
+      omitExpectedValues: false,
       metadataFields: false,
       childrenMetadataFields: false,
     });
@@ -143,7 +146,7 @@ describe('maker option and failure boundaries', () => {
     jest.spyOn(console, 'error').mockImplementation((message: string) => {
       errors.push(message);
     });
-    const maker = CorjMaker.withDefaults({});
+    const maker = CorjMaker.withDefaults({ omitExpectedValues: false });
     maker.options.metadataFields = {
       $schema: false,
       as_string_format: true,
@@ -201,7 +204,6 @@ describe('maker option and failure boundaries', () => {
         as_string: null,
         as_json: null,
         instanceof_error: false,
-        typeof: 'object',
       },
     ]);
     expect(warnings).toHaveLength(1);
@@ -242,11 +244,11 @@ describe('maker option and failure boundaries', () => {
       const caught = nested
         ? { message: 'outer', cause: problematic }
         : problematic;
+      // `typeof: "object"` is an expected value and is omitted by default.
       const fallback = {
         as_string: null,
         as_json: null,
         instanceof_error: false,
-        typeof: 'object',
       };
 
       if (format === 'object') {

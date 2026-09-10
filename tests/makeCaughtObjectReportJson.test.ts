@@ -5,23 +5,11 @@ describe('makeCaughtObjectReportJson', function () {
   test('default', () => {
     const report = makeCaughtObjectReportJson(new Error('I am an error!'));
     expect(getReportObjectReportValidator()(report)).toBe(true);
-    expect(typeof report.stack).toBe('string');
+    expect(Array.isArray(report.stack)).toBe(true);
     delete report.stack;
     expect(report).toMatchInlineSnapshot(`
       Object {
-        "as_json": Object {},
-        "as_json_format": "safe-stable-stringify-with-length-limit",
-        "as_string": "Error: I am an error!",
-        "as_string_format": "String",
-        "children_sources": Array [
-          "cause",
-          "errors",
-        ],
-        "constructor_name": "Error",
-        "instanceof_error": true,
-        "message": "I am an error!",
-        "typeof": "object",
-        "v": "corj/v0.10",
+        "v": "corj/v0.11",
       }
     `);
   });
@@ -39,16 +27,10 @@ describe('makeCaughtObjectReportJson', function () {
     expect(report).toMatchInlineSnapshot(`
       Object {
         "as_json": null,
-        "as_json_format": "safe-stable-stringify-with-length-limit",
         "as_string": "undefined",
-        "as_string_format": "String",
-        "children_sources": Array [
-          "cause",
-          "errors",
-        ],
         "instanceof_error": false,
         "typeof": "undefined",
-        "v": "corj/v0.10",
+        "v": "corj/v0.11",
       }
     `);
     expect(onCaughtMakingArray).toMatchInlineSnapshot(`

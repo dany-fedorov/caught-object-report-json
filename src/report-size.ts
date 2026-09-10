@@ -5,6 +5,7 @@ import type {
 } from './index';
 import type { JsonSizeUnit } from './json-size';
 import { configure } from './safe-stable-stringify';
+import { stackDerivedFields } from './expected-values';
 
 export const DEFAULT_MAX_REPORT_SIZE = 100_000;
 export const DEFAULT_REPORT_SIZE_UNIT: JsonSizeUnit = 'utf8-bytes';
@@ -78,8 +79,10 @@ export function makeMinimalReport<T extends Report>(
     ? report.length > 1
     : (root.children ?? []).length > 0;
   const minimal = {
-    instanceof_error: root.instanceof_error,
-    typeof: root.typeof,
+    ...(root.instanceof_error === undefined
+      ? {}
+      : { instanceof_error: root.instanceof_error }),
+    ...(root.typeof === undefined ? {} : { typeof: root.typeof }),
     as_string: marker,
     as_json: null,
     truncated: true,
@@ -146,9 +149,17 @@ export function limitReportSize<T extends Report>(
     );
 
     function trimNode(
-      source: CaughtObjectReportJsonChild,
+      node: CaughtObjectReportJsonChild,
       hasChildIds: boolean,
     ): CaughtObjectReportJsonChild {
+      // `as_string`, `constructor_name` and `message` may have been omitted as
+      // derivable from the first line of `stack`. Put them back before trimming
+      // so a shortened `stack` cannot lose them; the final omission pass removes
+      // them again when the line survived intact.
+      const source: CaughtObjectReportJsonChild = {
+        ...node,
+        ...stackDerivedFields(node),
+      };
       const result: Partial<CaughtObjectReportJsonChild> = { ...source };
       for (const key of contentKeys) {
         if (source[key] === undefined) continue;

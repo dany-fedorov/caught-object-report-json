@@ -16,6 +16,7 @@ describe('report JSON length limit', () => {
     const maker = new CorjMaker({
       ...CORJ_MAKER_DEFAULT_OPTIONS,
       onCaughtMaking: null,
+      omitExpectedValues: false,
     });
     const report = maker.makeReportObject('x'.repeat(100_000));
     expect(Buffer.byteLength(JSON.stringify(report))).toBeLessThanOrEqual(
@@ -27,7 +28,8 @@ describe('report JSON length limit', () => {
     expect(report.as_json_format).toBe(
       CORJ_AS_JSON_FORMAT_SAFE_STABLE_STRINGIFY_WITH_LENGTH_LIMIT,
     );
-    expect(getReportObjectReportValidator()(report)).toBe(true);
+    expect(report.v).toBe('corj/v0.11-full');
+    expect(getReportObjectReportValidator('full')(report)).toBe(true);
   });
 
   test('bounds custom JSON output without reporting truncation as a conversion failure', () => {

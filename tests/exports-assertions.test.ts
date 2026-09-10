@@ -1,7 +1,7 @@
 import {
   CORJ_REPORT_OBJECT_JSON_SCHEMA_LINK,
   CORJ_VERSION,
-  CORJ_AS_JSON_FORMAT_SAFE_STABLE_STRINGIFY_2_4_1,
+  CORJ_AS_JSON_FORMAT_SAFE_STABLE_STRINGIFY_WITH_LENGTH_LIMIT,
   CORJ_AS_STRING_FORMAT_STRING_COERCION,
   bakeCorj,
   makeCaughtObjectReportJson,
@@ -14,14 +14,14 @@ describe('Assertions about package exports', function () {
       CORJ_JSON_SCHEMA_LINK: CORJ_REPORT_OBJECT_JSON_SCHEMA_LINK,
       CORJ_VERSION,
       CORJ_SAFE_STABLE_STRINGIFY_VERSION:
-        CORJ_AS_JSON_FORMAT_SAFE_STABLE_STRINGIFY_2_4_1,
+        CORJ_AS_JSON_FORMAT_SAFE_STABLE_STRINGIFY_WITH_LENGTH_LIMIT,
       CORJ_STRINGIFY_VERSION: CORJ_AS_STRING_FORMAT_STRING_COERCION,
     }).toMatchInlineSnapshot(`
       Object {
-        "CORJ_JSON_SCHEMA_LINK": "https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.9/report-object.json",
-        "CORJ_SAFE_STABLE_STRINGIFY_VERSION": "safe-stable-stringify@2.4.1",
+        "CORJ_JSON_SCHEMA_LINK": "https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.10/report-object.json",
+        "CORJ_SAFE_STABLE_STRINGIFY_VERSION": "safe-stable-stringify-with-length-limit",
         "CORJ_STRINGIFY_VERSION": "String",
-        "CORJ_VERSION": "corj/v0.9",
+        "CORJ_VERSION": "corj/v0.10",
       }
     `);
   });
@@ -35,7 +35,7 @@ describe('Assertions about package exports', function () {
       Object {
         "asJsonFormatsToApply": Array [
           ".toCorjAsJson",
-          "safe-stable-stringify@2.4.1",
+          "safe-stable-stringify-with-length-limit",
         ],
         "asStringFormatsToApply": Array [
           ".toCorjAsString",
@@ -54,6 +54,7 @@ describe('Assertions about package exports', function () {
         ],
         "makeReportId": [Function],
         "maxChildrenLevel": 5,
+        "maxReportSize": 100000,
         "metadataFields": Object {
           "$schema": false,
           "as_json_format": true,
@@ -64,6 +65,7 @@ describe('Assertions about package exports', function () {
         "onCaughtMaking": [Function],
         "parseStackToArray": false,
         "printWarningsOnUnhandledErrors": true,
+        "reportSizeUnit": "utf8-bytes",
       }
     `);
   });

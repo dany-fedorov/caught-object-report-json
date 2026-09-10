@@ -33,7 +33,7 @@
     * [GitHub](#github)
     * [Npm](#npm)
     * [Deno Land](#deno-land)
-    * [CORJ JSON Schema - corj/v0.8](#corj-json-schema---corjv08)
+    * [CORJ JSON Schema - corj/v0.10](#corj-json-schema---corjv010)
 
 # Motivation
 
@@ -91,6 +91,116 @@ Compared to the method above, `caught-object-report-json` gives you the followin
     2. Has metadata fields that hint into how it was produced (configurable).
     3. Has JSON Schema as a source of truth.
 
+# JSON size limit
+
+The **entire CORJ report** is limited to **100,000 UTF-8 bytes** by default.
+All fields, metadata, JSON escaping, punctuation, and children share that budget.
+For `makeReportArray`, the limit applies to the complete array. The entries APIs
+apply the same limit to the object or array reconstructed from their entries.
+
+Configure it through the regular options:
+
+```typescript
+const corj = CorjMaker.withDefaults({
+  maxReportSize: 64_000,
+  reportSizeUnit: 'utf8-bytes',
+});
+```
+
+`maxReportSize` must be a safe integer of at least 256, or `null` to disable size
+limiting. Invalid limits and measurement units throw during maker construction.
+The minimum leaves room for a valid report with its required fields and a
+truncation indicator. Supported measurement modes are:
+
+| `reportSizeUnit` | Measures compact `JSON.stringify(report)` output as |
+| --- | --- |
+| `'utf8-bytes'` (default) | UTF-8 bytes; equivalent to `Buffer.byteLength(json, 'utf8')` in Node.js |
+| `'utf16-code-units'` | JavaScript string length; equivalent to `json.length` |
+
+The limit covers compact JSON produced by this library. Pretty-printing and
+fields added later by a logger increase the final log entry size; reserve room
+for those at integration time.
+
+Reports that fit are preserved. Oversized reports set `truncated: true` on the
+root (the first element for array reports) and keep valid partial content:
+
+- Strings retain a prefix followed by `[caught-object-report-json: Truncated]`.
+- Arrays inside `as_json` retain leading elements and append the marker.
+- Objects inside `as_json` retain leading properties and may add
+  `"...": "[caught-object-report-json: Truncated]"`. That key is reserved in truncated objects.
+- All content fields, including `message`, `stack`, and `as_string`, share the
+  budget. The limiter reserves a small amount of content per field, retains a
+  prefix of complete child reports, and distributes remaining room across fields.
+- Omitted children get a `children_omitted_reason`; references to removed children
+  are removed too. Required report fields remain present and reports remain schema-valid.
+  `CORJ_NESTED_OMITTED_REASONS.REACHED_MAX_REPORT_SIZE(limit, unit)` returns the
+  corresponding reason; call it without arguments for the minimal-root fallback reason.
+  Custom `makeReportId` callbacks run once per discovered child (and array root),
+  and the returned IDs are reused in references.
+
+A marker inside a nested JSON value also means later siblings may have been
+omitted. Earlier entries may be removed to fit the marker and closing punctuation.
+Optional metadata is dropped before reducing diagnostic content to the `null`
+fallback used by very small field budgets. If custom identifiers alone exceed the budget, the array
+falls back to a minimal root report with ID `root` and no child references.
+Truncation does not trigger `onCaughtMaking`.
+
+Errors during final size limiting are reported through `onCaughtMaking` and
+produce a minimal root report. This also contains size-option errors introduced
+by mutating an existing maker; invalid configurations passed to the constructor
+still throw. Size options set to `undefined` in `cloneWith()` inherit the maker's
+existing settings.
+
+Child discovery and custom formatters run before the final budget is allocated,
+so input size still affects processing time and memory.
+
+## Partial JSON example
+
+Run `npm run ts-file ./examples/example-10-report-size-limit.ts`:
+
+```typescript
+const report = makeCaughtObjectReportJson(
+  { code: 'FETCH_FAILED', attempts: Array(100).fill('timeout') },
+  {
+    maxReportSize: 256,
+    reportSizeUnit: 'utf8-bytes',
+    metadataFields: false,
+  },
+);
+
+const json = JSON.stringify(report);
+console.log(Buffer.byteLength(json, 'utf8')); // 247
+```
+
+The complete result is shown below, formatted for readability. Its **compact
+serialization** is 247 bytes:
+
+```json
+{
+  "as_string": "[object Object]",
+  "as_json": {
+    "code": "FETCH_FAILED",
+    "attempts": [
+      "timeout",
+      "timeout",
+      "timeout",
+      "timeout",
+      "[caught-object-report-json: Truncated]"
+    ]
+  },
+  "truncated": true,
+  "instanceof_error": false,
+  "typeof": "object",
+  "constructor_name": "Object"
+}
+```
+
+Reports use schema `corj/v0.10` and format `safe-stable-stringify-with-length-limit`.
+When upgrading from v8, replace imports of
+`CORJ_AS_JSON_FORMAT_SAFE_STABLE_STRINGIFY_2_4_1` with
+`CORJ_AS_JSON_FORMAT_SAFE_STABLE_STRINGIFY_WITH_LENGTH_LIMIT`, and update any explicit
+`asJsonFormatsToApply` entries and schema validators to the new format/version.
+
 # Examples
 
 ## 1. [Syntax error](https://github.com/dany-fedorov/caught-object-report-json/blob/main/examples/example-1-syntax-error.ts)
@@ -122,8 +232,8 @@ prints
     "errors"
   ],
   "as_string_format": "String",
-  "as_json_format": "safe-stable-stringify@2.4.1",
-  "v": "corj/v0.6"
+  "as_json_format": "safe-stable-stringify-with-length-limit",
+  "v": "corj/v0.10"
 }
 ```
 
@@ -251,8 +361,8 @@ prints
     "errors"
   ],
   "as_string_format": "String",
-  "as_json_format": "safe-stable-stringify@2.4.1",
-  "v": "corj/v0.6"
+  "as_json_format": "safe-stable-stringify-with-length-limit",
+  "v": "corj/v0.10"
 }
 ```
 
@@ -288,7 +398,7 @@ onCaughtMaking:: {
   }
 }
 onCaughtMaking:: {
-  caught: Error: Could not convert caught object to json string using safe-stable-stringify@2.4.1.
+  caught: Error: Could not convert caught object to json string using safe-stable-stringify-with-length-limit.
       at makeProp_as_json (/home/user/work-dir/caught-object-report-json/src/index.ts:546:19)
       at makeEntriesWithoutNested (/home/user/work-dir/caught-object-report-json/src/index.ts:903:20)
       at CorjMaker.entries (/home/user/work-dir/caught-object-report-json/src/index.ts:951:46)
@@ -310,8 +420,8 @@ and then prints form catch block
     "errors"
   ],
   "as_string_format": "String",
-  "as_json_format": "safe-stable-stringify@2.4.1",
-  "v": "corj/v0.6"
+  "as_json_format": "safe-stable-stringify-with-length-limit",
+  "v": "corj/v0.10"
 }
 ```
 
@@ -661,8 +771,8 @@ prints
       "errors"
     ],
     "as_string_format": "String",
-    "as_json_format": "safe-stable-stringify@2.4.1",
-    "v": "corj/v0.8"
+    "as_json_format": "safe-stable-stringify-with-length-limit",
+    "v": "corj/v0.10"
   },
   {
     "id": "0",
@@ -748,7 +858,7 @@ prints an inline version of the following JSON
   "level": "error",
   "message": {
     "as_json": {},
-    "as_json_format": "safe-stable-stringify@2.4.1",
+    "as_json_format": "safe-stable-stringify-with-length-limit",
     "as_string": "AggregateError",
     "as_string_format": "String",
     "children": [
@@ -795,7 +905,7 @@ prints an inline version of the following JSON
     "message": "",
     "stack": "AggregateError\n    at Object.<anonymous> (/home/df/wd/personal/caught-object-report-json/examples/example-9-winston-integration.ts:30:7)\n    at Module._compile (node:internal/modules/cjs/loader:1267:14)\n    at Module.m._compile (/home/df/wd/personal/caught-object-report-json/node_modules/ts-node/src/index.ts:1618:23)\n    at Module._extensions..js (node:internal/modules/cjs/loader:1321:10)\n    at Object.require.extensions.<computed> [as .ts] (/home/df/wd/personal/caught-object-report-json/node_modules/ts-node/src/index.ts:1621:12)\n    at Module.load (node:internal/modules/cjs/loader:1125:32)\n    at Function.Module._load (node:internal/modules/cjs/loader:965:12)\n    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:83:12)\n    at phase4 (/home/df/wd/personal/caught-object-report-json/node_modules/ts-node/src/bin.ts:649:14)\n    at bootstrap (/home/df/wd/personal/caught-object-report-json/node_modules/ts-node/src/bin.ts:95:10)",
     "typeof": "object",
-    "v": "corj/v0.8"
+    "v": "corj/v0.10"
   },
   "os": {
     "loadavg": [
@@ -949,13 +1059,13 @@ https://www.npmjs.com/package/caught-object-report-json
 
 https://deno.land/x/caught_object_report_json
 
-##### CORJ JSON Schema - corj/v0.8
+##### CORJ JSON Schema - corj/v0.10
 
 -
 
-Definitions - https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.8/definitions.json
+Definitions - https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.10/definitions.json
 
 - Report
-  Object - https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.8/report-object.json
+  Object - https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.10/report-object.json
 - Report
-  Array - https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.8/report-array.json
+  Array - https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.10/report-array.json

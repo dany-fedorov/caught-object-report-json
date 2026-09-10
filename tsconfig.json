@@ -4,7 +4,9 @@
     "baseUrl": "./src",
     "outDir": "./dist",
     "declaration": true,
-    "paths": {}
+    "paths": {},
+    "allowJs": true,
+    "checkJs": false
   },
   "include": [
     "src",

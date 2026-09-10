@@ -7,8 +7,16 @@ const config: Config.InitialOptions = {
     '^.+\\.ts?$': 'ts-jest',
   },
   testRegex: '/(tests|src)/.*.test(\\..+)?\\.ts$',
-  'collectCoverageFrom': ['src/**/*.ts'],
+  'collectCoverageFrom': ['src/**/*.{ts,js}'],
   coverageReporters: ['json-summary', 'text', 'lcov'],
+  coverageThreshold: {
+    global: {
+      statements: 100,
+      branches: 100,
+      functions: 100,
+      lines: 100,
+    },
+  },
 };
 
 export default config;

@@ -1,4 +1,13 @@
-import { configure as configureJsonStringify } from 'safe-stable-stringify';
+import { configure as configureJsonStringify } from './safe-stable-stringify';
+import type { JsonSizeUnit as CorjReportSizeUnit } from './json-size';
+import {
+  DEFAULT_MAX_REPORT_SIZE,
+  DEFAULT_REPORT_SIZE_UNIT,
+  limitReportSize,
+  makeMinimalReport,
+  maxReportSizeOmittedReason,
+  resolveReportSizeOptions,
+} from './report-size';
 
 // ████████╗██╗   ██╗██████╗ ███████╗███████╗
 // ╚══██╔══╝╚██╗ ██╔╝██╔══██╗██╔════╝██╔════╝
@@ -8,6 +17,10 @@ import { configure as configureJsonStringify } from 'safe-stable-stringify';
 //    ╚═╝      ╚═╝   ╚═╝     ╚══════╝╚══════╝
 
 export type CaughtObjectReportJson = {
+  /** Present when content or child reports were omitted to meet the size limit.
+   * When true, nullable content fields may also be null because their size budget was exhausted.
+   */
+  truncated?: true;
   /**
    * Result of
    * ```typescript
@@ -76,8 +89,9 @@ export type CaughtObjectReportJson = {
    * `null` value means that producing `as_json` property  failed.<br>
    * Use `onCaughtMaking` option to access objects thrown when report JSON was being created.
    *
-   * Links
-   * - [safe-stable-stringify@2.4.1 on NPM](https://www.npmjs.com/package/safe-stable-stringify)
+   * Shares the whole report's {@link CorjMakerOptions.maxReportSize} budget with all other fields and children.
+   * Oversized values retain a prefix with a `[caught-object-report-json: Truncated]` marker.
+   * This also applies to values returned by `.toCorjAsJson()`.
    */
   as_json: CorjJsonValue<CorjJsonPrimitive>;
   /**
@@ -131,7 +145,8 @@ export type CaughtObjectReportJson = {
   as_string_format?: CorjAsStringFormat | null;
   /**
    * Indicates a method used to obtain the value of `as_json`.<br>
-   * - "safe-stable-stringify@2.4.1" means value was obtained with safe-stable-stringify library.`
+   * - "safe-stable-stringify-with-length-limit" uses the bundled safe-stable-stringify
+   *   serializer with the configured report size limit.
    *
    * Adding this field is controlled by {@link CorjMakerOptions | CorjMakerOptions['metadataFields']['as_json_format']}).
    */
@@ -191,6 +206,7 @@ export type CorjJsonValue<P extends CorjJsonPrimitive> =
 export type CaughtObjectAsJsonReport = {
   format: Required<CaughtObjectReportJson>['as_json_format'];
   value: CaughtObjectReportJson['as_json'];
+  truncated?: true;
 };
 
 export type CaughtObjectAsStringReport = {
@@ -227,7 +243,15 @@ type CorjMakerOptionsMetadataFieldsConfig = {
   children_sources: boolean;
 };
 
+export type { CorjReportSizeUnit };
+
 export type CorjMakerOptions = {
+  /** Maximum size of compact JSON for the complete report (or report array), including all fields and children.
+   * Defaults to 100,000. Must be a safe integer >= 256; null disables the limit.
+   */
+  maxReportSize?: number | null;
+  /** Measurement for maxReportSize. Defaults to UTF-8 bytes; UTF-16 code units count JavaScript string characters. */
+  reportSizeUnit?: CorjReportSizeUnit;
   /**
    * Controls adding metadata fields to report.
    */
@@ -250,7 +274,8 @@ export type CorjMakerOptions = {
    */
   childrenSources: string[];
   /**
-   *
+   * Called once per discovered child report, and once for the root of an array report.
+   * The returned ID is reused in references to that report.
    */
   makeReportId: (context: {
     index: number;
@@ -291,7 +316,7 @@ export type CorjAsStringFormat =
   | typeof CORJ_AS_STRING_FORMAT_TO_CORJ_AS_STRING_METHOD;
 
 export type CorjAsJsonFormat =
-  | typeof CORJ_AS_JSON_FORMAT_SAFE_STABLE_STRINGIFY_2_4_1
+  | typeof CORJ_AS_JSON_FORMAT_SAFE_STABLE_STRINGIFY_WITH_LENGTH_LIMIT
   | typeof CORJ_AS_JSON_FORMAT_TO_CORJ_AS_JSON_METHOD;
 
 //  ██████╗ ██████╗ ███╗   ██╗███████╗████████╗ █████╗ ███╗   ██╗████████╗███████╗
@@ -303,16 +328,19 @@ export type CorjAsJsonFormat =
 
 export const CORJ_NESTED_OMITTED_REASONS = {
   REACHED_MAX_DEPTH: (maxDepth: number) => `Reached max depth - ${maxDepth}`,
+  REACHED_MAX_REPORT_SIZE: maxReportSizeOmittedReason,
 };
-export const CORJ_AS_JSON_FORMAT_SAFE_STABLE_STRINGIFY_2_4_1 =
-  'safe-stable-stringify@2.4.1';
+export const CORJ_AS_JSON_FORMAT_SAFE_STABLE_STRINGIFY_WITH_LENGTH_LIMIT =
+  'safe-stable-stringify-with-length-limit';
 export const CORJ_AS_JSON_FORMAT_TO_CORJ_AS_JSON_METHOD = '.toCorjAsJson';
 export const CORJ_AS_STRING_FORMAT_STRING_COERCION = 'String';
 export const CORJ_AS_STRING_FORMAT_TO_CORJ_AS_STRING_METHOD = '.toCorjAsString';
-export const CORJ_VERSION = 'corj/v0.9';
+export const CORJ_VERSION = 'corj/v0.10';
 export const CORJ_REPORT_OBJECT_JSON_SCHEMA_LINK = `https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/${CORJ_VERSION}/report-object.json`;
 export const CORJ_REPORT_ARRAY_JSON_SCHEMA_LINK = `https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/${CORJ_VERSION}/report-array.json`;
 export const CORJ_MAKER_DEFAULT_OPTIONS = Object.freeze({
+  maxReportSize: DEFAULT_MAX_REPORT_SIZE,
+  reportSizeUnit: DEFAULT_REPORT_SIZE_UNIT,
   metadataFields: {
     $schema: false,
     as_json_format: true,
@@ -327,10 +355,10 @@ export const CORJ_MAKER_DEFAULT_OPTIONS = Object.freeze({
     as_string_format: false,
     v: false,
   },
-  asJsonFormatsToApply: ['.toCorjAsJson', 'safe-stable-stringify@2.4.1'] as [
-    CorjAsJsonFormat,
-    CorjAsJsonFormat,
-  ],
+  asJsonFormatsToApply: [
+    '.toCorjAsJson',
+    'safe-stable-stringify-with-length-limit',
+  ] as [CorjAsJsonFormat, CorjAsJsonFormat],
   asStringFormatsToApply: ['.toCorjAsString', 'String'] as [
     CorjAsStringFormat,
     CorjAsStringFormat,
@@ -385,6 +413,7 @@ export const CORJ_MAKER_DEFAULT_OPTIONS = Object.freeze({
 const jsonStringify = configureJsonStringify({
   circularValue: '[caught-object-report-json: Circular]',
   deterministic: false,
+  lengthLimit: 100_000,
 });
 
 function handleCaught(
@@ -409,6 +438,27 @@ function handleCaught(
       );
     }
   }
+}
+
+function finishReport<
+  T extends CaughtObjectReportJson | CaughtObjectReportJsonChild[],
+>(report: T, options: CorjMakerOptions): T {
+  try {
+    return limitReportSize(report, options);
+  } catch (caught: unknown) {
+    return reportLimitFailure(report, options, caught);
+  }
+}
+
+function reportLimitFailure<
+  T extends CaughtObjectReportJson | CaughtObjectReportJsonChild[],
+>(report: T, options: CorjMakerOptions, caught: unknown): T {
+  handleCaught(caught, options, {
+    reason: 'unknown',
+    caughtObjectNestingInfo: null,
+    caughtWhenProcessingReportKey: null,
+  });
+  return makeMinimalReport(report, 'Could not limit report size');
 }
 
 function screenOptionsForAccessorErrors(
@@ -443,6 +493,8 @@ function screenOptionsForAccessorErrors(
     options.childrenSources;
     options.childrenSources?.forEach((s) => s);
     options.parseStackToArray;
+    options.maxReportSize;
+    options.reportSizeUnit;
     return options;
   } catch (caught: unknown) {
     console.warn(
@@ -565,9 +617,20 @@ function mergeOptions(
         : {
             ...baseOptions,
             ...(newOptions ?? {}),
+            ...(newOptions?.maxReportSize === undefined &&
+            baseOptions.maxReportSize !== undefined
+              ? { maxReportSize: baseOptions.maxReportSize }
+              : {}),
+            ...(newOptions?.reportSizeUnit === undefined &&
+            baseOptions.reportSizeUnit !== undefined
+              ? { reportSizeUnit: baseOptions.reportSizeUnit }
+              : {}),
             metadataFields:
               typeof newOptions?.metadataFields === 'boolean'
                 ? newOptions.metadataFields
+                : newOptions?.metadataFields === undefined &&
+                  typeof baseOptions.metadataFields === 'boolean'
+                ? baseOptions.metadataFields
                 : {
                     ...CORJ_MAKER_DEFAULT_OPTIONS.metadataFields,
                     ...(typeof baseOptions.metadataFields === 'boolean'
@@ -578,6 +641,9 @@ function mergeOptions(
             childrenMetadataFields:
               typeof newOptions?.childrenMetadataFields === 'boolean'
                 ? newOptions.childrenMetadataFields
+                : newOptions?.childrenMetadataFields === undefined &&
+                  typeof baseOptions.childrenMetadataFields === 'boolean'
+                ? baseOptions.childrenMetadataFields
                 : {
                     ...CORJ_MAKER_DEFAULT_OPTIONS.childrenMetadataFields,
                     ...(typeof baseOptions.childrenMetadataFields === 'boolean'
@@ -761,10 +827,22 @@ function makeProp_as_json(
   options: CorjMakerOptions,
   nestedCfg: NestedCfg | null,
 ): CaughtObjectAsJsonReport {
+  const { maxReportSize, reportSizeUnit } = resolveReportSizeOptions(options);
+  let truncated = false;
+  const jsonStringify = configureJsonStringify({
+    circularValue: '[caught-object-report-json: Circular]',
+    deterministic: false,
+    ...(maxReportSize === null ? {} : { lengthLimit: maxReportSize }),
+    lengthUnit: reportSizeUnit,
+    onTruncate: () => {
+      truncated = true;
+    },
+  });
   try {
     const formats = options.asJsonFormatsToApply;
     for (let i = 0; i < formats.length; ++i) {
       const format = formats[i] as CorjAsJsonFormat;
+      truncated = false;
       try {
         switch (format) {
           case CORJ_AS_JSON_FORMAT_TO_CORJ_AS_JSON_METHOD: {
@@ -802,11 +880,12 @@ function makeProp_as_json(
                 return {
                   format,
                   value: JSON.parse(stringValue),
+                  ...(truncated ? { truncated: true as const } : {}),
                 };
               }
             }
           }
-          case CORJ_AS_JSON_FORMAT_SAFE_STABLE_STRINGIFY_2_4_1: {
+          case CORJ_AS_JSON_FORMAT_SAFE_STABLE_STRINGIFY_WITH_LENGTH_LIMIT: {
             const jsonString = jsonStringify(
               caught,
               function (this: object, key: string, value: unknown) {
@@ -827,6 +906,7 @@ function makeProp_as_json(
             return {
               format,
               value: JSON.parse(jsonString),
+              ...(truncated ? { truncated: true as const } : {}),
             };
           }
         }
@@ -1003,21 +1083,23 @@ function makeChildrenEntries(
       continue;
     }
     const withIds = nestedObjectsOf.map((n) => {
-      return {
+      const child = {
         index: index++,
         obj: n.obj,
         path: cur.path + n.path,
         level: thisLevel,
       };
+      return {
+        ...child,
+        id: maker.options.makeReportId({
+          caught: child.obj,
+          index: child.index,
+          path: child.path,
+          level: child.level,
+        }),
+      };
     });
-    cur.nestedIds = withIds.map((n) =>
-      maker.options.makeReportId({
-        caught: n.obj,
-        index: n.index,
-        path: n.path,
-        level: n.level,
-      }),
-    );
+    cur.nestedIds = withIds.map((n) => n.id);
     childrenObject.push(...withIds);
     stack.push(...withIds);
   }
@@ -1042,15 +1124,7 @@ function makeChildrenEntries(
           },
         );
         return [
-          [
-            'id',
-            maker.options.makeReportId({
-              caught: no.obj,
-              index: no.index,
-              path: no.path,
-              level: no.level,
-            }),
-          ],
+          ['id', no.id],
           ['path', no.path],
           ['level', no.level],
           ...mainEntries,
@@ -1070,14 +1144,16 @@ function makeParentObjectSelfEntries(
   caught: unknown,
   nestedCfg: NestedCfg | null,
 ): { mainEntries: [string, unknown][]; metadataEntries: [string, unknown][] } {
-  let instanceof_error: CaughtObjectReportJson['instanceof_error'];
-  let typeof_prop: CaughtObjectReportJson['typeof'] | undefined;
+  // Preserve required fields even when a proxy throws during instanceof.
+  let instanceof_error: CaughtObjectReportJson['instanceof_error'] = false;
+  const typeof_prop: CaughtObjectReportJson['typeof'] = typeof caught;
   let constructor_name: CaughtObjectReportJson['constructor_name'] | undefined;
   let message: CaughtObjectReportJson['message'] | undefined;
   let as_string_format: CaughtObjectReportJson['as_string_format'] | undefined;
-  let as_string: CaughtObjectReportJson['as_string'];
+  let as_string: CaughtObjectReportJson['as_string'] = null;
   let as_json_format: CaughtObjectReportJson['as_json_format'] | undefined;
-  let as_json: CaughtObjectReportJson['as_json'];
+  let as_json: CaughtObjectReportJson['as_json'] = null;
+  let truncated: true | undefined;
   let stack: CaughtObjectReportJson['stack'] | undefined;
   let v: CaughtObjectReportJson['v'] | undefined;
   let $schema: CaughtObjectReportJson['$schema'] | undefined;
@@ -1090,7 +1166,6 @@ function makeParentObjectSelfEntries(
 
     // Less likely to throw in onCaughtMaking
     instanceof_error = caught instanceof Error;
-    typeof_prop = typeof caught;
     constructor_name = makeProp_constructor_name(
       caught,
       maker.options,
@@ -1114,6 +1189,7 @@ function makeParentObjectSelfEntries(
       nestedCfg,
     );
     as_json = asJson.value;
+    truncated = asJson.truncated;
   } catch (caughtNew: unknown) {
     handleCaught(caughtNew, maker.options, {
       reason: 'unknown',
@@ -1122,15 +1198,10 @@ function makeParentObjectSelfEntries(
     });
   }
   const mainEntries = [
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-expect-error
     ['as_string', as_string],
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-expect-error
     ['as_json', as_json],
+    ['truncated', truncated],
     ['stack', stack],
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-expect-error
     ['instanceof_error', instanceof_error],
     ['typeof', typeof_prop],
     ['constructor_name', constructor_name],
@@ -1161,6 +1232,7 @@ export class CorjMaker {
 
   constructor(options: CorjMakerOptions) {
     this.options = screenOptionsForAccessorErrors(options) as CorjMakerOptions;
+    resolveReportSizeOptions(this.options);
   }
 
   /**
@@ -1176,7 +1248,7 @@ export class CorjMaker {
       this,
       caught,
     );
-    return [
+    const entries = [
       ...mainEntries,
       ['children_omitted_reason', omittedReason],
       [
@@ -1192,6 +1264,13 @@ export class CorjMaker {
       string,
       unknown,
     ][] as CaughtObjectReportJsonEntries;
+    const report = Object.fromEntries(entries) as CaughtObjectReportJson;
+    // Each child was just constructed with Object.fromEntries above.
+    if (report.children?.some((child) => child!.truncated))
+      report.truncated = true;
+    return Object.entries(
+      finishReport(report, this.options),
+    ) as CaughtObjectReportJsonEntries;
   }
 
   makeReportObject(caught: unknown): CaughtObjectReportJson {
@@ -1203,9 +1282,24 @@ export class CorjMaker {
   makeReportArrayEntries(
     caught: unknown,
   ): CaughtObjectReportJsonNestedEntries[] {
-    const effectiveMaker = this.cloneWith({
-      childrenMetadataFields: this.options.metadataFields,
-    });
+    let effectiveMaker: CorjMaker;
+    try {
+      effectiveMaker = this.cloneWith({
+        childrenMetadataFields: this.options.metadataFields,
+      });
+    } catch (failure: unknown) {
+      const { mainEntries } = makeParentObjectSelfEntries(this, caught, null);
+      const root = Object.fromEntries([
+        ['id', 'root'],
+        ['path', '$'],
+        ['level', 0],
+        ...mainEntries,
+      ]) as CaughtObjectReportJsonChild;
+      const fallback = reportLimitFailure([root], this.options, failure);
+      return fallback.map((row) =>
+        Object.entries(row),
+      ) as CaughtObjectReportJsonNestedEntries[];
+    }
     const { mainEntries, metadataEntries } = makeParentObjectSelfEntries(
       effectiveMaker,
       caught,
@@ -1221,7 +1315,7 @@ export class CorjMaker {
       effectiveMaker,
       caught,
     );
-    return [
+    const entries = [
       [
         ['id', rootId],
         ['path', '$'],
@@ -1233,6 +1327,13 @@ export class CorjMaker {
       ].filter(([_, v]) => v !== undefined),
       ...(!Array.isArray(flatChildrenEntries) ? [] : flatChildrenEntries),
     ] as CaughtObjectReportJsonNestedEntries[];
+    const report = entries.map((row) =>
+      Object.fromEntries(row),
+    ) as CaughtObjectReportJsonChild[];
+    if (report.some((row) => row.truncated)) report[0]!.truncated = true;
+    return finishReport(report, this.options).map((row) =>
+      Object.entries(row),
+    ) as CaughtObjectReportJsonNestedEntries[];
   }
 
   makeReportArray(caught: unknown): CaughtObjectReportJsonChild[] {

@@ -5,7 +5,7 @@ import type {
 } from './index';
 import type { JsonSizeUnit } from './json-size';
 import { configure } from './safe-stable-stringify';
-import { firstStackLine } from './expected-values';
+import { stackDerivedFields } from './expected-values';
 
 export const DEFAULT_MAX_REPORT_SIZE = 100_000;
 export const DEFAULT_REPORT_SIZE_UNIT: JsonSizeUnit = 'utf8-bytes';
@@ -152,15 +152,14 @@ export function limitReportSize<T extends Report>(
       node: CaughtObjectReportJsonChild,
       hasChildIds: boolean,
     ): CaughtObjectReportJsonChild {
-      // `as_string` may have been omitted as the first line of `stack`. Put it
-      // back before trimming so a shortened `stack` cannot lose it; the final
-      // omission pass removes it again when the line survived intact.
-      const derivedAsString =
-        node.as_string === undefined ? firstStackLine(node.stack) : undefined;
-      const source: CaughtObjectReportJsonChild =
-        derivedAsString === undefined
-          ? node
-          : { ...node, as_string: derivedAsString };
+      // `as_string`, `constructor_name` and `message` may have been omitted as
+      // derivable from the first line of `stack`. Put them back before trimming
+      // so a shortened `stack` cannot lose them; the final omission pass removes
+      // them again when the line survived intact.
+      const source: CaughtObjectReportJsonChild = {
+        ...node,
+        ...stackDerivedFields(node),
+      };
       const result: Partial<CaughtObjectReportJsonChild> = { ...source };
       for (const key of contentKeys) {
         if (source[key] === undefined) continue;

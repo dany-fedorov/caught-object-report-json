@@ -2,6 +2,14 @@ import type {
   CaughtObjectReportJson,
   CaughtObjectReportJsonChild,
 } from './index';
+import {
+  CORJ_FULL_REPORT_ARRAY_JSON_SCHEMA_LINK,
+  CORJ_FULL_REPORT_OBJECT_JSON_SCHEMA_LINK,
+  CORJ_REPORT_ARRAY_JSON_SCHEMA_LINK,
+  CORJ_REPORT_OBJECT_JSON_SCHEMA_LINK,
+  CORJ_VERSION,
+  CORJ_VERSION_FULL,
+} from './version';
 
 /**
  * Values that a report field is expected to hold most of the time.
@@ -12,6 +20,9 @@ import type {
  *
  * `as_string` has no fixed expected value: it is omitted when it equals the
  * first line of `stack`, which is what `Error.prototype.toString` produces.
+ * `constructor_name` and `message` are omitted together with `as_string` when
+ * that line is exactly `${constructor_name}: ${message}` (or `constructor_name`
+ * alone for an empty message), see {@link parseStackHeader}.
  */
 export const CORJ_EXPECTED_VALUES = Object.freeze({
   instanceof_error: true,
@@ -36,6 +47,46 @@ export function firstStackLine(
     return stack[0];
   }
   return undefined;
+}
+
+/**
+ * Split the first line of a stack, as produced by `Error.prototype.toString`,
+ * into error name and message: `"Name: message"` or `"Name"` for an empty message.
+ * The split happens at the first `": "`, so a message may itself contain `": "`.
+ */
+export function parseStackHeader(line: string): {
+  name: string;
+  message: string;
+} {
+  const separator = line.indexOf(': ');
+  if (separator === -1) {
+    return { name: line, message: '' };
+  }
+  return { name: line.slice(0, separator), message: line.slice(separator + 2) };
+}
+
+/**
+ * Fields a reader derives from `stack` when they are absent: `as_string` is the
+ * first line, and when `constructor_name` and `message` are both absent as well
+ * they are parsed from that line. A present `as_string` disables the derivation
+ * of the pair, which lets a report say "these fields were never there".
+ */
+export function stackDerivedFields(
+  node: Node,
+): Pick<Node, 'as_string' | 'constructor_name' | 'message'> {
+  const line = firstStackLine(node.stack);
+  if (line === undefined || node.as_string !== undefined) {
+    return {};
+  }
+  if (node.constructor_name !== undefined || node.message !== undefined) {
+    return { as_string: line };
+  }
+  const header = parseStackHeader(line);
+  return {
+    as_string: line,
+    constructor_name: header.name,
+    message: header.message,
+  };
 }
 
 function isEmptyPlainObject(value: unknown): boolean {
@@ -67,11 +118,24 @@ function omitExpectedValuesFromNode<T extends Node>(node: T): T {
   if (isEmptyPlainObject(result.as_json)) {
     delete result.as_json;
   }
-  if (
-    typeof result.as_string === 'string' &&
-    result.as_string === firstStackLine(result.stack)
-  ) {
-    delete result.as_string;
+  const line = firstStackLine(result.stack);
+  if (typeof result.as_string === 'string' && result.as_string === line) {
+    const header = parseStackHeader(line);
+    if (
+      result.constructor_name === header.name &&
+      result.message === header.message
+    ) {
+      delete result.as_string;
+      delete result.constructor_name;
+      delete result.message;
+    } else if (
+      result.constructor_name !== undefined ||
+      result.message !== undefined
+    ) {
+      delete result.as_string;
+    }
+    // Otherwise neither field exists: keep `as_string` so a reader does not
+    // parse the line into fields the caught object never had.
   }
   if (result.as_string_format === CORJ_EXPECTED_VALUES.as_string_format) {
     delete result.as_string_format;
@@ -99,8 +163,35 @@ export function omitExpectedValues<T extends Report>(report: T): T {
   return root as T;
 }
 
-function restoreExpectedValuesOnNode<T extends Node>(node: T): T {
+function markFullVersionOnNode<T extends Node>(node: T): T {
   const result: Node = { ...node };
+  if (result.v === CORJ_VERSION) {
+    result.v = CORJ_VERSION_FULL;
+  }
+  if (result.$schema === CORJ_REPORT_OBJECT_JSON_SCHEMA_LINK) {
+    result.$schema = CORJ_FULL_REPORT_OBJECT_JSON_SCHEMA_LINK;
+  } else if (result.$schema === CORJ_REPORT_ARRAY_JSON_SCHEMA_LINK) {
+    result.$schema = CORJ_FULL_REPORT_ARRAY_JSON_SCHEMA_LINK;
+  }
+  return result as T;
+}
+
+/** Relabel a complete report with the `-full` version and schema links. */
+export function markFullVersion<T extends Report>(report: T): T {
+  if (Array.isArray(report)) {
+    return report.map((row) => markFullVersionOnNode(row)) as T;
+  }
+  const root: CaughtObjectReportJson = markFullVersionOnNode(report);
+  if (Array.isArray(root.children)) {
+    root.children = root.children.map((child) =>
+      child === null ? null : markFullVersionOnNode(child),
+    );
+  }
+  return root as T;
+}
+
+function restoreExpectedValuesOnNode<T extends Node>(node: T): T {
+  const result: Node = markFullVersionOnNode(node);
   if (!('instanceof_error' in result)) {
     result.instanceof_error = CORJ_EXPECTED_VALUES.instanceof_error;
   }
@@ -110,22 +201,19 @@ function restoreExpectedValuesOnNode<T extends Node>(node: T): T {
   if (!('as_json' in result)) {
     result.as_json = {};
   }
-  if (!('as_string' in result)) {
-    const line = firstStackLine(result.stack);
-    if (line !== undefined) {
-      result.as_string = line;
-    }
-  }
+  Object.assign(result, stackDerivedFields(result));
   return result as T;
 }
 
 /**
  * Fill in `instanceof_error`, `typeof`, `as_json` and `as_string` when a report
  * omitted them as expected values, so every report object has the fields that
- * were required before corj/v0.11.
+ * were required before corj/v0.11, and parse `constructor_name` and `message`
+ * back out of the first stack line when they were omitted as well.
  *
- * Metadata fields are not restored: a missing metadata field can mean either
- * "expected value" or "metadata disabled".
+ * The result is a complete report, so `v` and `$schema` are relabelled to the
+ * `-full` version. Other metadata fields are not restored: a missing metadata
+ * field can mean either "expected value" or "metadata disabled".
  */
 export function restoreExpectedValues<T extends Report>(report: T): T {
   if (Array.isArray(report)) {

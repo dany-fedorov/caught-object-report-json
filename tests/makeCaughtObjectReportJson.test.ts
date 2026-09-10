@@ -5,12 +5,10 @@ describe('makeCaughtObjectReportJson', function () {
   test('default', () => {
     const report = makeCaughtObjectReportJson(new Error('I am an error!'));
     expect(getReportObjectReportValidator()(report)).toBe(true);
-    expect(typeof report.stack).toBe('string');
+    expect(Array.isArray(report.stack)).toBe(true);
     delete report.stack;
     expect(report).toMatchInlineSnapshot(`
       Object {
-        "constructor_name": "Error",
-        "message": "I am an error!",
         "v": "corj/v0.11",
       }
     `);

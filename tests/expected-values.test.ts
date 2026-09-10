@@ -49,13 +49,9 @@ describe('omitting expected values', () => {
   test('a plain Error report keeps only distinctive fields by default', () => {
     const report = makeCaughtObjectReportJson(new Error('boom'));
     expect(getReportObjectReportValidator()(report)).toBe(true);
-    expect(Object.keys(report).sort()).toEqual([
-      'constructor_name',
-      'message',
-      'stack',
-      'v',
-    ]);
-    expect(report.stack).toMatch(/^Error: boom\n/);
+    expect(Object.keys(report).sort()).toEqual(['stack', 'v']);
+    expect((report.stack as string[])[0]).toBe('Error: boom');
+    expect(report.v).toBe('corj/v0.11');
   });
 
   test.each([false, true])(
@@ -76,8 +72,13 @@ describe('omitting expected values', () => {
       const validate = array
         ? getReportArrayReportValidator()
         : getReportObjectReportValidator();
+      const validateFull = array
+        ? getReportArrayReportValidator('full')
+        : getReportObjectReportValidator('full');
       expect(validate(report)).toBe(true);
-      expect(validate(full)).toBe(true);
+      expect(validateFull(full)).toBe(true);
+      expect(validate(full)).toBe(false);
+      expect(validateFull(report)).toBe(false);
 
       const nodes = array
         ? (report as unknown[])
@@ -95,6 +96,8 @@ describe('omitting expected values', () => {
       // non-expected typeof and instanceof_error.
       expect(nodes[0]).not.toHaveProperty('instanceof_error');
       expect(nodes[0]).not.toHaveProperty('as_string');
+      expect(nodes[0]).not.toHaveProperty('constructor_name');
+      expect(nodes[0]).not.toHaveProperty('message');
       expect(nodes[3]).toMatchObject({
         instanceof_error: false,
         typeof: 'string',
@@ -123,7 +126,7 @@ describe('omitting expected values', () => {
           ? full.map(strip)
           : { ...strip(full), children: full.children!.map(strip) },
       );
-      expect(validate(restored)).toBe(true);
+      expect(validateFull(restored)).toBe(true);
       // The input is not modified.
       expect(nodes[0]).not.toHaveProperty('instanceof_error');
     },
@@ -161,7 +164,7 @@ describe('omitting expected values', () => {
     }
     const report = makeCaughtObjectReportJson(new Custom('boom'));
     expect(report.as_string).toBe('custom text');
-    expect(report.stack).toMatch(/^Error: boom/);
+    expect((report.stack as string[])[0]).toBe('Error: boom');
 
     const noStack = makeCaughtObjectReportJson({ message: 'no stack' });
     expect(noStack.as_string).toBe('[object Object]');
@@ -237,11 +240,19 @@ describe('omitting expected values', () => {
       ],
     };
     const compact = expectedValues.omitExpectedValues(report);
+    // The child has neither constructor_name nor message, so as_string stays
+    // as the signal that nothing is to be parsed from the stack line.
     expect(compact).toEqual({
       as_string: '[object Object]',
       children: [
         null,
-        { id: '0', path: '$.cause', level: 1, stack: 'Error: child\n    at x' },
+        {
+          id: '0',
+          path: '$.cause',
+          level: 1,
+          as_string: 'Error: child',
+          stack: 'Error: child\n    at x',
+        },
       ],
     });
     expect(restoreExpectedValues(compact)).toEqual(report);
@@ -282,6 +293,8 @@ describe('omitting expected values', () => {
         level: 0,
         stack: 'E: a\nb',
         as_string: 'E: a',
+        constructor_name: 'E',
+        message: 'a',
         instanceof_error: true,
         typeof: 'object',
         as_json: {},
@@ -303,38 +316,48 @@ describe('omitting expected values', () => {
       expect(exact).not.toHaveProperty('truncated');
     });
 
-    test('a missing as_string always derives what the field would hold', () => {
-      const marker = '[caught-object-report-json: Truncated]';
-      const caught = new Error('m'.repeat(200));
-      const complete = String(caught);
-      let restoredFromTruncatedStack = 0;
-      let kept = 0;
-      for (let maxReportSize = 256; maxReportSize <= 700; maxReportSize += 3) {
-        const report = makeCaughtObjectReportJson(caught, {
-          maxReportSize,
-          metadataFields: false,
-        });
-        expect(getReportObjectReportValidator()(report)).toBe(true);
-        expect(
-          Buffer.byteLength(JSON.stringify(report), 'utf8'),
-        ).toBeLessThanOrEqual(maxReportSize);
-        if ('as_string' in report) {
-          kept++;
-          continue;
+    test.each([false, true])(
+      'a missing as_string always derives what the field would hold (parseStackToArray=%s)',
+      (parseStackToArray) => {
+        const marker = '[caught-object-report-json: Truncated]';
+        const caught = new Error('m'.repeat(200));
+        const complete = String(caught);
+        let restoredFromTruncatedStack = 0;
+        let kept = 0;
+        for (
+          let maxReportSize = 256;
+          maxReportSize <= 700;
+          maxReportSize += 3
+        ) {
+          const report = makeCaughtObjectReportJson(caught, {
+            maxReportSize,
+            metadataFields: false,
+            parseStackToArray,
+          });
+          expect(getReportObjectReportValidator()(report)).toBe(true);
+          expect(
+            Buffer.byteLength(JSON.stringify(report), 'utf8'),
+          ).toBeLessThanOrEqual(maxReportSize);
+          if ('as_string' in report) {
+            kept++;
+            continue;
+          }
+          const derived = restoreExpectedValues(report).as_string as string;
+          if (derived === complete) continue;
+          // A truncated first line must be exactly what a truncated as_string
+          // would have been: a proper prefix of the complete value plus marker.
+          expect(derived.endsWith(marker)).toBe(true);
+          const prefix = derived.slice(0, -marker.length);
+          expect(prefix.length).toBeLessThan(complete.length);
+          expect(complete.startsWith(prefix)).toBe(true);
+          restoredFromTruncatedStack++;
         }
-        const derived = restoreExpectedValues(report).as_string as string;
-        if (derived === complete) continue;
-        // A truncated first line must be exactly what a truncated as_string
-        // would have been: a proper prefix of the complete value plus marker.
-        expect(derived.endsWith(marker)).toBe(true);
-        const prefix = derived.slice(0, -marker.length);
-        expect(prefix.length).toBeLessThan(complete.length);
-        expect(complete.startsWith(prefix)).toBe(true);
-        restoredFromTruncatedStack++;
-      }
-      expect(restoredFromTruncatedStack).toBeGreaterThan(0);
-      expect(kept).toBeGreaterThan(0);
-    });
+        // A truncated stack array cuts its first element more tightly than the
+        // separately truncated as_string, so as_string is kept in that case.
+        expect(restoredFromTruncatedStack > 0).toBe(!parseStackToArray);
+        expect(kept).toBeGreaterThan(0);
+      },
+    );
 
     test('keeps as_string omitted when the first stack line survives', () => {
       const caught = new Error('short');
@@ -344,7 +367,7 @@ describe('omitting expected values', () => {
       });
       expect(getReportObjectReportValidator()(report)).toBe(true);
       expect(report.truncated).toBe(true);
-      expect(String(report.stack)).toMatch(/^Error: short\n/);
+      expect((report.stack as string[])[0]).toBe('Error: short');
       expect(report).not.toHaveProperty('as_string');
       expect(restoreExpectedValues(report).as_string).toBe('Error: short');
     });
@@ -390,13 +413,17 @@ describe('omitting expected values', () => {
     jest.spyOn(expectedValues, 'omitExpectedValues').mockImplementation(() => {
       throw new Error('cannot omit');
     });
-    const report = makeCaughtObjectReportJson(new Error('boom'));
-    expect(getReportObjectReportValidator()(report)).toBe(true);
+    const report = makeCaughtObjectReportJson(new Error('boom'), {
+      metadataFields: { $schema: true },
+    });
+    expect(getReportObjectReportValidator('full')(report)).toBe(true);
     expect(report).toMatchObject({
       instanceof_error: true,
       typeof: 'object',
       as_json: {},
       as_string: 'Error: boom',
+      v: 'corj/v0.11-full',
+      $schema: expect.stringContaining('/corj/v0.11-full/report-object.json'),
     });
     expect(errors).toEqual([
       '[caught-object-report-json][Unhandled] Could not omit expected values',

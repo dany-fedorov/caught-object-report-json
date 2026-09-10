@@ -8,9 +8,31 @@ import {
   maxReportSizeOmittedReason,
   resolveReportSizeOptions,
 } from './report-size';
-import { CORJ_EXPECTED_VALUES, omitExpectedValues } from './expected-values';
+import {
+  CORJ_EXPECTED_VALUES,
+  markFullVersion,
+  omitExpectedValues,
+} from './expected-values';
+import {
+  CORJ_FULL_REPORT_ARRAY_JSON_SCHEMA_LINK,
+  CORJ_FULL_REPORT_OBJECT_JSON_SCHEMA_LINK,
+  CORJ_REPORT_ARRAY_JSON_SCHEMA_LINK,
+  CORJ_REPORT_OBJECT_JSON_SCHEMA_LINK,
+  CORJ_VERSION,
+  CORJ_VERSION_FULL,
+} from './version';
+import type { CorjSchemaLink, CorjVersion } from './version';
 
 export { CORJ_EXPECTED_VALUES, restoreExpectedValues } from './expected-values';
+export {
+  CORJ_FULL_REPORT_ARRAY_JSON_SCHEMA_LINK,
+  CORJ_FULL_REPORT_OBJECT_JSON_SCHEMA_LINK,
+  CORJ_REPORT_ARRAY_JSON_SCHEMA_LINK,
+  CORJ_REPORT_OBJECT_JSON_SCHEMA_LINK,
+  CORJ_VERSION,
+  CORJ_VERSION_FULL,
+};
+export type { CorjSchemaLink, CorjVersion };
 
 // ████████╗██╗   ██╗██████╗ ███████╗███████╗
 // ╚══██╔══╝╚██╗ ██╔╝██╔══██╗██╔════╝██╔════╝
@@ -142,6 +164,11 @@ export type CaughtObjectReportJson = {
    * Normally JS Error instances include a `stack` property with a string,
    * although the property is non-standard.
    *
+   * By default ({@link CorjMakerOptions.parseStackToArray} is `true`) the string is
+   * stored as `stack.split('\n')`: one element per line, split on `\n` only, so
+   * a `\r` before the newline stays on its line and a trailing newline yields a
+   * trailing empty string. Set `parseStackToArray: false` to keep the raw string.
+   *
    * `null` value means that accessing `stack` property on `caught` object failed.<br>
    * Use `onCaughtMaking` option to access objects thrown when report JSON was being created.
    *
@@ -150,10 +177,11 @@ export type CaughtObjectReportJson = {
    */
   stack?: string | string[] | null;
   /**
-   * A version of report.<br>
+   * A version of report: {@link CORJ_VERSION} for reports that omit expected values (default),
+   * {@link CORJ_VERSION_FULL} for complete reports (`omitExpectedValues: false` or {@link restoreExpectedValues}).<br>
    * Adding this field is controlled by {@link CorjMakerOptions | CorjMakerOptions['metadataFields']['v']}).
    */
-  v?: typeof CORJ_VERSION;
+  v?: CorjVersion;
   /**
    * Indicates a method used to obtain the value of `as_string`.<br>
    * - "String" means value was obtained with `as_string = String(caught)`.<br>
@@ -175,12 +203,11 @@ export type CaughtObjectReportJson = {
    */
   as_json_format?: CorjAsJsonFormat | null;
   /**
-   * Optional link to JSON schema this object conforms to.<br>
+   * Optional link to JSON schema this object conforms to. Points to the `-full` schema when
+   * `omitExpectedValues` is disabled.<br>
    * Adding this field is controlled by {@link CorjMakerOptions | CorjMakerOptions['metadataFields']['$schema']}).
    */
-  $schema?:
-    | typeof CORJ_REPORT_OBJECT_JSON_SCHEMA_LINK
-    | typeof CORJ_REPORT_ARRAY_JSON_SCHEMA_LINK;
+  $schema?: CorjSchemaLink;
 };
 
 export type CaughtObjectReportJsonChild = CaughtObjectReportJson & {
@@ -332,6 +359,13 @@ export type CorjMakerOptions = {
    * Print warning when `onCaughtMaking` is not set, or when `onCaughtMaking` itself threw an error.
    */
   printWarningsOnUnhandledErrors: boolean;
+  /**
+   * Store `stack` as `stack.split('\n')` instead of a single string. Defaults to `true`.
+   *
+   * Only applies when `caught.stack` is a string; a non-string `stack` is not reported.
+   * Splitting is literal: no trimming, `\r` is kept, empty lines are kept, an empty
+   * stack becomes `[""]`.
+   */
   parseStackToArray: boolean;
 };
 
@@ -376,9 +410,6 @@ export const CORJ_AS_JSON_FORMAT_SAFE_STABLE_STRINGIFY_WITH_LENGTH_LIMIT =
 export const CORJ_AS_JSON_FORMAT_TO_CORJ_AS_JSON_METHOD = '.toCorjAsJson';
 export const CORJ_AS_STRING_FORMAT_STRING_COERCION = 'String';
 export const CORJ_AS_STRING_FORMAT_TO_CORJ_AS_STRING_METHOD = '.toCorjAsString';
-export const CORJ_VERSION = 'corj/v0.11';
-export const CORJ_REPORT_OBJECT_JSON_SCHEMA_LINK = `https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/${CORJ_VERSION}/report-object.json`;
-export const CORJ_REPORT_ARRAY_JSON_SCHEMA_LINK = `https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/${CORJ_VERSION}/report-array.json`;
 export const CORJ_MAKER_DEFAULT_OPTIONS = Object.freeze({
   maxReportSize: DEFAULT_MAX_REPORT_SIZE,
   reportSizeUnit: DEFAULT_REPORT_SIZE_UNIT,
@@ -442,7 +473,7 @@ export const CORJ_MAKER_DEFAULT_OPTIONS = Object.freeze({
     console.warn(message);
   },
   printWarningsOnUnhandledErrors: true,
-  parseStackToArray: false,
+  parseStackToArray: true,
 }) satisfies CorjMakerOptions;
 
 // ██╗  ██╗███████╗██╗     ██████╗ ███████╗██████╗ ███████╗
@@ -508,7 +539,8 @@ function applyOmitExpectedValues<
     console.error(
       '[caught-object-report-json][Unhandled] Could not omit expected values',
     );
-    return report;
+    // The report stays complete, so label it as such.
+    return markFullVersion(report);
   }
 }
 
@@ -677,12 +709,16 @@ function mergeOptions(
   newOptions: DeepPartialOptions<CorjMakerOptions>,
 ): CorjMakerOptions {
   try {
+    // An explicitly undefined option means "not provided", not "disabled".
+    const providedOptions = Object.fromEntries(
+      Object.entries(newOptions ?? {}).filter(([, v]) => v !== undefined),
+    ) as DeepPartialOptions<CorjMakerOptions>;
     const effectiveOptions: CorjMakerOptions =
       newOptions === baseOptions
         ? (newOptions as CorjMakerOptions)
         : {
             ...baseOptions,
-            ...(newOptions ?? {}),
+            ...providedOptions,
             ...(newOptions?.maxReportSize === undefined &&
             baseOptions.maxReportSize !== undefined
               ? { maxReportSize: baseOptions.maxReportSize }
@@ -863,7 +899,12 @@ function makeProp_as_json_format(
 }
 
 function makeProp_v(options: CorjMakerOptions, nestedCfg: NestedCfg | null) {
-  const res = makeMetadataValue(nestedCfg, options, 'v', CORJ_VERSION);
+  const res = makeMetadataValue(
+    nestedCfg,
+    options,
+    'v',
+    options.omitExpectedValues === true ? CORJ_VERSION : CORJ_VERSION_FULL,
+  );
   if ('value' in res) {
     return res.value;
   }
@@ -878,9 +919,13 @@ function makeProp_$schema(
     nestedCfg,
     options,
     '$schema',
-    nestedCfg === null
-      ? CORJ_REPORT_OBJECT_JSON_SCHEMA_LINK
-      : CORJ_REPORT_ARRAY_JSON_SCHEMA_LINK,
+    options.omitExpectedValues === true
+      ? nestedCfg === null
+        ? CORJ_REPORT_OBJECT_JSON_SCHEMA_LINK
+        : CORJ_REPORT_ARRAY_JSON_SCHEMA_LINK
+      : nestedCfg === null
+      ? CORJ_FULL_REPORT_OBJECT_JSON_SCHEMA_LINK
+      : CORJ_FULL_REPORT_ARRAY_JSON_SCHEMA_LINK,
   );
   if ('value' in res) {
     return res.value;

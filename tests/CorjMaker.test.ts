@@ -33,12 +33,10 @@ describe('CorjMaker', () => {
       const validator = getReportObjectReportValidator();
       const isValid = validator(report);
       expect(isValid).toBe(true);
-      expect(typeof report.stack).toBe('string');
+      expect(Array.isArray(report.stack)).toBe(true);
       delete report.stack;
       expect(report).toMatchInlineSnapshot(`
         Object {
-          "constructor_name": "Error",
-          "message": "I am an error!",
           "v": "corj/v0.11",
         }
       `);
@@ -206,13 +204,11 @@ describe('CorjMaker', () => {
       const caught = new Error('I am an error!');
       const report = corj.makeReportObject(caught);
       expect(getReportObjectReportValidator()(report)).toBe(true);
-      expect(typeof report.stack).toBe('string');
+      expect(Array.isArray(report.stack)).toBe(true);
       delete report.stack;
       expect(report).toMatchInlineSnapshot(`
         Object {
           "$schema": "https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.11/report-object.json",
-          "constructor_name": "Error",
-          "message": "I am an error!",
           "v": "corj/v0.11",
         }
       `);
@@ -230,14 +226,9 @@ describe('CorjMaker', () => {
       const caught = new Error('I am an error!');
       const report = corj.makeReportObject(caught);
       expect(getReportObjectReportValidator()(report)).toBe(true);
-      expect(typeof report.stack).toBe('string');
+      expect(Array.isArray(report.stack)).toBe(true);
       delete report.stack;
-      expect(report).toMatchInlineSnapshot(`
-        Object {
-          "constructor_name": "Error",
-          "message": "I am an error!",
-        }
-      `);
+      expect(report).toMatchInlineSnapshot(`Object {}`);
       expect(caughtBuildingArray).toMatchInlineSnapshot(`Array []`);
     });
 
@@ -249,12 +240,10 @@ describe('CorjMaker', () => {
       const caught = new Error('I am an error!');
       const report = noOptionsBuilder.makeReportObject(caught);
       expect(getReportObjectReportValidator()(report)).toBe(true);
-      expect(typeof report.stack).toBe('string');
+      expect(Array.isArray(report.stack)).toBe(true);
       delete report.stack;
       expect(report).toMatchInlineSnapshot(`
         Object {
-          "constructor_name": "Error",
-          "message": "I am an error!",
           "v": "corj/v0.11",
         }
       `);
@@ -564,7 +553,7 @@ describe('CorjMaker', () => {
     // `as_string`, `as_json`, `instanceof_error`, `typeof` and the default
     // metadata hold expected values for a plain Error and are omitted.
     expect(entries?.[0]?.[0]).toBe('stack');
-    expect(typeof entries?.[0]?.[1]).toBe('string');
+    expect(Array.isArray(entries?.[0]?.[1])).toBe(true);
     // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     // @ts-ignore
     delete entries[0][1];
@@ -573,14 +562,6 @@ describe('CorjMaker', () => {
         Array [
           "stack",
           ,
-        ],
-        Array [
-          "constructor_name",
-          "Error",
-        ],
-        Array [
-          "message",
-          "Hey, I'm an error",
         ],
         Array [
           "v",
@@ -614,8 +595,6 @@ describe('CorjMaker', () => {
       delete report.stack;
       expect(report).toMatchInlineSnapshot(`
         Object {
-          "constructor_name": "Error",
-          "message": "I'm just a regular Error",
           "v": "corj/v0.11",
         }
       `);
@@ -668,14 +647,14 @@ describe('CorjMaker', () => {
       const validator = getReportObjectReportValidator();
       const isValid = validator(report);
       expect(isValid).toBe(true);
-      expect(typeof report.stack).toBe('string');
+      expect(Array.isArray(report.stack)).toBe(true);
       delete report.stack;
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore
       for (const childReport of report.children) {
         // eslint-disable-next-line @typescript-eslint/ban-ts-comment
         // @ts-ignore
-        expect(typeof childReport.stack).toBe('string');
+        expect(Array.isArray(childReport.stack)).toBe(true);
         // eslint-disable-next-line @typescript-eslint/ban-ts-comment
         // @ts-ignore
         delete childReport.stack;
@@ -684,15 +663,11 @@ describe('CorjMaker', () => {
         Object {
           "children": Array [
             Object {
-              "constructor_name": "Error",
               "id": "0",
               "level": 1,
-              "message": "lvl 1",
               "path": "$.cause",
             },
           ],
-          "constructor_name": "Error",
-          "message": "lvl 0",
           "v": "corj/v0.11",
         }
       `);
@@ -706,14 +681,14 @@ describe('CorjMaker', () => {
       });
       const report = makeCaughtObjectReportJson(caught);
       expect(getReportObjectReportValidator()(report)).toBe(true);
-      expect(typeof report.stack).toBe('string');
+      expect(Array.isArray(report.stack)).toBe(true);
       delete report.stack;
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore
       for (const childReport of report.children) {
         // eslint-disable-next-line @typescript-eslint/ban-ts-comment
         // @ts-ignore
-        expect(typeof childReport.stack).toBe('string');
+        expect(Array.isArray(childReport.stack)).toBe(true);
         // eslint-disable-next-line @typescript-eslint/ban-ts-comment
         // @ts-ignore
         delete childReport.stack;
@@ -722,22 +697,16 @@ describe('CorjMaker', () => {
         Object {
           "children": Array [
             Object {
-              "constructor_name": "Error",
               "id": "0",
               "level": 1,
-              "message": "lvl 1; obj 0",
               "path": "$.cause[0]",
             },
             Object {
-              "constructor_name": "Error",
               "id": "1",
               "level": 1,
-              "message": "lvl 1; obj 1",
               "path": "$.cause[1]",
             },
           ],
-          "constructor_name": "Error",
-          "message": "lvl 0",
           "v": "corj/v0.11",
         }
       `);
@@ -779,14 +748,14 @@ describe('CorjMaker', () => {
       });
       const reportCheck = makeCaughtObjectReportJson(caught);
       expect(getReportObjectReportValidator()(reportCheck)).toBe(true);
-      expect(typeof reportCheck.stack).toBe('string');
+      expect(Array.isArray(reportCheck.stack)).toBe(true);
       delete reportCheck.stack;
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore
       for (const childReport of reportCheck.children) {
         // eslint-disable-next-line @typescript-eslint/ban-ts-comment
         // @ts-ignore
-        expect(typeof childReport.stack).toBe('string');
+        expect(Array.isArray(childReport.stack)).toBe(true);
         // eslint-disable-next-line @typescript-eslint/ban-ts-comment
         // @ts-ignore
         delete childReport.stack;
@@ -799,10 +768,8 @@ describe('CorjMaker', () => {
                 "4",
                 "5",
               ],
-              "constructor_name": "Error",
               "id": "0",
               "level": 1,
-              "message": "lvl 1; obj 0",
               "path": "$.cause[0]",
             },
             Object {
@@ -810,24 +777,18 @@ describe('CorjMaker', () => {
                 "2",
                 "3",
               ],
-              "constructor_name": "Error",
               "id": "1",
               "level": 1,
-              "message": "lvl 1; obj 1",
               "path": "$.cause[1]",
             },
             Object {
-              "constructor_name": "Error",
               "id": "2",
               "level": 2,
-              "message": "lvl 2; obj 1.0",
               "path": "$.cause[1].cause[0]",
             },
             Object {
-              "constructor_name": "Error",
               "id": "3",
               "level": 2,
-              "message": "lvl 2; obj 1.1",
               "path": "$.cause[1].cause[1]",
             },
             Object {
@@ -835,10 +796,8 @@ describe('CorjMaker', () => {
                 "8",
                 "9",
               ],
-              "constructor_name": "Error",
               "id": "4",
               "level": 2,
-              "message": "lvl 2; obj 0.0",
               "path": "$.cause[0].cause[0]",
             },
             Object {
@@ -846,43 +805,31 @@ describe('CorjMaker', () => {
                 "6",
                 "7",
               ],
-              "constructor_name": "Error",
               "id": "5",
               "level": 2,
-              "message": "lvl 2; obj 0.1",
               "path": "$.cause[0].cause[1]",
             },
             Object {
-              "constructor_name": "Error",
               "id": "6",
               "level": 3,
-              "message": "lvl 3; obj 0.1.0",
               "path": "$.cause[0].cause[1].cause[0]",
             },
             Object {
-              "constructor_name": "Error",
               "id": "7",
               "level": 3,
-              "message": "lvl 3; obj 0.1.1",
               "path": "$.cause[0].cause[1].cause[1]",
             },
             Object {
-              "constructor_name": "Error",
               "id": "8",
               "level": 3,
-              "message": "lvl 3; obj 0.0.0",
               "path": "$.cause[0].cause[0].cause[0]",
             },
             Object {
-              "constructor_name": "Error",
               "id": "9",
               "level": 3,
-              "message": "lvl 3; obj 0.0.1",
               "path": "$.cause[0].cause[0].cause[1]",
             },
           ],
-          "constructor_name": "Error",
-          "message": "lvl 0",
           "v": "corj/v0.11",
         }
       `);
@@ -891,14 +838,14 @@ describe('CorjMaker', () => {
         maxChildrenLevel: 1,
       });
       expect(getReportObjectReportValidator()(reportCapped)).toBe(true);
-      expect(typeof reportCapped.stack).toBe('string');
+      expect(Array.isArray(reportCapped.stack)).toBe(true);
       delete reportCapped.stack;
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore
       for (const childReport of reportCapped.children) {
         // eslint-disable-next-line @typescript-eslint/ban-ts-comment
         // @ts-ignore
-        expect(typeof childReport.stack).toBe('string');
+        expect(Array.isArray(childReport.stack)).toBe(true);
         // eslint-disable-next-line @typescript-eslint/ban-ts-comment
         // @ts-ignore
         delete childReport.stack;
@@ -908,23 +855,17 @@ describe('CorjMaker', () => {
           "children": Array [
             Object {
               "children_omitted_reason": "Reached max depth - 1",
-              "constructor_name": "Error",
               "id": "0",
               "level": 1,
-              "message": "lvl 1; obj 0",
               "path": "$.cause[0]",
             },
             Object {
               "children_omitted_reason": "Reached max depth - 1",
-              "constructor_name": "Error",
               "id": "1",
               "level": 1,
-              "message": "lvl 1; obj 1",
               "path": "$.cause[1]",
             },
           ],
-          "constructor_name": "Error",
-          "message": "lvl 0",
           "v": "corj/v0.11",
         }
       `);
@@ -938,14 +879,14 @@ describe('CorjMaker', () => {
         childrenMetadataFields: true,
       });
       expect(getReportObjectReportValidator()(report)).toBe(true);
-      expect(typeof report.stack).toBe('string');
+      expect(Array.isArray(report.stack)).toBe(true);
       delete report.stack;
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore
       for (const childReport of report.children) {
         // eslint-disable-next-line @typescript-eslint/ban-ts-comment
         // @ts-ignore
-        expect(typeof childReport.stack).toBe('string');
+        expect(Array.isArray(childReport.stack)).toBe(true);
         // eslint-disable-next-line @typescript-eslint/ban-ts-comment
         // @ts-ignore
         delete childReport.stack;
@@ -955,16 +896,12 @@ describe('CorjMaker', () => {
           "children": Array [
             Object {
               "$schema": "https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.11/report-array.json",
-              "constructor_name": "Error",
               "id": "0",
               "level": 1,
-              "message": "lvl 1",
               "path": "$.cause",
               "v": "corj/v0.11",
             },
           ],
-          "constructor_name": "Error",
-          "message": "lvl 0",
           "v": "corj/v0.11",
         }
       `);
@@ -978,14 +915,14 @@ describe('CorjMaker', () => {
         childrenMetadataFields: false,
       });
       expect(getReportObjectReportValidator()(report)).toBe(true);
-      expect(typeof report.stack).toBe('string');
+      expect(Array.isArray(report.stack)).toBe(true);
       delete report.stack;
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore
       for (const childReport of report.children) {
         // eslint-disable-next-line @typescript-eslint/ban-ts-comment
         // @ts-ignore
-        expect(typeof childReport.stack).toBe('string');
+        expect(Array.isArray(childReport.stack)).toBe(true);
         // eslint-disable-next-line @typescript-eslint/ban-ts-comment
         // @ts-ignore
         delete childReport.stack;
@@ -994,15 +931,11 @@ describe('CorjMaker', () => {
         Object {
           "children": Array [
             Object {
-              "constructor_name": "Error",
               "id": "0",
               "level": 1,
-              "message": "lvl 1",
               "path": "$.cause",
             },
           ],
-          "constructor_name": "Error",
-          "message": "lvl 0",
           "v": "corj/v0.11",
         }
       `);
@@ -1018,14 +951,14 @@ describe('CorjMaker', () => {
         },
       });
       expect(getReportObjectReportValidator()(report)).toBe(true);
-      expect(typeof report.stack).toBe('string');
+      expect(Array.isArray(report.stack)).toBe(true);
       delete report.stack;
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore
       for (const childReport of report.children) {
         // eslint-disable-next-line @typescript-eslint/ban-ts-comment
         // @ts-ignore
-        expect(typeof childReport.stack).toBe('string');
+        expect(Array.isArray(childReport.stack)).toBe(true);
         // eslint-disable-next-line @typescript-eslint/ban-ts-comment
         // @ts-ignore
         delete childReport.stack;
@@ -1034,16 +967,12 @@ describe('CorjMaker', () => {
         Object {
           "children": Array [
             Object {
-              "constructor_name": "Error",
               "id": "0",
               "level": 1,
-              "message": "lvl 1",
               "path": "$.cause",
               "v": "corj/v0.11",
             },
           ],
-          "constructor_name": "Error",
-          "message": "lvl 0",
           "v": "corj/v0.11",
         }
       `);
@@ -1242,12 +1171,10 @@ describe('CorjMaker', () => {
         const maker = makeTestOnCaughtMakingRandomlyThrowingInstance();
         const report = maker.makeReportObject(caught);
         expect(getReportObjectReportValidator()(report)).toBe(true);
-        expect(typeof report.stack).toBe('string');
+        expect(Array.isArray(report.stack)).toBe(true);
         delete report.stack;
         expect(report).toMatchInlineSnapshot(`
           Object {
-            "constructor_name": "Error",
-            "message": "I'm an error",
             "v": "corj/v0.11",
           }
         `);
@@ -1645,16 +1572,14 @@ describe('CorjMaker', () => {
     if (report.length < 1 || !report[0]) {
       throw new Error('Test failed');
     }
-    expect(typeof report[0].stack).toBe('string');
+    expect(Array.isArray(report[0].stack)).toBe(true);
     delete report[0].stack;
     expect(report).toMatchInlineSnapshot(`
       Array [
         Object {
           "children": Array [],
-          "constructor_name": "Error",
           "id": "root",
           "level": 0,
-          "message": "I'm an error",
           "path": "$",
           "v": "corj/v0.11",
         },

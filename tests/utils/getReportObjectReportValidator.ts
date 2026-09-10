@@ -4,7 +4,7 @@ import path from 'node:path';
 
 const ajv = new Ajv();
 
-const V = 'v0.10';
+const V = 'v0.11';
 
 ajv.addSchema(
   JSON.parse(

@@ -4,6 +4,7 @@ import {
   CorjMaker,
   CorjMakerOptions,
   CorjReportSizeUnit,
+  restoreExpectedValues,
 } from '../src';
 import { limitReportSize } from '../src/report-size';
 import {
@@ -105,7 +106,12 @@ describe('review regressions', () => {
         'truncated',
         true,
       );
-      expect(Array.isArray(report) ? report[0] : report).toHaveProperty(
+      // `instanceof_error: true` is an expected value and is omitted by default.
+      expect(Array.isArray(report) ? report[0] : report).not.toHaveProperty(
+        'instanceof_error',
+      );
+      const restored = restoreExpectedValues(report);
+      expect(Array.isArray(restored) ? restored[0] : restored).toHaveProperty(
         'instanceof_error',
         true,
       );
@@ -152,7 +158,7 @@ describe('review regressions', () => {
     expect(report.truncated).toBe(true);
   });
 
-  test.each([400, 450])(
+  test.each([350, 400])(
     'preserves diagnostic content before optional metadata at %i bytes',
     (maxReportSize) => {
       const report = CorjMaker.withDefaults({

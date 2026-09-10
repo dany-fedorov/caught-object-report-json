@@ -13,6 +13,8 @@
 
 * [Motivation](#motivation)
 * [Before Using This Library](#before-using-this-library)
+* [JSON size limit](#json-size-limit)
+* [Omitted expected values](#omitted-expected-values)
 * [Examples](#examples)
     * [1. Syntax error](#1-syntax-error)
     * [2. Axios error](#2-axios-error)
@@ -33,7 +35,7 @@
     * [GitHub](#github)
     * [Npm](#npm)
     * [Deno Land](#deno-land)
-    * [CORJ JSON Schema - corj/v0.10](#corj-json-schema---corjv010)
+    * [CORJ JSON Schema - corj/v0.11](#corj-json-schema---corjv011)
 
 # Motivation
 
@@ -109,7 +111,7 @@ const corj = CorjMaker.withDefaults({
 
 `maxReportSize` must be a safe integer of at least 256, or `null` to disable size
 limiting. Invalid limits and measurement units throw during maker construction.
-The minimum leaves room for a valid report with its required fields and a
+The minimum leaves room for a valid report with its base fields and a
 truncation indicator. Supported measurement modes are:
 
 | `reportSizeUnit` | Measures compact `JSON.stringify(report)` output as |
@@ -132,7 +134,7 @@ root (the first element for array reports) and keep valid partial content:
   budget. The limiter reserves a small amount of content per field, retains a
   prefix of complete child reports, and distributes remaining room across fields.
 - Omitted children get a `children_omitted_reason`; references to removed children
-  are removed too. Required report fields remain present and reports remain schema-valid.
+  are removed too. Base fields that carry information remain present and reports remain schema-valid.
   `CORJ_NESTED_OMITTED_REASONS.REACHED_MAX_REPORT_SIZE(limit, unit)` returns the
   corresponding reason; call it without arguments for the minimal-root fallback reason.
   Custom `makeReportId` callbacks run once per discovered child (and array root),
@@ -190,16 +192,77 @@ serialization** is 247 bytes:
   },
   "truncated": true,
   "instanceof_error": false,
-  "typeof": "object",
   "constructor_name": "Object"
 }
 ```
 
-Reports use schema `corj/v0.10` and format `safe-stable-stringify-with-length-limit`.
+Reports use schema `corj/v0.11` and format `safe-stable-stringify-with-length-limit`.
 When upgrading from v8, replace imports of
 `CORJ_AS_JSON_FORMAT_SAFE_STABLE_STRINGIFY_2_4_1` with
 `CORJ_AS_JSON_FORMAT_SAFE_STABLE_STRINGIFY_WITH_LENGTH_LIMIT`, and update any explicit
 `asJsonFormatsToApply` entries and schema validators to the new format/version.
+When upgrading from v9 (schema `corj/v0.10`), note that fields holding their
+expected value are no longer present by default; see
+[Omitted expected values](#omitted-expected-values) for the rules, the
+`omitExpectedValues: false` option and `restoreExpectedValues`.
+
+# Omitted expected values
+
+Most caught objects are plain `Error` instances, and most of their report fields
+hold the same values every time. Since `corj/v0.11` those fields are left out of
+the JSON when they hold their expected value. A missing field means the expected
+value; `null` still means that producing the value failed.
+
+| Field | Omitted when it is |
+| --- | --- |
+| `instanceof_error` | `true` |
+| `typeof` | `"object"` |
+| `as_json` | `{}` (no enumerable own properties, which is what an `Error` gives) |
+| `as_string` | equal to the first line of `stack` (the first element if `stack` is an array) |
+| `as_string_format` | `"String"` |
+| `as_json_format` | `"safe-stable-stringify-with-length-limit"` |
+| `children_sources` | `["cause", "errors"]` |
+
+The rules apply to the root report and to every child report, in both object
+and array reports. `v` is kept so a reader knows which defaults apply.
+The expected values are exported as `CORJ_EXPECTED_VALUES`.
+
+```typescript
+try {
+  throw new Error('Something went wrong');
+} catch (caught: unknown) {
+  console.log(JSON.stringify(makeCaughtObjectReportJson(caught), null, 2));
+}
+```
+
+prints
+
+```json
+{
+  "stack": "Error: Something went wrong\n    at Object.<anonymous> (/home/user/work-dir/app.ts:2:9)\n    at Module._compile (node:internal/modules/cjs/loader:1120:14)",
+  "constructor_name": "Error",
+  "message": "Something went wrong",
+  "v": "corj/v0.11"
+}
+```
+
+To get every field back, pass `omitExpectedValues: false`, or fill the omitted
+base fields back in on the consuming side with `restoreExpectedValues`:
+
+```typescript
+const report = makeCaughtObjectReportJson(caught);
+const full = restoreExpectedValues(report);
+// full.instanceof_error === true, full.typeof === 'object',
+// full.as_json is {}, full.as_string is the first line of full.stack
+```
+
+`restoreExpectedValues` accepts both report objects and report arrays and returns
+a copy. It does not restore metadata fields, because a missing metadata field can
+also mean that `metadataFields` disabled it.
+
+Omission runs before the size limit is applied, so the whole budget goes to
+content that carries information. When the limiter shortens `stack`, `as_string`
+is put back if its first line no longer matches.
 
 # Examples
 
@@ -220,20 +283,10 @@ prints
 
 ```json
 {
-  "instanceof_error": true,
-  "typeof": "object",
   "constructor_name": "SyntaxError",
   "message": "Unexpected token u in JSON at position 0",
-  "as_string": "SyntaxError: Unexpected token u in JSON at position 0",
-  "as_json": {},
   "stack": "SyntaxError: Unexpected token u in JSON at position 0\n    at JSON.parse (<anonymous>)\n    at Object.<anonymous> (/home/user/work-dir/caught-object-report-json/examples/example-1-syntax-error.ts:6:8)\n    at Module._compile (node:internal/modules/cjs/loader:1120:14)\n    at Module.m._compile (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/index.ts:1618:23)\n    at Module._extensions..js (node:internal/modules/cjs/loader:1174:10)\n    at Object.require.extensions.<computed> [as .ts] (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/index.ts:1621:12)\n    at Module.load (node:internal/modules/cjs/loader:998:32)\n    at Function.Module._load (node:internal/modules/cjs/loader:839:12)\n    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:81:12)\n    at phase4 (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/bin.ts:649:14)",
-  "children_sources": [
-    "cause",
-    "errors"
-  ],
-  "as_string_format": "String",
-  "as_json_format": "safe-stable-stringify-with-length-limit",
-  "v": "corj/v0.10"
+  "v": "corj/v0.11"
 }
 ```
 
@@ -295,11 +348,8 @@ prints
 
 ```json
 {
-  "instanceof_error": true,
-  "typeof": "object",
   "constructor_name": "AxiosErrorWrapper",
   "message": "Request failed with status code 404",
-  "as_string": "AxiosError: Request failed with status code 404",
   "as_json": {
     "message": "Request failed with status code 404",
     "name": "AxiosError",
@@ -356,13 +406,7 @@ prints
     }
   },
   "stack": "AxiosError: Request failed with status code 404\n    at /home/user/work-dir/caught-object-report-json/examples/example-2-axios-error.ts:35:27\n    at processTicksAndRejections (node:internal/process/task_queues:95:5)",
-  "children_sources": [
-    "cause",
-    "errors"
-  ],
-  "as_string_format": "String",
-  "as_json_format": "safe-stable-stringify-with-length-limit",
-  "v": "corj/v0.10"
+  "v": "corj/v0.11"
 }
 ```
 
@@ -415,13 +459,7 @@ and then prints form catch block
   "typeof": "undefined",
   "as_string": "undefined",
   "as_json": null,
-  "children_sources": [
-    "cause",
-    "errors"
-  ],
-  "as_string_format": "String",
-  "as_json_format": "safe-stable-stringify-with-length-limit",
-  "v": "corj/v0.10"
+  "v": "corj/v0.11"
 }
 ```
 
@@ -454,12 +492,8 @@ prints
 
 ```json
 {
-  "instanceof_error": true,
-  "typeof": "object",
   "constructor_name": "Error",
   "message": "Hi, I'm a regular Error object.",
-  "as_string": "Error: Hi, I'm a regular Error object.",
-  "as_json": {},
   "stack": "Error: Hi, I'm a regular Error object.\n    at Object.<anonymous> (/home/user/work-dir/caught-object-report-json/examples/example-4-metadata-fields.ts:4:9)\n    at Module._compile (node:internal/modules/cjs/loader:1120:14)\n    at Module.m._compile (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/index.ts:1618:23)\n    at Module._extensions..js (node:internal/modules/cjs/loader:1174:10)\n    at Object.require.extensions.<computed> [as .ts] (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/index.ts:1621:12)\n    at Module.load (node:internal/modules/cjs/loader:998:32)\n    at Function.Module._load (node:internal/modules/cjs/loader:839:12)\n    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:81:12)\n    at phase4 (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/bin.ts:649:14)\n    at bootstrap (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/bin.ts:95:10)",
   "$schema": "https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.7-report-object.json"
 }
@@ -514,36 +548,24 @@ prints
 
 ```json
 {
-  "instanceof_error": true,
-  "typeof": "object",
   "constructor_name": "AggregateError",
   "message": "AggregateError message",
-  "as_string": "AggregateError: AggregateError message",
-  "as_json": {},
   "stack": "AggregateError: AggregateError message\n    at Object.<anonymous> (/home/user/work-dir/caught-object-report-json/examples/example-5-nested-errors-1-basic.ts:7:16)\n    at Module._compile (node:internal/modules/cjs/loader:1120:14)\n    at Module.m._compile (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/index.ts:1618:23)\n    at Module._extensions..js (node:internal/modules/cjs/loader:1174:10)\n    at Object.require.extensions.<computed> [as .ts] (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/index.ts:1621:12)\n    at Module.load (node:internal/modules/cjs/loader:998:32)\n    at Function.Module._load (node:internal/modules/cjs/loader:839:12)\n    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:81:12)\n    at phase4 (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/bin.ts:649:14)\n    at bootstrap (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/bin.ts:95:10)",
   "children": [
     {
       "id": "0",
       "path": "$.cause",
       "level": 1,
-      "instanceof_error": true,
-      "typeof": "object",
       "constructor_name": "Error",
       "message": "Cause Error object",
-      "as_string": "Error: Cause Error object",
-      "as_json": {},
       "stack": "Error: Cause Error object\n    at Object.<anonymous> (/home/user/work-dir/caught-object-report-json/examples/example-5-nested-errors-1-basic.ts:13:12)\n    at Module._compile (node:internal/modules/cjs/loader:1120:14)\n    at Module.m._compile (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/index.ts:1618:23)\n    at Module._extensions..js (node:internal/modules/cjs/loader:1174:10)\n    at Object.require.extensions.<computed> [as .ts] (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/index.ts:1621:12)\n    at Module.load (node:internal/modules/cjs/loader:998:32)\n    at Function.Module._load (node:internal/modules/cjs/loader:839:12)\n    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:81:12)\n    at phase4 (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/bin.ts:649:14)\n    at bootstrap (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/bin.ts:95:10)"
     },
     {
       "id": "1",
       "path": "$.errors[0]",
       "level": 1,
-      "instanceof_error": true,
-      "typeof": "object",
       "constructor_name": "Error",
       "message": "AggregateError child 0",
-      "as_string": "Error: AggregateError child 0",
-      "as_json": {},
       "stack": "Error: AggregateError child 0\n    at Object.<anonymous> (/home/user/work-dir/caught-object-report-json/examples/example-5-nested-errors-1-basic.ts:9:5)\n    at Module._compile (node:internal/modules/cjs/loader:1120:14)\n    at Module.m._compile (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/index.ts:1618:23)\n    at Module._extensions..js (node:internal/modules/cjs/loader:1174:10)\n    at Object.require.extensions.<computed> [as .ts] (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/index.ts:1621:12)\n    at Module.load (node:internal/modules/cjs/loader:998:32)\n    at Function.Module._load (node:internal/modules/cjs/loader:839:12)\n    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:81:12)\n    at phase4 (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/bin.ts:649:14)\n    at bootstrap (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/bin.ts:95:10)"
     },
     {
@@ -556,10 +578,6 @@ prints
       "as_string": "AggregateError child 1 (not an Error object)",
       "as_json": "AggregateError child 1 (not an Error object)"
     }
-  ],
-  "children_sources": [
-    "cause",
-    "errors"
   ]
 }
 ```
@@ -609,11 +627,8 @@ prints
 
 ```json
 {
-  "instanceof_error": true,
-  "typeof": "object",
   "constructor_name": "Error",
   "message": "lvl 0",
-  "as_string": "Error: lvl 0",
   "as_json": {
     "extraField": "error info"
   },
@@ -623,12 +638,8 @@ prints
       "id": "0",
       "path": "$.cause",
       "level": 1,
-      "instanceof_error": true,
-      "typeof": "object",
       "constructor_name": "Error",
       "message": "lvl 1; obj 0",
-      "as_string": "Error: lvl 1; obj 0",
-      "as_json": {},
       "stack": "Error: lvl 1; obj 0\n    at Object.<anonymous> (/home/user/work-dir/caught-object-report-json/examples/example-6-nested-errors-2-nesting-levels.ts:9:5)\n    at Module._compile (node:internal/modules/cjs/loader:1120:14)\n    at Module.m._compile (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/index.ts:1618:23)\n    at Module._extensions..js (node:internal/modules/cjs/loader:1174:10)\n    at Object.require.extensions.<computed> [as .ts] (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/index.ts:1621:12)\n    at Module.load (node:internal/modules/cjs/loader:998:32)\n    at Function.Module._load (node:internal/modules/cjs/loader:839:12)\n    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:81:12)\n    at phase4 (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/bin.ts:649:14)\n    at bootstrap (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/bin.ts:95:10)",
       "children": [
         "2",
@@ -649,12 +660,8 @@ prints
       "id": "2",
       "path": "$.cause.cause[0]",
       "level": 2,
-      "instanceof_error": true,
-      "typeof": "object",
       "constructor_name": "Error",
       "message": "lvl 2; obj 0.0",
-      "as_string": "Error: lvl 2; obj 0.0",
-      "as_json": {},
       "stack": "Error: lvl 2; obj 0.0\n    at Object.<anonymous> (/home/user/work-dir/caught-object-report-json/examples/example-6-nested-errors-2-nesting-levels.ts:13:9)\n    at Module._compile (node:internal/modules/cjs/loader:1120:14)\n    at Module.m._compile (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/index.ts:1618:23)\n    at Module._extensions..js (node:internal/modules/cjs/loader:1174:10)\n    at Object.require.extensions.<computed> [as .ts] (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/index.ts:1621:12)\n    at Module.load (node:internal/modules/cjs/loader:998:32)\n    at Function.Module._load (node:internal/modules/cjs/loader:839:12)\n    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:81:12)\n    at phase4 (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/bin.ts:649:14)\n    at bootstrap (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/bin.ts:95:10)",
       "children_omitted_reason": "Reached max depth - 2"
     },
@@ -662,12 +669,8 @@ prints
       "id": "3",
       "path": "$.cause.cause[1]",
       "level": 2,
-      "instanceof_error": true,
-      "typeof": "object",
       "constructor_name": "Error",
       "message": "lvl 2; obj 0.1",
-      "as_string": "Error: lvl 2; obj 0.1",
-      "as_json": {},
       "stack": "Error: lvl 2; obj 0.1\n    at Object.<anonymous> (/home/user/work-dir/caught-object-report-json/examples/example-6-nested-errors-2-nesting-levels.ts:16:9)\n    at Module._compile (node:internal/modules/cjs/loader:1120:14)\n    at Module.m._compile (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/index.ts:1618:23)\n    at Module._extensions..js (node:internal/modules/cjs/loader:1174:10)\n    at Object.require.extensions.<computed> [as .ts] (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/index.ts:1621:12)\n    at Module.load (node:internal/modules/cjs/loader:998:32)\n    at Function.Module._load (node:internal/modules/cjs/loader:839:12)\n    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:81:12)\n    at phase4 (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/bin.ts:649:14)\n    at bootstrap (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/bin.ts:95:10)"
     }
   ],
@@ -700,12 +703,8 @@ prints
 
 ```json
 {
-  "instanceof_error": true,
-  "typeof": "object",
   "constructor_name": "Error",
   "message": "Hi, I'm a regular Error object.",
-  "as_string": "Error: Hi, I'm a regular Error object.",
-  "as_json": {},
   "stack": "Error: Hi, I'm a regular Error object.\n    at Object.<anonymous> (/home/user/work-dir/caught-object-report-json/examples/example-5-using-corj-maker-instance.ts:8:9)\n    at Module._compile (node:internal/modules/cjs/loader:1120:14)\n    at Module.m._compile (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/index.ts:1618:23)\n    at Module._extensions..js (node:internal/modules/cjs/loader:1174:10)\n    at Object.require.extensions.<computed> [as .ts] (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/index.ts:1621:12)\n    at Module.load (node:internal/modules/cjs/loader:998:32)\n    at Function.Module._load (node:internal/modules/cjs/loader:839:12)\n    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:81:12)\n    at phase4 (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/bin.ts:649:14)\n    at bootstrap (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/bin.ts:95:10)"
 }
 ```
@@ -743,8 +742,6 @@ prints
     "id": "root",
     "path": "$",
     "level": 0,
-    "instanceof_error": true,
-    "typeof": "object",
     "constructor_name": "ZodError",
     "message": "[\n  {\n    \"code\": \"invalid_type\",\n    \"expected\": \"number\",\n    \"received\": \"undefined\",\n    \"path\": [\n      \"age\"\n    ],\n    \"message\": \"Required\"\n  }\n]",
     "as_string": "[\n  {\n    \"code\": \"invalid_type\",\n    \"expected\": \"number\",\n    \"received\": \"undefined\",\n    \"path\": [\n      \"age\"\n    ],\n    \"message\": \"Required\"\n  }\n]",
@@ -766,20 +763,13 @@ prints
     "children": [
       "0"
     ],
-    "children_sources": [
-      "cause",
-      "errors"
-    ],
-    "as_string_format": "String",
-    "as_json_format": "safe-stable-stringify-with-length-limit",
-    "v": "corj/v0.10"
+    "v": "corj/v0.11"
   },
   {
     "id": "0",
     "path": "$.errors[0]",
     "level": 1,
     "instanceof_error": false,
-    "typeof": "object",
     "constructor_name": "Object",
     "message": "Required",
     "as_string": "[object Object]",
@@ -857,34 +847,22 @@ prints an inline version of the following JSON
   "exception": true,
   "level": "error",
   "message": {
-    "as_json": {},
-    "as_json_format": "safe-stable-stringify-with-length-limit",
-    "as_string": "AggregateError",
-    "as_string_format": "String",
     "children": [
       {
-        "as_json": {},
-        "as_string": "Error: cause 1",
         "constructor_name": "Error",
         "id": "0",
-        "instanceof_error": true,
         "level": 1,
         "message": "cause 1",
         "path": "$.errors[0]",
-        "stack": "Error: cause 1\n    at Object.<anonymous> (/home/df/wd/personal/caught-object-report-json/examples/example-9-winston-integration.ts:30:27)\n    at Module._compile (node:internal/modules/cjs/loader:1267:14)\n    at Module.m._compile (/home/df/wd/personal/caught-object-report-json/node_modules/ts-node/src/index.ts:1618:23)\n    at Module._extensions..js (node:internal/modules/cjs/loader:1321:10)\n    at Object.require.extensions.<computed> [as .ts] (/home/df/wd/personal/caught-object-report-json/node_modules/ts-node/src/index.ts:1621:12)\n    at Module.load (node:internal/modules/cjs/loader:1125:32)\n    at Function.Module._load (node:internal/modules/cjs/loader:965:12)\n    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:83:12)\n    at phase4 (/home/df/wd/personal/caught-object-report-json/node_modules/ts-node/src/bin.ts:649:14)\n    at bootstrap (/home/df/wd/personal/caught-object-report-json/node_modules/ts-node/src/bin.ts:95:10)",
-        "typeof": "object"
+        "stack": "Error: cause 1\n    at Object.<anonymous> (/home/df/wd/personal/caught-object-report-json/examples/example-9-winston-integration.ts:30:27)\n    at Module._compile (node:internal/modules/cjs/loader:1267:14)\n    at Module.m._compile (/home/df/wd/personal/caught-object-report-json/node_modules/ts-node/src/index.ts:1618:23)\n    at Module._extensions..js (node:internal/modules/cjs/loader:1321:10)\n    at Object.require.extensions.<computed> [as .ts] (/home/df/wd/personal/caught-object-report-json/node_modules/ts-node/src/index.ts:1621:12)\n    at Module.load (node:internal/modules/cjs/loader:1125:32)\n    at Function.Module._load (node:internal/modules/cjs/loader:965:12)\n    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:83:12)\n    at phase4 (/home/df/wd/personal/caught-object-report-json/node_modules/ts-node/src/bin.ts:649:14)\n    at bootstrap (/home/df/wd/personal/caught-object-report-json/node_modules/ts-node/src/bin.ts:95:10)"
       },
       {
-        "as_json": {},
-        "as_string": "Error: cause 2",
         "constructor_name": "Error",
         "id": "1",
-        "instanceof_error": true,
         "level": 1,
         "message": "cause 2",
         "path": "$.errors[1]",
-        "stack": "Error: cause 2\n    at Object.<anonymous> (/home/df/wd/personal/caught-object-report-json/examples/example-9-winston-integration.ts:30:49)\n    at Module._compile (node:internal/modules/cjs/loader:1267:14)\n    at Module.m._compile (/home/df/wd/personal/caught-object-report-json/node_modules/ts-node/src/index.ts:1618:23)\n    at Module._extensions..js (node:internal/modules/cjs/loader:1321:10)\n    at Object.require.extensions.<computed> [as .ts] (/home/df/wd/personal/caught-object-report-json/node_modules/ts-node/src/index.ts:1621:12)\n    at Module.load (node:internal/modules/cjs/loader:1125:32)\n    at Function.Module._load (node:internal/modules/cjs/loader:965:12)\n    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:83:12)\n    at phase4 (/home/df/wd/personal/caught-object-report-json/node_modules/ts-node/src/bin.ts:649:14)\n    at bootstrap (/home/df/wd/personal/caught-object-report-json/node_modules/ts-node/src/bin.ts:95:10)",
-        "typeof": "object"
+        "stack": "Error: cause 2\n    at Object.<anonymous> (/home/df/wd/personal/caught-object-report-json/examples/example-9-winston-integration.ts:30:49)\n    at Module._compile (node:internal/modules/cjs/loader:1267:14)\n    at Module.m._compile (/home/df/wd/personal/caught-object-report-json/node_modules/ts-node/src/index.ts:1618:23)\n    at Module._extensions..js (node:internal/modules/cjs/loader:1321:10)\n    at Object.require.extensions.<computed> [as .ts] (/home/df/wd/personal/caught-object-report-json/node_modules/ts-node/src/index.ts:1621:12)\n    at Module.load (node:internal/modules/cjs/loader:1125:32)\n    at Function.Module._load (node:internal/modules/cjs/loader:965:12)\n    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:83:12)\n    at phase4 (/home/df/wd/personal/caught-object-report-json/node_modules/ts-node/src/bin.ts:649:14)\n    at bootstrap (/home/df/wd/personal/caught-object-report-json/node_modules/ts-node/src/bin.ts:95:10)"
       },
       {
         "as_json": null,
@@ -892,20 +870,13 @@ prints an inline version of the following JSON
         "id": "2",
         "instanceof_error": false,
         "level": 1,
-        "path": "$.errors[2]",
-        "typeof": "object"
+        "path": "$.errors[2]"
       }
     ],
-    "children_sources": [
-      "cause",
-      "errors"
-    ],
     "constructor_name": "AggregateError",
-    "instanceof_error": true,
     "message": "",
     "stack": "AggregateError\n    at Object.<anonymous> (/home/df/wd/personal/caught-object-report-json/examples/example-9-winston-integration.ts:30:7)\n    at Module._compile (node:internal/modules/cjs/loader:1267:14)\n    at Module.m._compile (/home/df/wd/personal/caught-object-report-json/node_modules/ts-node/src/index.ts:1618:23)\n    at Module._extensions..js (node:internal/modules/cjs/loader:1321:10)\n    at Object.require.extensions.<computed> [as .ts] (/home/df/wd/personal/caught-object-report-json/node_modules/ts-node/src/index.ts:1621:12)\n    at Module.load (node:internal/modules/cjs/loader:1125:32)\n    at Function.Module._load (node:internal/modules/cjs/loader:965:12)\n    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:83:12)\n    at phase4 (/home/df/wd/personal/caught-object-report-json/node_modules/ts-node/src/bin.ts:649:14)\n    at bootstrap (/home/df/wd/personal/caught-object-report-json/node_modules/ts-node/src/bin.ts:95:10)",
-    "typeof": "object",
-    "v": "corj/v0.10"
+    "v": "corj/v0.11"
   },
   "os": {
     "loadavg": [
@@ -1059,13 +1030,13 @@ https://www.npmjs.com/package/caught-object-report-json
 
 https://deno.land/x/caught_object_report_json
 
-##### CORJ JSON Schema - corj/v0.10
+##### CORJ JSON Schema - corj/v0.11
 
 -
 
-Definitions - https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.10/definitions.json
+Definitions - https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.11/definitions.json
 
 - Report
-  Object - https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.10/report-object.json
+  Object - https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.11/report-object.json
 - Report
-  Array - https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.10/report-array.json
+  Array - https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.11/report-array.json

@@ -8,6 +8,9 @@ import {
   maxReportSizeOmittedReason,
   resolveReportSizeOptions,
 } from './report-size';
+import { CORJ_EXPECTED_VALUES, omitExpectedValues } from './expected-values';
+
+export { CORJ_EXPECTED_VALUES, restoreExpectedValues } from './expected-values';
 
 // ████████╗██╗   ██╗██████╗ ███████╗███████╗
 // ╚══██╔══╝╚██╗ ██╔╝██╔══██╗██╔════╝██╔════╝
@@ -16,6 +19,15 @@ import {
 //    ██║      ██║   ██║     ███████╗███████║
 //    ╚═╝      ╚═╝   ╚═╝     ╚══════╝╚══════╝
 
+/**
+ * Report object.
+ *
+ * Fields holding their expected value (see {@link CORJ_EXPECTED_VALUES}) are omitted
+ * when {@link CorjMakerOptions.omitExpectedValues} is enabled, which is the default.
+ * A missing `instanceof_error`, `typeof`, `as_json` or `as_string` therefore means
+ * the expected value, not a failure; failures are reported as `null`.
+ * Use {@link restoreExpectedValues} to fill them back in.
+ */
 export type CaughtObjectReportJson = {
   /** Present when content or child reports were omitted to meet the size limit.
    * When true, nullable content fields may also be null because their size budget was exhausted.
@@ -26,15 +38,17 @@ export type CaughtObjectReportJson = {
    * ```typescript
    * caught instanceof Error
    * ```
+   * Omitted when `true` if `omitExpectedValues` is enabled (default).
    */
-  instanceof_error: boolean;
+  instanceof_error?: boolean;
   /**
    * Result of
    * ```typescript
    * typeof caught
    * ```
+   * Omitted when `"object"` if `omitExpectedValues` is enabled (default).
    */
-  typeof: CaughtObjectTypeof;
+  typeof?: CaughtObjectTypeof;
   /**
    * Result of
    * ```typescript
@@ -81,8 +95,11 @@ export type CaughtObjectReportJson = {
    *
    * `null` value means that producing `as_string` property  failed.<br>
    * Use `onCaughtMaking` option to access objects thrown when report JSON was being created.
+   *
+   * Omitted when it equals the first line of `stack` if `omitExpectedValues` is enabled (default).
+   * This is the case for regular `Error` instances in V8, where `stack` starts with `Error.prototype.toString()` output.
    */
-  as_string: string | null;
+  as_string?: string | null;
   /**
    * A JSON object produced from caught object using format at `as_json_format`<br>
    *
@@ -92,8 +109,11 @@ export type CaughtObjectReportJson = {
    * Shares the whole report's {@link CorjMakerOptions.maxReportSize} budget with all other fields and children.
    * Oversized values retain a prefix with a `[caught-object-report-json: Truncated]` marker.
    * This also applies to values returned by `.toCorjAsJson()`.
+   *
+   * Omitted when it is `{}` if `omitExpectedValues` is enabled (default).
+   * Regular `Error` instances have no enumerable own properties and serialize to `{}`.
    */
-  as_json: CorjJsonValue<CorjJsonPrimitive>;
+  as_json?: CorjJsonValue<CorjJsonPrimitive>;
   /**
    * A flattened representation of tree of nested error objects, collected from properties listed in `children_sources`.
    */
@@ -107,8 +127,9 @@ export type CaughtObjectReportJson = {
    *
    * Content of this field corresponds to a setting {@link CorjMakerOptions | CorjMakerOptions['childrenSources']}.
    * Adding this field is controlled by {@link CorjMakerOptions | CorjMakerOptions['metadataFields']['children_sources']}.
+   * Omitted when it equals the default `["cause", "errors"]` if `omitExpectedValues` is enabled (default).
    */
-  children_sources: string[];
+  children_sources?: string[];
   /**
    * Result of
    * ```typescript
@@ -138,6 +159,7 @@ export type CaughtObjectReportJson = {
    * - "String" means value was obtained with `as_string = String(caught)`.<br>
    *
    * Adding this field is controlled by {@link CorjMakerOptions | CorjMakerOptions['metadataFields']['as_string_format']}).
+   * Omitted when it is `"String"` if `omitExpectedValues` is enabled (default).
    *
    * Links
    * - [MDN String() constructor](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/String)
@@ -149,8 +171,9 @@ export type CaughtObjectReportJson = {
    *   serializer with the configured report size limit.
    *
    * Adding this field is controlled by {@link CorjMakerOptions | CorjMakerOptions['metadataFields']['as_json_format']}).
+   * Omitted when it is `"safe-stable-stringify-with-length-limit"` if `omitExpectedValues` is enabled (default).
    */
-  as_json_format: CorjAsJsonFormat | null;
+  as_json_format?: CorjAsJsonFormat | null;
   /**
    * Optional link to JSON schema this object conforms to.<br>
    * Adding this field is controlled by {@link CorjMakerOptions | CorjMakerOptions['metadataFields']['$schema']}).
@@ -253,6 +276,24 @@ export type CorjMakerOptions = {
   /** Measurement for maxReportSize. Defaults to UTF-8 bytes; UTF-16 code units count JavaScript string characters. */
   reportSizeUnit?: CorjReportSizeUnit;
   /**
+   * Leave out fields that hold their expected value to keep reports small. Defaults to `true`.
+   *
+   * | Field | Omitted when |
+   * | --- | --- |
+   * | `instanceof_error` | `true` |
+   * | `typeof` | `"object"` |
+   * | `as_json` | `{}` |
+   * | `as_string` | equal to the first line of `stack` |
+   * | `as_string_format` | `"String"` |
+   * | `as_json_format` | `"safe-stable-stringify-with-length-limit"` |
+   * | `children_sources` | `["cause", "errors"]` |
+   *
+   * Applies to the root report and to every child report. A reader must treat a missing
+   * field as the expected value; `null` still marks a failure. See {@link CORJ_EXPECTED_VALUES}
+   * and {@link restoreExpectedValues}.
+   */
+  omitExpectedValues: boolean;
+  /**
    * Controls adding metadata fields to report.
    */
   metadataFields: boolean | CorjMakerOptionsMetadataFieldsConfig;
@@ -335,12 +376,13 @@ export const CORJ_AS_JSON_FORMAT_SAFE_STABLE_STRINGIFY_WITH_LENGTH_LIMIT =
 export const CORJ_AS_JSON_FORMAT_TO_CORJ_AS_JSON_METHOD = '.toCorjAsJson';
 export const CORJ_AS_STRING_FORMAT_STRING_COERCION = 'String';
 export const CORJ_AS_STRING_FORMAT_TO_CORJ_AS_STRING_METHOD = '.toCorjAsString';
-export const CORJ_VERSION = 'corj/v0.10';
+export const CORJ_VERSION = 'corj/v0.11';
 export const CORJ_REPORT_OBJECT_JSON_SCHEMA_LINK = `https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/${CORJ_VERSION}/report-object.json`;
 export const CORJ_REPORT_ARRAY_JSON_SCHEMA_LINK = `https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/${CORJ_VERSION}/report-array.json`;
 export const CORJ_MAKER_DEFAULT_OPTIONS = Object.freeze({
   maxReportSize: DEFAULT_MAX_REPORT_SIZE,
   reportSizeUnit: DEFAULT_REPORT_SIZE_UNIT,
+  omitExpectedValues: true,
   metadataFields: {
     $schema: false,
     as_json_format: true,
@@ -364,7 +406,7 @@ export const CORJ_MAKER_DEFAULT_OPTIONS = Object.freeze({
     CorjAsStringFormat,
   ],
   maxChildrenLevel: 5,
-  childrenSources: ['cause', 'errors'],
+  childrenSources: [...CORJ_EXPECTED_VALUES.children_sources],
   makeReportId: ({ index }) => (index === -1 ? 'root' : String(index)),
   onCaughtMaking: (
     caught: unknown,
@@ -444,9 +486,29 @@ function finishReport<
   T extends CaughtObjectReportJson | CaughtObjectReportJsonChild[],
 >(report: T, options: CorjMakerOptions): T {
   try {
-    return limitReportSize(report, options);
+    // Omit before limiting so the size budget is spent on real content, and
+    // again after: the limiter re-materializes `as_string` while trimming
+    // `stack`, and omission only shrinks a report that already fits.
+    return applyOmitExpectedValues(
+      limitReportSize(applyOmitExpectedValues(report, options), options),
+      options,
+    );
   } catch (caught: unknown) {
     return reportLimitFailure(report, options, caught);
+  }
+}
+
+function applyOmitExpectedValues<
+  T extends CaughtObjectReportJson | CaughtObjectReportJsonChild[],
+>(report: T, options: CorjMakerOptions): T {
+  if (options.omitExpectedValues !== true) return report;
+  try {
+    return omitExpectedValues(report);
+  } catch (e) {
+    console.error(
+      '[caught-object-report-json][Unhandled] Could not omit expected values',
+    );
+    return report;
   }
 }
 
@@ -458,7 +520,10 @@ function reportLimitFailure<
     caughtObjectNestingInfo: null,
     caughtWhenProcessingReportKey: null,
   });
-  return makeMinimalReport(report, 'Could not limit report size');
+  return applyOmitExpectedValues(
+    makeMinimalReport(report, 'Could not limit report size'),
+    options,
+  );
 }
 
 function screenOptionsForAccessorErrors(
@@ -495,6 +560,7 @@ function screenOptionsForAccessorErrors(
     options.parseStackToArray;
     options.maxReportSize;
     options.reportSizeUnit;
+    options.omitExpectedValues;
     return options;
   } catch (caught: unknown) {
     console.warn(

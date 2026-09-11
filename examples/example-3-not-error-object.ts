@@ -1,12 +1,17 @@
-import { makeCaughtObjectReportJson } from '../src';
+import { makeCorj } from '../src';
+
+class Hostile {
+  get message(): string {
+    throw new Error('message getter threw');
+  }
+}
 
 try {
-  throw undefined;
+  throw new Hostile();
 } catch (caught: unknown) {
-  const report = makeCaughtObjectReportJson(caught, {
-    onCaughtMaking: (caught, context) => {
-      console.log('onCaughtMaking::', { context });
-      console.log('onCaughtMaking::', { caught });
+  const report = makeCorj(caught, {
+    onError: (error, context) => {
+      console.log('onError::', { error: String(error), context });
     },
   });
   console.log(JSON.stringify(report, null, 2));

@@ -1,8 +1,9 @@
 import {
   CORJ_EXPECTED_VALUES,
+  CorjErrorContext,
   CorjMaker,
-  makeCaughtObjectReportJson,
-  makeCaughtObjectReportJsonArray,
+  makeCorj,
+  makeCorjArray,
   restoreExpectedValues,
 } from '../src';
 import * as expectedValues from '../src/expected-values';
@@ -10,6 +11,8 @@ import {
   getReportArrayReportValidator,
   getReportObjectReportValidator,
 } from './utils/getReportObjectReportValidator';
+
+const quiet = { onError: () => undefined };
 
 const omittedKeys = [
   'instanceof_error',
@@ -47,22 +50,19 @@ describe('omitting expected values', () => {
   });
 
   test('a plain Error report keeps only distinctive fields by default', () => {
-    const report = makeCaughtObjectReportJson(new Error('boom'));
+    const report = makeCorj(new Error('boom'));
     expect(getReportObjectReportValidator()(report)).toBe(true);
     expect(Object.keys(report).sort()).toEqual(['stack', 'v']);
     expect((report.stack as string[])[0]).toBe('Error: boom');
-    expect(report.v).toBe('corj/v0.11');
+    expect(report.v).toBe('corj/v0.12');
   });
 
   test.each([false, true])(
     'restoreExpectedValues reproduces the complete report (array=%s)',
     (array) => {
       const caught = makeNested();
-      const complete = CorjMaker.withDefaults({
-        omitExpectedValues: false,
-        childrenMetadataFields: true,
-      });
-      const compact = complete.cloneWith({ omitExpectedValues: true });
+      const complete = new CorjMaker({ omitExpectedValues: false });
+      const compact = complete.with({ omitExpectedValues: true });
       const full = array
         ? complete.makeReportArray(caught)
         : complete.makeReportObject(caught);
@@ -111,21 +111,18 @@ describe('omitting expected values', () => {
       });
       expect(nodes[4]).not.toHaveProperty('typeof');
 
-      // Round trip: only metadata fields are not restored.
-      const strip = (node: unknown) => {
-        const { as_string_format, as_json_format, children_sources, ...rest } =
-          node as Record<string, unknown>;
-        expect(as_string_format).toBe('String');
-        expect(as_json_format).toBe('safe-stable-stringify-with-length-limit');
-        expect(children_sources).toEqual(['cause', 'errors']);
-        return rest;
-      };
+      // Round trip: the full report is reproduced exactly, formats included.
+      const fullNodes = array
+        ? (full as unknown[])
+        : [full, ...(full as { children: unknown[] }).children];
+      expect(fullNodes[0]).toMatchObject({
+        as_string_format: 'String',
+        as_json_format: 'safe-stable-stringify-with-length-limit',
+        children_sources: ['cause', 'errors'],
+      });
+      expect(fullNodes[1]).not.toHaveProperty('children_sources');
       const restored = restoreExpectedValues(report);
-      expect(restored).toEqual(
-        Array.isArray(full)
-          ? full.map(strip)
-          : { ...strip(full), children: full.children!.map(strip) },
-      );
+      expect(restored).toEqual(full);
       expect(validateFull(restored)).toBe(true);
       // The input is not modified.
       expect(nodes[0]).not.toHaveProperty('instanceof_error');
@@ -133,7 +130,7 @@ describe('omitting expected values', () => {
   );
 
   test('omitExpectedValues: false keeps every field', () => {
-    const report = makeCaughtObjectReportJson(new Error('boom'), {
+    const report = makeCorj(new Error('boom'), {
       omitExpectedValues: false,
     });
     expect(report).toMatchObject({
@@ -148,8 +145,8 @@ describe('omitting expected values', () => {
   });
 
   test('as_string is derived from a stack array too', () => {
-    const report = makeCaughtObjectReportJson(new Error('boom'), {
-      parseStackToArray: true,
+    const report = makeCorj(new Error('boom'), {
+      stackFormat: 'lines',
     });
     expect(report).not.toHaveProperty('as_string');
     expect(Array.isArray(report.stack)).toBe(true);
@@ -162,26 +159,23 @@ describe('omitting expected values', () => {
         return 'custom text';
       }
     }
-    const report = makeCaughtObjectReportJson(new Custom('boom'));
+    const report = makeCorj(new Custom('boom'));
     expect(report.as_string).toBe('custom text');
     expect((report.stack as string[])[0]).toBe('Error: boom');
 
-    const noStack = makeCaughtObjectReportJson({ message: 'no stack' });
+    const noStack = makeCorj({ message: 'no stack' });
     expect(noStack.as_string).toBe('[object Object]');
     expect(noStack.as_json).toEqual({ message: 'no stack' });
     expect(noStack.instanceof_error).toBe(false);
     expect(noStack).not.toHaveProperty('typeof');
 
-    const nullStack = makeCaughtObjectReportJson(
-      { message: 'x', stack: null },
-      { onCaughtMaking: null, printWarningsOnUnhandledErrors: false },
-    );
+    const nullStack = makeCorj({ message: 'x', stack: null }, quiet);
     expect(nullStack.stack).toBeUndefined();
     expect(nullStack.as_string).toBe('[object Object]');
   });
 
   test('a stack without a newline equals as_string as a whole', () => {
-    const report = makeCaughtObjectReportJson({
+    const report = makeCorj({
       stack: '[object Object]',
     });
     expect(report).not.toHaveProperty('as_string');
@@ -189,15 +183,15 @@ describe('omitting expected values', () => {
   });
 
   test('non-expected values and failures are kept', () => {
-    const report = makeCaughtObjectReportJson([], {
+    const report = makeCorj([], {
       childrenSources: ['cause'],
-      metadataFields: true,
+      metadata: true,
     });
     expect(report.as_json).toEqual([]);
     expect(report.children_sources).toEqual(['cause']);
     expect(report.instanceof_error).toBe(false);
 
-    const custom = makeCaughtObjectReportJson({
+    const custom = makeCorj({
       toCorjAsJson: () => ({}),
       toCorjAsString: () => '[object Object]',
     });
@@ -205,28 +199,27 @@ describe('omitting expected values', () => {
     expect(custom.as_json_format).toBe('.toCorjAsJson');
     expect(custom.as_string_format).toBe('.toCorjAsString');
 
-    const reordered = makeCaughtObjectReportJson(1, {
+    const reordered = makeCorj(1, {
       childrenSources: ['errors', 'cause'],
     });
     expect(reordered.children_sources).toEqual(['errors', 'cause']);
     expect(reordered.typeof).toBe('number');
 
-    const failed = makeCaughtObjectReportJson(undefined, {
-      onCaughtMaking: null,
-      printWarningsOnUnhandledErrors: false,
-    });
+    const failed = makeCorj(undefined, quiet);
     expect(failed.as_json).toBeNull();
     expect(failed.typeof).toBe('undefined');
   });
 
-  test('handles null children in object reports', () => {
+  test('applies to the children of an object report', () => {
     const report = {
       instanceof_error: true,
       typeof: 'object' as const,
       as_string: '[object Object]',
       as_json: {},
+      as_string_format: 'String' as const,
+      as_json_format: 'safe-stable-stringify-with-length-limit' as const,
+      children_sources: ['cause', 'errors'],
       children: [
-        null,
         {
           id: '0',
           path: '$.cause',
@@ -235,6 +228,8 @@ describe('omitting expected values', () => {
           typeof: 'object' as const,
           as_string: 'Error: child',
           as_json: {},
+          as_string_format: 'String' as const,
+          as_json_format: 'safe-stable-stringify-with-length-limit' as const,
           stack: 'Error: child\n    at x',
         },
       ],
@@ -245,7 +240,6 @@ describe('omitting expected values', () => {
     expect(compact).toEqual({
       as_string: '[object Object]',
       children: [
-        null,
         {
           id: '0',
           path: '$.cause',
@@ -260,31 +254,44 @@ describe('omitting expected values', () => {
   });
 
   test('restoreExpectedValues only fills in what can be derived', () => {
+    const formats = {
+      as_string_format: 'String',
+      as_json_format: 'safe-stable-stringify-with-length-limit',
+    };
+    const rootFormats = { ...formats, children_sources: ['cause', 'errors'] };
     expect(restoreExpectedValues({})).toEqual({
       instanceof_error: true,
       typeof: 'object',
       as_json: {},
+      ...rootFormats,
     });
     expect(restoreExpectedValues({ stack: [] })).toEqual({
       instanceof_error: true,
       typeof: 'object',
       as_json: {},
       stack: [],
+      ...rootFormats,
     });
     expect(
       restoreExpectedValues({
         as_string: null,
         as_json: null,
         typeof: 'string',
+        as_string_format: '.toCorjAsString',
+        children_sources: ['cause'],
       }),
     ).toEqual({
       instanceof_error: true,
       typeof: 'string',
       as_string: null,
       as_json: null,
+      as_string_format: '.toCorjAsString',
+      as_json_format: 'safe-stable-stringify-with-length-limit',
+      children_sources: ['cause'],
     });
     const rows = restoreExpectedValues([
-      { id: 'root', path: '$', level: 0, stack: 'E: a\nb' },
+      { id: 'root', path: '$', level: 0, stack: 'E: a\nb', child_ids: ['0'] },
+      { id: '0', path: '$.cause', level: 1 },
     ]);
     expect(rows).toEqual([
       {
@@ -292,34 +299,47 @@ describe('omitting expected values', () => {
         path: '$',
         level: 0,
         stack: 'E: a\nb',
+        child_ids: ['0'],
         as_string: 'E: a',
         constructor_name: 'E',
         message: 'a',
         instanceof_error: true,
         typeof: 'object',
         as_json: {},
+        ...rootFormats,
+      },
+      {
+        id: '0',
+        path: '$.cause',
+        level: 1,
+        instanceof_error: true,
+        typeof: 'object',
+        as_json: {},
+        ...formats,
       },
     ]);
+    // An empty array has no root to fill in.
+    expect(restoreExpectedValues([])).toEqual([]);
   });
 
   describe('with the report size limit', () => {
     test('an exactly fitting compact report is preserved', () => {
       const caught = makeNested();
-      const unlimited = makeCaughtObjectReportJson(caught, {
+      const unlimited = makeCorj(caught, {
         maxReportSize: null,
       });
       const size = Buffer.byteLength(JSON.stringify(unlimited), 'utf8');
-      const exact = makeCaughtObjectReportJson(caught, {
+      const exact = makeCorj(caught, {
         maxReportSize: size,
       });
       expect(exact).toEqual(unlimited);
       expect(exact).not.toHaveProperty('truncated');
     });
 
-    test.each([false, true])(
-      'a missing as_string always derives what the field would hold (parseStackToArray=%s)',
-      (parseStackToArray) => {
-        const marker = '[caught-object-report-json: Truncated]';
+    test.each(['lines', 'string'] as const)(
+      'a missing as_string always derives what the field would hold (stackFormat=%s)',
+      (stackFormat) => {
+        const marker = '[truncated]';
         const caught = new Error('m'.repeat(200));
         const complete = String(caught);
         let restoredFromTruncatedStack = 0;
@@ -329,10 +349,10 @@ describe('omitting expected values', () => {
           maxReportSize <= 700;
           maxReportSize += 3
         ) {
-          const report = makeCaughtObjectReportJson(caught, {
+          const report = makeCorj(caught, {
             maxReportSize,
-            metadataFields: false,
-            parseStackToArray,
+            metadata: false,
+            stackFormat,
           });
           expect(getReportObjectReportValidator()(report)).toBe(true);
           expect(
@@ -354,16 +374,16 @@ describe('omitting expected values', () => {
         }
         // A truncated stack array cuts its first element more tightly than the
         // separately truncated as_string, so as_string is kept in that case.
-        expect(restoredFromTruncatedStack > 0).toBe(!parseStackToArray);
+        expect(restoredFromTruncatedStack > 0).toBe(stackFormat === 'string');
         expect(kept).toBeGreaterThan(0);
       },
     );
 
     test('keeps as_string omitted when the first stack line survives', () => {
       const caught = new Error('short');
-      const report = makeCaughtObjectReportJson(caught, {
+      const report = makeCorj(caught, {
         maxReportSize: 512,
-        metadataFields: false,
+        metadata: false,
       });
       expect(getReportObjectReportValidator()(report)).toBe(true);
       expect(report.truncated).toBe(true);
@@ -373,7 +393,7 @@ describe('omitting expected values', () => {
     });
 
     test('the minimal fallback omits expected values as well', () => {
-      const report = makeCaughtObjectReportJsonArray(new Error('boom'), {
+      const report = makeCorjArray(new Error('boom'), {
         maxReportSize: 256,
         makeReportId: () => 'x'.repeat(1_000),
       });
@@ -383,9 +403,9 @@ describe('omitting expected values', () => {
           id: 'root',
           path: '$',
           level: 0,
-          as_string: '[caught-object-report-json: Truncated]',
-          as_json: null,
           truncated: true,
+          as_string: '[truncated]',
+          as_json: null,
         },
       ]);
       expect(restoreExpectedValues(report)[0]).toMatchObject({
@@ -393,7 +413,7 @@ describe('omitting expected values', () => {
         typeof: 'object',
       });
 
-      const kept = makeCaughtObjectReportJsonArray(new Error('boom'), {
+      const kept = makeCorjArray(new Error('boom'), {
         maxReportSize: 256,
         omitExpectedValues: false,
         makeReportId: () => 'x'.repeat(1_000),
@@ -406,15 +426,14 @@ describe('omitting expected values', () => {
   });
 
   test('a failure while omitting keeps the complete report', () => {
-    const errors: string[] = [];
-    jest.spyOn(console, 'error').mockImplementation((message: string) => {
-      errors.push(message);
-    });
+    const errors: [unknown, CorjErrorContext][] = [];
+    const failure = new Error('cannot omit');
     jest.spyOn(expectedValues, 'omitExpectedValues').mockImplementation(() => {
-      throw new Error('cannot omit');
+      throw failure;
     });
-    const report = makeCaughtObjectReportJson(new Error('boom'), {
-      metadataFields: { $schema: true },
+    const report = makeCorj(new Error('boom'), {
+      metadata: { $schema: true },
+      onError: (error, context) => errors.push([error, context]),
     });
     expect(getReportObjectReportValidator('full')(report)).toBe(true);
     expect(report).toMatchObject({
@@ -422,12 +441,12 @@ describe('omitting expected values', () => {
       typeof: 'object',
       as_json: {},
       as_string: 'Error: boom',
-      v: 'corj/v0.11-full',
-      $schema: expect.stringContaining('/corj/v0.11-full/report-object.json'),
+      v: 'corj/v0.12-full',
+      $schema: expect.stringContaining('/corj/v0.12-full/report-object.json'),
     });
-    expect(errors).toEqual([
-      '[caught-object-report-json][Unhandled] Could not omit expected values',
-      '[caught-object-report-json][Unhandled] Could not omit expected values',
-    ]);
+    // Omission would run before and after the size limiter, but a failure
+    // is reported once and the second pass is skipped so the report stays
+    // consistently complete.
+    expect(errors).toEqual([[failure, { stage: 'other', path: '$' }]]);
   });
 });

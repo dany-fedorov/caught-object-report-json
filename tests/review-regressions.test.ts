@@ -1,66 +1,66 @@
 import {
-  CORJ_MAKER_DEFAULT_OPTIONS,
-  CORJ_NESTED_OMITTED_REASONS,
   CorjMaker,
-  CorjMakerOptions,
+  CorjOptions,
+  CorjErrorContext,
   CorjReportSizeUnit,
   restoreExpectedValues,
 } from '../src';
-import { limitReportSize } from '../src/report-size';
+import * as reportSize from '../src/report-size';
 import {
   getReportArrayReportValidator,
   getReportObjectReportValidator,
 } from './utils/getReportObjectReportValidator';
 
 describe('review regressions', () => {
-  test.each([
-    ['utf8-bytes', 'Reached max report size - 512 utf8-bytes'],
-    ['utf16-code-units', 'Reached max report size - 512 utf16-code-units'],
-  ])(
-    'exports the size omission reason used by reports (%s)',
-    (unit, expected) => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  test.each(['utf8-bytes', 'utf16-code-units'])(
+    'marks children omitted for size with the max_size code (%s)',
+    (unit) => {
       const reportSizeUnit = unit as CorjReportSizeUnit;
-      const report = CorjMaker.withDefaults({
+      const report = new CorjMaker({
         maxReportSize: 512,
         reportSizeUnit,
       }).makeReportObject({
         errors: Array.from({ length: 20 }, () => ({ message: 'child' })),
       });
-      expect(report.children_omitted_reason).toBe(expected);
-      expect(
-        CORJ_NESTED_OMITTED_REASONS.REACHED_MAX_REPORT_SIZE(
-          512,
-          reportSizeUnit,
-        ),
-      ).toBe(expected);
+      expect(report.children_omitted).toBe('max_size');
+      expect(report.truncated).toBe(true);
     },
   );
 
-  test('exports default-unit and minimal-fallback omission reasons', () => {
-    const reason = CORJ_NESTED_OMITTED_REASONS.REACHED_MAX_REPORT_SIZE;
-    expect(reason(512)).toBe('Reached max report size - 512 utf8-bytes');
-    const report = CorjMaker.withDefaults({
+  test('the minimal fallback uses the max_size code and the root id', () => {
+    const report = new CorjMaker({
       maxReportSize: 256,
       makeReportId: () => 'id'.repeat(1_000),
     }).makeReportArray({ cause: 'child' });
-    expect(report[0]!.children_omitted_reason).toBe('Reached max report size');
-    expect(reason()).toBe(report[0]!.children_omitted_reason);
+    expect(report).toEqual([
+      {
+        id: 'root',
+        path: '$',
+        level: 0,
+        truncated: true,
+        instanceof_error: false,
+        as_string: '[truncated]',
+        as_json: null,
+        children_omitted: 'max_size',
+      },
+    ]);
   });
 
   test.each([false, true])(
-    'contains failures introduced by final report serialization (array=%s)',
+    'contains failures thrown by the size limiter (array=%s)',
     (array) => {
-      const failure = new Error('metadata serialization failed');
-      const errors: unknown[] = [];
-      const childrenSources = Object.assign(['cause'], {
-        toJSON() {
-          throw failure;
-        },
+      const failure = new Error('limiter failed');
+      jest.spyOn(reportSize, 'limitReportSize').mockImplementation(() => {
+        throw failure;
       });
-      const maker = CorjMaker.withDefaults({
+      const errors: [unknown, CorjErrorContext][] = [];
+      const maker = new CorjMaker({
         maxReportSize: 256,
-        childrenSources,
-        onCaughtMaking: (error) => errors.push(error),
+        onError: (error, context) => errors.push([error, context]),
       });
       const caught = { cause: { message: 'child' } };
       const report = array
@@ -74,63 +74,72 @@ describe('review regressions', () => {
         Buffer.byteLength(JSON.stringify(report), 'utf8'),
       ).toBeLessThanOrEqual(256);
       const root = Array.isArray(report) ? report[0]! : report;
-      expect(root).toMatchObject({
-        as_json: null,
+      expect(root).toEqual({
+        ...(array ? { id: 'root', path: '$', level: 0 } : {}),
         truncated: true,
-        children_omitted_reason: 'Could not limit report size',
+        instanceof_error: false,
+        as_string: '[truncated]',
+        as_json: null,
+        children_omitted: 'max_size',
       });
-      expect(errors).toEqual([failure]);
+      expect(Array.isArray(report) ? report.length : 1).toBe(1);
+      expect(errors).toEqual([[failure, { stage: 'limit', path: '$' }]]);
     },
   );
 
+  test('the limiter failure fallback keeps the full version label when omission is off', () => {
+    jest.spyOn(reportSize, 'limitReportSize').mockImplementation(() => {
+      throw new Error('limiter failed');
+    });
+    const report = new CorjMaker({
+      omitExpectedValues: false,
+      onError: () => undefined,
+    }).makeReportObject(new Error('caught'));
+    expect(getReportObjectReportValidator('full')(report)).toBe(true);
+    expect(report).toEqual({
+      truncated: true,
+      instanceof_error: true,
+      typeof: 'object',
+      as_string: '[truncated]',
+      as_json: null,
+    });
+  });
+
   test.each([false, true])(
-    'returns a valid fallback if the configured limit becomes invalid (array=%s)',
+    'maker options are frozen, so a limit cannot become invalid later (array=%s)',
     (array) => {
-      const errors: unknown[] = [];
-      const maker = CorjMaker.withDefaults({
-        onCaughtMaking: (error) => errors.push(error),
-      });
-      maker.options.maxReportSize = 10;
+      const maker = new CorjMaker();
+      expect(Object.isFrozen(maker.options)).toBe(true);
+      expect(() => {
+        (maker.options as { maxReportSize: number | null }).maxReportSize = 10;
+      }).toThrow(TypeError);
+      expect(maker.options.maxReportSize).toBe(100_000);
       const caught = new Error('caught');
       const report = array
         ? maker.makeReportArray(caught)
         : maker.makeReportObject(caught);
-      const validate = array
-        ? getReportArrayReportValidator()
-        : getReportObjectReportValidator();
-      expect(validate(report)).toBe(true);
-      expect(
-        Buffer.byteLength(JSON.stringify(report), 'utf8'),
-      ).toBeLessThanOrEqual(256);
-      expect(Array.isArray(report) ? report[0] : report).toHaveProperty(
-        'truncated',
-        true,
-      );
-      // `instanceof_error: true` is an expected value and is omitted by default.
-      expect(Array.isArray(report) ? report[0] : report).not.toHaveProperty(
-        'instanceof_error',
-      );
+      const root = Array.isArray(report) ? report[0]! : report;
+      expect(root).not.toHaveProperty('truncated');
+      expect(root).not.toHaveProperty('instanceof_error');
       const restored = restoreExpectedValues(report);
       expect(Array.isArray(restored) ? restored[0] : restored).toHaveProperty(
         'instanceof_error',
         true,
       );
-      expect(errors.length).toBeGreaterThan(0);
-      expect(errors.every((error) => error instanceof RangeError)).toBe(true);
     },
   );
 
   test.each([null, 512])(
     'undefined clone options preserve the inherited size configuration (%s)',
     (maxReportSize) => {
-      const maker = CorjMaker.withDefaults({
+      const maker = new CorjMaker({
         maxReportSize,
         reportSizeUnit: 'utf16-code-units',
       });
-      const clone = maker.cloneWith({
+      const clone = maker.with({
         maxReportSize: undefined,
         reportSizeUnit: undefined,
-      } as unknown as Partial<CorjMakerOptions>);
+      } as unknown as Partial<CorjOptions>);
       const report = clone.makeReportObject('😀'.repeat(30_000));
       expect(clone.options.maxReportSize).toBe(maxReportSize);
       expect(clone.options.reportSizeUnit).toBe('utf16-code-units');
@@ -146,11 +155,9 @@ describe('review regressions', () => {
     },
   );
 
-  test('clones a maker whose size options were omitted using the default budget', () => {
-    const options: CorjMakerOptions = { ...CORJ_MAKER_DEFAULT_OPTIONS };
-    delete options.maxReportSize;
-    delete options.reportSizeUnit;
-    const maker = new CorjMaker(options).cloneWith({});
+  test('an empty clone keeps the default budget', () => {
+    const maker = new CorjMaker().with({});
+    expect(maker.options).toEqual(new CorjMaker().options);
     const report = maker.makeReportObject('😀'.repeat(30_000));
     expect(
       Buffer.byteLength(JSON.stringify(report), 'utf8'),
@@ -161,9 +168,9 @@ describe('review regressions', () => {
   test.each([350, 400])(
     'preserves diagnostic content before optional metadata at %i bytes',
     (maxReportSize) => {
-      const report = CorjMaker.withDefaults({
+      const report = new CorjMaker({
         maxReportSize,
-        metadataFields: true,
+        metadata: true,
       }).makeReportObject({
         message: 'critical failure: ' + 'x'.repeat(10_000),
       });
@@ -177,43 +184,14 @@ describe('review regressions', () => {
     },
   );
 
-  test('preserves schema-valid null child entries when trimming an assembled report', () => {
-    const fields = {
-      instanceof_error: false,
-      typeof: 'object' as const,
-      as_string: '[object Object]',
-      as_json: {},
-      as_json_format: null,
-      children_sources: [],
-    };
-    const child = { ...fields, id: 'child', path: '$.cause', level: 1 };
-    const source = {
-      ...fields,
-      message: 'x'.repeat(5_000),
-      children: [null, child, null],
-    };
-    expect(getReportObjectReportValidator()(source)).toBe(true);
-    const report = limitReportSize(source, {
-      ...CORJ_MAKER_DEFAULT_OPTIONS,
-      maxReportSize: 512,
-    });
-    expect(getReportObjectReportValidator()(report)).toBe(true);
-    expect(report.children).toEqual([null, child, null]);
-    expect(
-      Buffer.byteLength(JSON.stringify(report), 'utf8'),
-    ).toBeLessThanOrEqual(512);
-    expect(source.children).toEqual([null, child, null]);
-    expect(source.message).toHaveLength(5_000);
-  });
-
   test.each([false, true])(
     'contains very deep ordinary JSON data (array=%s)',
     (array) => {
       let payload: unknown = 'leaf';
       for (let i = 0; i < 20_000; i++) payload = { nested: payload };
-      const maker = CorjMaker.withDefaults({
+      const maker = new CorjMaker({
         maxReportSize: 512,
-        onCaughtMaking: () => undefined,
+        onError: () => undefined,
       });
       const report = array
         ? maker.makeReportArray(payload)
@@ -244,11 +222,10 @@ describe('review regressions', () => {
         payload: 'x'.repeat(5_000),
         cause: child,
       };
-      const calls: Parameters<CorjMakerOptions['makeReportId']>[0][] = [];
-      const maker = CorjMaker.withDefaults({
+      const calls: Parameters<CorjOptions['makeReportId']>[0][] = [];
+      const maker = new CorjMaker({
         maxReportSize,
-        metadataFields: false,
-        childrenMetadataFields: false,
+        metadata: false,
         makeReportId: (context) => {
           calls.push(context);
           return `id-${calls.length}`;
@@ -262,20 +239,24 @@ describe('review regressions', () => {
         ? getReportArrayReportValidator()
         : getReportObjectReportValidator();
       expect(validate(report)).toBe(true);
+      // The root gets an ID in both forms so that cycles can refer to it.
       expect(calls).toEqual([
-        ...(array ? [{ caught, index: -1, level: 0, path: '$' }] : []),
+        { caught, index: -1, level: 0, path: '$' },
         { caught: child, index: 0, level: 1, path: '$.cause' },
         { caught: grandchild, index: 1, level: 2, path: '$.cause.cause' },
       ]);
       const rows = Array.isArray(report) ? report : report.children!;
-      expect(rows.map((row) => row!.id)).toEqual(
-        array ? ['id-1', 'id-2', 'id-3'] : ['id-1', 'id-2'],
+      expect(rows.map((row) => row.id)).toEqual(
+        array ? ['id-1', 'id-2', 'id-3'] : ['id-2', 'id-3'],
       );
       if (Array.isArray(report)) {
-        expect(report[0]!.children).toEqual(['id-2']);
-        expect(report[1]!.children).toEqual(['id-3']);
+        expect(report[0]!.child_ids).toEqual(['id-2']);
+        expect(report[1]!.child_ids).toEqual(['id-3']);
+        expect(report[2]).not.toHaveProperty('child_ids');
       } else {
-        expect(report.children![0]!.children).toEqual(['id-2']);
+        expect(report).not.toHaveProperty('child_ids');
+        expect(report.children![0]!.child_ids).toEqual(['id-3']);
+        expect(report.children![1]).not.toHaveProperty('child_ids');
       }
       if (maxReportSize !== null) {
         expect(

@@ -1,13 +1,18 @@
-import {
-  CORJ_MAKER_DEFAULT_OPTIONS,
-  CaughtObjectReportJsonChild,
-  CorjMakerOptions,
-} from '../src';
+import { CORJ_DEFAULT_OPTIONS, CorjReportChild, CorjOptions } from '../src';
 import { limitReportSize } from '../src/report-size';
+import type { Stringify } from '../src/report-size';
+import { configure } from '../src/safe-stable-stringify';
 import {
   getReportArrayReportValidator,
   getReportObjectReportValidator,
 } from './utils/getReportObjectReportValidator';
+
+const stringify = configure({
+  circularValue: '[circular]',
+  deterministic: false,
+  lengthUnit: 'utf8-bytes',
+  lengthLimit: 100_000,
+}) as Stringify;
 
 describe('report size defaults and minimal fallback', () => {
   test('applies the default UTF-8 budget when size options are omitted', () => {
@@ -16,17 +21,21 @@ describe('report size defaults and minimal fallback', () => {
       typeof: 'string' as const,
       as_string: '😀'.repeat(20_000),
       as_json: null,
-      as_json_format: null,
       children_sources: [],
     };
-    const options: CorjMakerOptions = { ...CORJ_MAKER_DEFAULT_OPTIONS };
-    delete options.maxReportSize;
-    delete options.reportSizeUnit;
+    // The limiter is tolerant of options that leave the size fields out.
+    const { maxReportSize, reportSizeUnit, ...options } = CORJ_DEFAULT_OPTIONS;
+    void maxReportSize;
+    void reportSizeUnit;
 
     // This report fits in 100,000 code units but exceeds 100,000 UTF-8 bytes
     // once both string representations are included.
     const report = { ...source, as_json: source.as_string };
-    const result = limitReportSize(report, options);
+    const result = limitReportSize(
+      report,
+      options as unknown as CorjOptions,
+      stringify,
+    );
 
     expect(JSON.stringify(report).length).toBeLessThan(100_000);
     expect(Buffer.byteLength(JSON.stringify(report), 'utf8')).toBeGreaterThan(
@@ -49,7 +58,7 @@ describe('report size defaults and minimal fallback', () => {
   ])(
     'bounds an oversized custom root ID (array=$array, children=$withChildren)',
     ({ array, withChildren }) => {
-      const root: CaughtObjectReportJsonChild = {
+      const root: CorjReportChild = {
         id: 'custom-id'.repeat(1_000),
         path: '$',
         level: 0,
@@ -57,7 +66,6 @@ describe('report size defaults and minimal fallback', () => {
         typeof: 'object',
         as_string: '[object Object]',
         as_json: {},
-        as_json_format: null,
         children_sources: [],
       };
       const children = withChildren
@@ -71,24 +79,23 @@ describe('report size defaults and minimal fallback', () => {
         : getReportObjectReportValidator();
       expect(validate(report)).toBe(true);
 
-      const result = limitReportSize(report, {
-        ...CORJ_MAKER_DEFAULT_OPTIONS,
-        maxReportSize: 256,
-      });
+      const result = limitReportSize(
+        report,
+        { ...CORJ_DEFAULT_OPTIONS, maxReportSize: 256 },
+        stringify,
+      );
 
       expect(validate(result)).toBe(true);
       expect(
         Buffer.byteLength(JSON.stringify(result), 'utf8'),
       ).toBeLessThanOrEqual(256);
       const expected = {
+        truncated: true,
         instanceof_error: false,
         typeof: 'object',
-        as_string: '[caught-object-report-json: Truncated]',
+        as_string: '[truncated]',
         as_json: null,
-        truncated: true,
-        ...(withChildren
-          ? { children_omitted_reason: 'Reached max report size' }
-          : {}),
+        ...(withChildren ? { children_omitted: 'max_size' } : {}),
       };
       expect(result).toEqual(
         array ? [{ id: 'root', path: '$', level: 0, ...expected }] : expected,

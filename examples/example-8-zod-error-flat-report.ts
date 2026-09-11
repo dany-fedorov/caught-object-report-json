@@ -1,9 +1,7 @@
 import { z as zod } from 'zod';
 import { CorjMaker } from '../src';
 
-const corj = CorjMaker.withDefaults({
-  metadataFields: false,
-});
+const corj = new CorjMaker({ metadata: false });
 
 const User = zod.object({
   name: zod.string(),

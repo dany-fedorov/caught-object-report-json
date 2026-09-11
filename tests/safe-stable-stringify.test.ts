@@ -1,6 +1,16 @@
-import { configure } from '../src/safe-stable-stringify';
+import { configure, TRUNCATED_MARKER } from '../src/safe-stable-stringify';
+import { measureStringSize } from '../src/json-size';
+import { CORJ_TRUNCATED_MARKER } from '../src';
 
-const marker = '[caught-object-report-json: Truncated]';
+const marker = TRUNCATED_MARKER;
+// Limits below are relative to the marker length so they keep testing the same
+// boundary conditions if the marker text changes.
+const M = marker.length;
+
+test('the public marker constant is the serializer marker', () => {
+  expect(CORJ_TRUNCATED_MARKER).toBe(TRUNCATED_MARKER);
+  expect(TRUNCATED_MARKER).toBe('[truncated]');
+});
 
 describe('UTF-8 length-limited serialization', () => {
   test.each(['Ж', '界', '😀', '\n', '"', '\\', '\ud800'])(
@@ -44,18 +54,28 @@ describe('UTF-8 length-limited serialization', () => {
         value,
       ),
     ).toBe(json);
-    expect(
-      configure({ lengthLimit: json.length, lengthUnit: 'utf8-bytes' })(value),
-    ).toBe('null');
+    // Measured in UTF-8 bytes the same limit is too small for the value, so
+    // it is truncated to a prefix of complete emoji plus the marker.
+    const utf8 = configure({
+      lengthLimit: json.length,
+      lengthUnit: 'utf8-bytes',
+    })(value)!;
+    expect(utf8).not.toBe(json);
+    expect(Buffer.byteLength(utf8, 'utf8')).toBeLessThanOrEqual(json.length);
+    const prefix = JSON.parse(utf8).slice(0, -marker.length);
+    expect(JSON.parse(utf8).endsWith(marker)).toBe(true);
+    expect(prefix).toMatch(/^(😀)*$/u);
+    expect(prefix.length).toBeLessThan(value.length);
   });
 
   test.each([
-    ['utf8-bytes', 43, ''],
-    ['utf8-bytes', 44, '😀'],
-    ['utf8-bytes', 48, '😀😀'],
-    ['utf16-code-units', 41, ''],
-    ['utf16-code-units', 42, '😀'],
-    ['utf16-code-units', 44, '😀😀'],
+    // Quotes and marker take M + 2; each emoji is 4 UTF-8 bytes / 2 code units.
+    ['utf8-bytes', M + 5, ''],
+    ['utf8-bytes', M + 6, '😀'],
+    ['utf8-bytes', M + 10, '😀😀'],
+    ['utf16-code-units', M + 3, ''],
+    ['utf16-code-units', M + 4, '😀'],
+    ['utf16-code-units', M + 6, '😀😀'],
   ])(
     'preserves every complete emoji that fits %s limit %i',
     (lengthUnit, lengthLimit, prefix) => {
@@ -111,12 +131,15 @@ describe('UTF-8 length-limited serialization', () => {
   });
 
   test('reclaims the measured size of an existing truncation metadata key', () => {
+    // The first two entries take 30 bytes, so `long` cannot fit even the
+    // marker, while the retained entry plus the "..." marker fits in M + 22.
+    const lengthLimit = M + 32;
     const result = configure({
       deterministic: false,
-      lengthLimit: 70,
+      lengthLimit,
       lengthUnit: 'utf8-bytes',
     })({ '...': '😀😀', keep: 'Ж', long: '界'.repeat(200) })!;
-    expect(Buffer.byteLength(result, 'utf8')).toBeLessThanOrEqual(70);
+    expect(Buffer.byteLength(result, 'utf8')).toBeLessThanOrEqual(lengthLimit);
     expect(JSON.parse(result)).toEqual({ keep: 'Ж', '...': marker });
     expect(result.match(/"\.\.\.":/g)).toHaveLength(1);
   });
@@ -167,6 +190,156 @@ describe('UTF-8 length-limited serialization', () => {
       expect(() => configure({ onTruncate })).toThrow(TypeError);
     },
   );
+
+  test('measures mixed strings exactly like Buffer.byteLength on both paths', () => {
+    const samples = [
+      '',
+      'plain ascii',
+      'x'.repeat(5_000),
+      'Ж',
+      'ascii then Ж',
+      '界',
+      '😀',
+      'a😀b',
+      '\ud800',
+      '\udc00',
+      '\ud800\ud800',
+      'ключ: 😀 界 \n " \\',
+      '\u0000\u001f',
+    ];
+    for (const sample of samples) {
+      for (const text of [sample, JSON.stringify(sample)]) {
+        expect(measureStringSize(text)).toBe(Buffer.byteLength(text, 'utf8'));
+        expect(measureStringSize(text, 'utf8-bytes')).toBe(
+          Buffer.byteLength(text, 'utf8'),
+        );
+        expect(measureStringSize(text, 'utf16-code-units')).toBe(text.length);
+      }
+    }
+  });
+});
+
+describe('per-call overrides', () => {
+  test('a per-call length limit applies to that call only', () => {
+    const stringify = configure({ lengthLimit: 80 });
+    const long = 'x'.repeat(200);
+    const withLimit = stringify(long, null, { lengthLimit: 30 })!;
+    expect(withLimit.length).toBeLessThanOrEqual(30);
+    expect(withLimit.endsWith(marker + '"')).toBe(true);
+    const configured = stringify(long)!;
+    expect(configured.length).toBeLessThanOrEqual(80);
+    expect(configured.length).toBeGreaterThan(30);
+    expect(stringify(long, null, {})!.length).toBe(configured.length);
+    expect(
+      stringify(long, null, { lengthLimit: undefined } as unknown as {
+        lengthLimit?: number;
+      })!.length,
+    ).toBe(configured.length);
+  });
+
+  test('a per-call length limit can exceed the configured one', () => {
+    const stringify = configure({ lengthLimit: 20 });
+    const long = 'x'.repeat(50);
+    expect(stringify(long, null, { lengthLimit: 100 })).toBe(
+      JSON.stringify(long),
+    );
+    expect(stringify(long)!.length).toBeLessThanOrEqual(20);
+  });
+
+  test('a per-call length limit works without a configured one', () => {
+    const stringify = configure();
+    expect(stringify('x'.repeat(50), null, { lengthLimit: 20 })!.length).toBe(
+      20,
+    );
+    expect(stringify('x'.repeat(50))).toBe(JSON.stringify('x'.repeat(50)));
+  });
+
+  test('a per-call truncation callback replaces the configured one for that call', () => {
+    let configuredCalls = 0;
+    let perCallCalls = 0;
+    const stringify = configure({
+      lengthLimit: 20,
+      onTruncate: () => configuredCalls++,
+    });
+    const long = 'x'.repeat(50);
+    stringify(long, null, { onTruncate: () => perCallCalls++ });
+    expect(perCallCalls).toBe(1);
+    expect(configuredCalls).toBe(0);
+    stringify(long);
+    expect(perCallCalls).toBe(1);
+    expect(configuredCalls).toBe(1);
+    stringify('fits', null, { onTruncate: () => perCallCalls++ });
+    expect(perCallCalls).toBe(1);
+    stringify(long, null, { onTruncate: undefined } as unknown as {
+      onTruncate?: () => void;
+    });
+    expect(configuredCalls).toBe(2);
+  });
+
+  test('a per-call truncation callback works without a configured one', () => {
+    let calls = 0;
+    const stringify = configure({ lengthLimit: 20 });
+    stringify('x'.repeat(50), null, { onTruncate: () => calls++ });
+    expect(calls).toBe(1);
+    expect(stringify('x'.repeat(50))!.length).toBeLessThanOrEqual(20);
+  });
+
+  test('both overrides combine, and a per-call limit with a replacer is honoured', () => {
+    let calls = 0;
+    const stringify = configure({ lengthLimit: 80 });
+    const result = stringify(
+      { ignored: 'x'.repeat(200), keep: 'y'.repeat(200) },
+      (key, value) => (key === 'ignored' ? undefined : value),
+      { lengthLimit: 40, onTruncate: () => calls++ },
+    )!;
+    expect(result.length).toBeLessThanOrEqual(40);
+    expect(calls).toBe(1);
+    expect(JSON.parse(result)).not.toHaveProperty('ignored');
+    expect(JSON.parse(result).keep).toContain(marker);
+  });
+
+  test.each([
+    [0, RangeError],
+    [1, RangeError],
+    [3, RangeError],
+    [-1, RangeError],
+    [4.5, TypeError],
+    [NaN, TypeError],
+    [Infinity, TypeError],
+    ['40', TypeError],
+    [null, TypeError],
+  ])('rejects an unusable per-call length limit: %s', (lengthLimit, error) => {
+    const stringify = configure({ lengthLimit: 80 });
+    expect(() =>
+      stringify('value', null, { lengthLimit } as { lengthLimit?: number }),
+    ).toThrow(error);
+  });
+
+  test('rejects a per-call length limit of 3 with a RangeError', () => {
+    expect(() => configure()('value', null, { lengthLimit: 3 })).toThrow(
+      RangeError,
+    );
+    expect(() => configure()('value', null, { lengthLimit: 4 })).not.toThrow();
+  });
+
+  test.each([null, 1, 'callback', false])(
+    'rejects an invalid per-call truncation callback: %j',
+    (onTruncate) => {
+      expect(() =>
+        configure()('value', null, { onTruncate } as unknown as {
+          onTruncate?: () => void;
+        }),
+      ).toThrow(TypeError);
+    },
+  );
+
+  test('a rejected override does not change later calls', () => {
+    let calls = 0;
+    const stringify = configure({ lengthLimit: 20, onTruncate: () => calls++ });
+    expect(() => stringify('x', null, { lengthLimit: 1 })).toThrow(RangeError);
+    expect(stringify('x'.repeat(50))!.length).toBeLessThanOrEqual(20);
+    expect(calls).toBe(1);
+  });
 });
 
 describe('length-limited serialization', () => {

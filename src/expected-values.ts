@@ -1,7 +1,4 @@
-import type {
-  CaughtObjectReportJson,
-  CaughtObjectReportJsonChild,
-} from './index';
+import type { CorjReport, CorjReportBase, CorjReportChild } from './index';
 import {
   CORJ_FULL_REPORT_ARRAY_JSON_SCHEMA_LINK,
   CORJ_FULL_REPORT_OBJECT_JSON_SCHEMA_LINK,
@@ -14,9 +11,9 @@ import {
 /**
  * Values that a report field is expected to hold most of the time.
  *
- * When {@link CorjMakerOptions.omitExpectedValues} is enabled (the default),
- * a field holding its expected value is left out of the report, and a reader
- * must treat a missing field as holding the expected value.
+ * When `omitExpectedValues` is enabled (the default), a field holding its
+ * expected value is left out of the report, and a reader must treat a missing
+ * field as holding the expected value.
  *
  * `as_string` has no fixed expected value: it is omitted when it equals the
  * first line of `stack`, which is what `Error.prototype.toString` produces.
@@ -33,11 +30,11 @@ export const CORJ_EXPECTED_VALUES = Object.freeze({
   children_sources: Object.freeze(['cause', 'errors']),
 } as const);
 
-type Report = CaughtObjectReportJson | CaughtObjectReportJsonChild[];
-type Node = CaughtObjectReportJson | CaughtObjectReportJsonChild;
+type Report = CorjReport | CorjReportChild[];
+type Node = CorjReportBase;
 
 export function firstStackLine(
-  stack: CaughtObjectReportJson['stack'] | undefined,
+  stack: CorjReportBase['stack'] | undefined,
 ): string | undefined {
   if (typeof stack === 'string') {
     const newline = stack.indexOf('\n');
@@ -149,18 +146,23 @@ function omitExpectedValuesFromNode<T extends Node>(node: T): T {
   return result as T;
 }
 
-/** Remove fields holding their expected value from a report object or report array. */
-export function omitExpectedValues<T extends Report>(report: T): T {
+function mapReport<T extends Report>(
+  report: T,
+  fn: <N extends Node>(node: N) => N,
+): T {
   if (Array.isArray(report)) {
-    return report.map((row) => omitExpectedValuesFromNode(row)) as T;
+    return report.map((row) => fn(row)) as T;
   }
-  const root: CaughtObjectReportJson = omitExpectedValuesFromNode(report);
+  const root: CorjReport = fn(report);
   if (Array.isArray(root.children)) {
-    root.children = root.children.map((child) =>
-      child === null ? null : omitExpectedValuesFromNode(child),
-    );
+    root.children = root.children.map((child) => fn(child));
   }
   return root as T;
+}
+
+/** Remove fields holding their expected value from a report object or report array. */
+export function omitExpectedValues<T extends Report>(report: T): T {
+  return mapReport(report, omitExpectedValuesFromNode);
 }
 
 function markFullVersionOnNode<T extends Node>(node: T): T {
@@ -178,16 +180,7 @@ function markFullVersionOnNode<T extends Node>(node: T): T {
 
 /** Relabel a complete report with the `-full` version and schema links. */
 export function markFullVersion<T extends Report>(report: T): T {
-  if (Array.isArray(report)) {
-    return report.map((row) => markFullVersionOnNode(row)) as T;
-  }
-  const root: CaughtObjectReportJson = markFullVersionOnNode(report);
-  if (Array.isArray(root.children)) {
-    root.children = root.children.map((child) =>
-      child === null ? null : markFullVersionOnNode(child),
-    );
-  }
-  return root as T;
+  return mapReport(report, markFullVersionOnNode);
 }
 
 function restoreExpectedValuesOnNode<T extends Node>(node: T): T {
@@ -201,29 +194,34 @@ function restoreExpectedValuesOnNode<T extends Node>(node: T): T {
   if (!('as_json' in result)) {
     result.as_json = {};
   }
+  if (!('as_string_format' in result)) {
+    result.as_string_format = CORJ_EXPECTED_VALUES.as_string_format;
+  }
+  if (!('as_json_format' in result)) {
+    result.as_json_format = CORJ_EXPECTED_VALUES.as_json_format;
+  }
   Object.assign(result, stackDerivedFields(result));
   return result as T;
 }
 
 /**
- * Fill in `instanceof_error`, `typeof`, `as_json` and `as_string` when a report
- * omitted them as expected values, so every report object has the fields that
- * were required before corj/v0.11, and parse `constructor_name` and `message`
- * back out of the first stack line when they were omitted as well.
+ * Fill in the fields a report omitted as expected values, so every node has
+ * `instanceof_error`, `typeof`, `as_json`, `as_string_format` and
+ * `as_json_format`, the root has `children_sources`, and `as_string`,
+ * `constructor_name` and `message` are parsed back out of the first stack
+ * line when they were omitted as well.
  *
  * The result is a complete report, so `v` and `$schema` are relabelled to the
- * `-full` version. Other metadata fields are not restored: a missing metadata
- * field can mean either "expected value" or "metadata disabled".
+ * `-full` version. `v` and `$schema` themselves are not added when absent,
+ * since a missing one means metadata was disabled.
  */
 export function restoreExpectedValues<T extends Report>(report: T): T {
-  if (Array.isArray(report)) {
-    return report.map((row) => restoreExpectedValuesOnNode(row)) as T;
+  const result = mapReport(report, restoreExpectedValuesOnNode);
+  const root = (Array.isArray(result) ? result[0] : result) as
+    | CorjReportBase
+    | undefined;
+  if (root !== undefined && !('children_sources' in root)) {
+    root.children_sources = [...CORJ_EXPECTED_VALUES.children_sources];
   }
-  const root: CaughtObjectReportJson = restoreExpectedValuesOnNode(report);
-  if (Array.isArray(root.children)) {
-    root.children = root.children.map((child) =>
-      child === null ? null : restoreExpectedValuesOnNode(child),
-    );
-  }
-  return root as T;
+  return result;
 }

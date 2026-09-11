@@ -1,17 +1,25 @@
-import type {
-  CaughtObjectReportJson,
-  CaughtObjectReportJsonChild,
-  CorjMakerOptions,
-} from './index';
+import type { CorjOptions, CorjReport, CorjReportChild } from './index';
 import type { JsonSizeUnit } from './json-size';
-import { configure } from './safe-stable-stringify';
+import { TRUNCATED_MARKER } from './safe-stable-stringify';
 import { stackDerivedFields } from './expected-values';
 
 export const DEFAULT_MAX_REPORT_SIZE = 100_000;
 export const DEFAULT_REPORT_SIZE_UNIT: JsonSizeUnit = 'utf8-bytes';
 
+/** Appended to a string, array or object that was cut to fit the report size limit. */
+export const CORJ_TRUNCATED_MARKER: string = TRUNCATED_MARKER;
+/** Replaces a circular reference inside `as_json`. */
+export const CORJ_CIRCULAR_MARKER = '[circular]';
+
+/** A configured serializer with optional per-call limit overrides. */
+export type Stringify = (
+  value: unknown,
+  replacer?: ((this: object, key: string, value: unknown) => unknown) | null,
+  perCall?: { lengthLimit?: number; onTruncate?: () => void },
+) => string | undefined;
+
 export function resolveReportSizeOptions(
-  options: Pick<CorjMakerOptions, 'maxReportSize' | 'reportSizeUnit'>,
+  options: Pick<CorjOptions, 'maxReportSize' | 'reportSizeUnit'>,
 ) {
   const maxReportSize =
     options.maxReportSize === undefined
@@ -40,7 +48,7 @@ export function resolveReportSizeOptions(
   return { maxReportSize, reportSizeUnit };
 }
 
-type Report = CaughtObjectReportJson | CaughtObjectReportJsonChild[];
+type Report = CorjReport | CorjReportChild[];
 const contentKeys = [
   'message',
   'stack',
@@ -48,7 +56,6 @@ const contentKeys = [
   'as_string',
   'as_json',
   'children_sources',
-  'children_omitted_reason',
 ] as const;
 const metadataKeys = [
   '$schema',
@@ -57,36 +64,23 @@ const metadataKeys = [
   'as_string_format',
   'children_sources',
 ] as const;
-const marker = '[caught-object-report-json: Truncated]';
-
-export function maxReportSizeOmittedReason(
-  maxReportSize?: number,
-  reportSizeUnit: JsonSizeUnit = DEFAULT_REPORT_SIZE_UNIT,
-) {
-  return maxReportSize === undefined
-    ? 'Reached max report size'
-    : `Reached max report size - ${maxReportSize} ${reportSizeUnit}`;
-}
 
 /** A root-only report that fits the minimum supported budget without serialization. */
-export function makeMinimalReport<T extends Report>(
-  report: T,
-  omittedReason = maxReportSizeOmittedReason(),
-): T {
+export function makeMinimalReport<T extends Report>(report: T): T {
   const isArray = Array.isArray(report);
-  const root = (isArray ? report[0] : report) as CaughtObjectReportJson;
+  const root = (isArray ? report[0] : report) as CorjReport;
   const hasChildren = isArray
     ? report.length > 1
     : (root.children ?? []).length > 0;
-  const minimal = {
+  const minimal: CorjReport = {
+    truncated: true,
     ...(root.instanceof_error === undefined
       ? {}
       : { instanceof_error: root.instanceof_error }),
     ...(root.typeof === undefined ? {} : { typeof: root.typeof }),
-    as_string: marker,
+    as_string: CORJ_TRUNCATED_MARKER,
     as_json: null,
-    truncated: true,
-    ...(hasChildren ? { children_omitted_reason: omittedReason } : {}),
+    ...(hasChildren ? { children_omitted: 'max_size' as const } : {}),
   };
   return (
     isArray ? [{ id: 'root', path: '$', level: 0, ...minimal }] : minimal
@@ -96,84 +90,64 @@ export function makeMinimalReport<T extends Report>(
 /** Trim report content while keeping report schemas and retained child links valid. */
 export function limitReportSize<T extends Report>(
   report: T,
-  options: CorjMakerOptions,
+  options: CorjOptions,
+  stringify: Stringify,
 ): T {
-  const { maxReportSize, reportSizeUnit } = resolveReportSizeOptions(options);
+  const { maxReportSize } = resolveReportSizeOptions(options);
   if (maxReportSize === null) return report;
 
-  let overflowed = false;
-  const stringifyReport = configure({
-    lengthLimit: maxReportSize,
-    lengthUnit: reportSizeUnit,
-    deterministic: false,
-    onTruncate: () => {
-      overflowed = true;
-    },
-  });
-  const fits = (value: Report) => {
-    overflowed = false;
-    stringifyReport(value);
-    return !overflowed;
+  const measure = (
+    value: unknown,
+    lengthLimit: number,
+  ): { json: string | undefined; truncated: boolean } => {
+    let truncated = false;
+    const json = stringify(value, null, {
+      lengthLimit,
+      onTruncate: () => {
+        truncated = true;
+      },
+    });
+    return { json, truncated };
   };
+  const fits = (value: Report) => !measure(value, maxReportSize).truncated;
   if (fits(report)) return report;
 
   const isArray = Array.isArray(report);
-  const root = (isArray ? report[0] : report) as CaughtObjectReportJsonChild;
-  const children = (
-    isArray ? report.slice(1) : root.children ?? []
-  ) as (CaughtObjectReportJsonChild | null)[];
-  const omittedReason = maxReportSizeOmittedReason(
-    maxReportSize,
-    reportSizeUnit,
-  );
+  const root = (isArray ? report[0] : report) as CorjReportChild & CorjReport;
+  const children: CorjReportChild[] = isArray
+    ? report.slice(1)
+    : root.children ?? [];
 
   function candidate(
     valueLimit: number,
     childCount: number,
     keepMetadata: boolean,
   ): T {
-    let fieldTruncated = false;
-    const stringifyValue = configure({
-      lengthLimit: valueLimit,
-      lengthUnit: reportSizeUnit,
-      deterministic: false,
-      onTruncate: () => {
-        fieldTruncated = true;
-      },
-    });
     const retained = children.slice(0, childCount);
-    const retainedIds = new Set(
-      retained
-        .filter((child): child is CaughtObjectReportJsonChild => child !== null)
-        .map((child) => child.id),
+    const droppedIds = new Set(
+      children.slice(childCount).map((child) => child.id),
     );
 
     function trimNode(
-      node: CaughtObjectReportJsonChild,
+      node: CorjReportChild,
       hasChildIds: boolean,
-    ): CaughtObjectReportJsonChild {
+    ): CorjReportChild {
       // `as_string`, `constructor_name` and `message` may have been omitted as
       // derivable from the first line of `stack`. Put them back before trimming
       // so a shortened `stack` cannot lose them; the final omission pass removes
       // them again when the line survived intact.
-      const source: CaughtObjectReportJsonChild = {
+      const source: CorjReportChild = {
         ...node,
         ...stackDerivedFields(node),
       };
-      const result: Partial<CaughtObjectReportJsonChild> = { ...source };
+      const result: Partial<CorjReportChild> = { ...source };
       for (const key of contentKeys) {
         if (source[key] === undefined) continue;
-        fieldTruncated = false;
-        const json = stringifyValue(source[key]);
-        if (fieldTruncated) {
+        const { json, truncated } = measure(source[key], valueLimit);
+        if (truncated) {
           const value: unknown = JSON.parse(json!);
           if (key === 'children_sources' && !Array.isArray(value)) {
             result.children_sources = [];
-          } else if (
-            key === 'children_omitted_reason' &&
-            typeof value !== 'string'
-          ) {
-            delete result.children_omitted_reason;
           } else {
             Object.assign(result, { [key]: value });
           }
@@ -184,32 +158,33 @@ export function limitReportSize<T extends Report>(
         for (const key of metadataKeys) delete result[key];
         result.truncated = true;
       }
-      if (hasChildIds && source.children) {
-        const ids = source.children as (string | null)[];
-        const kept = ids.filter((id) => id === null || retainedIds.has(id));
-        result.children = kept as NonNullable<
-          CaughtObjectReportJsonChild['children']
-        >;
-        if (kept.length !== ids.length) {
-          result.children_omitted_reason = omittedReason;
+      if (hasChildIds && source.child_ids) {
+        const kept = source.child_ids.filter((id) => !droppedIds.has(id));
+        if (kept.length === 0) {
+          delete result.child_ids;
+        } else {
+          result.child_ids = kept;
+        }
+        if (kept.length !== source.child_ids.length) {
+          result.children_omitted = 'max_size';
           result.truncated = true;
         }
       }
-      return result as CaughtObjectReportJsonChild;
+      return result as CorjReportChild;
     }
 
-    const resultRoot = trimNode(root, isArray);
-    const resultChildren = retained.map((child) =>
-      child === null ? null : trimNode(child, true),
-    );
+    const resultRoot = trimNode(root, isArray) as CorjReportChild & CorjReport;
+    const resultChildren = retained.map((child) => trimNode(child, true));
     resultRoot.truncated = true;
-    if (childCount < children.length)
-      resultRoot.children_omitted_reason = omittedReason;
+    if (childCount < children.length) resultRoot.children_omitted = 'max_size';
     if (isArray) return [resultRoot, ...resultChildren] as T;
-    if (root.children)
-      resultRoot.children = resultChildren as NonNullable<
-        CaughtObjectReportJsonChild['children']
-      >;
+    if (root.children) {
+      if (resultChildren.length === 0) {
+        delete resultRoot.children;
+      } else {
+        resultRoot.children = resultChildren;
+      }
+    }
     return resultRoot as unknown as T;
   }
 

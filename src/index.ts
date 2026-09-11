@@ -1,13 +1,15 @@
-import { configure as configureJsonStringify } from './safe-stable-stringify';
-import type { JsonSizeUnit as CorjReportSizeUnit } from './json-size';
+import { configure as configureStringify } from './safe-stable-stringify';
+import type { JsonSizeUnit } from './json-size';
 import {
+  CORJ_CIRCULAR_MARKER,
+  CORJ_TRUNCATED_MARKER,
   DEFAULT_MAX_REPORT_SIZE,
   DEFAULT_REPORT_SIZE_UNIT,
   limitReportSize,
   makeMinimalReport,
-  maxReportSizeOmittedReason,
   resolveReportSizeOptions,
 } from './report-size';
+import type { Stringify } from './report-size';
 import {
   CORJ_EXPECTED_VALUES,
   markFullVersion,
@@ -24,6 +26,7 @@ import {
 import type { CorjSchemaLink, CorjVersion } from './version';
 
 export { CORJ_EXPECTED_VALUES, restoreExpectedValues } from './expected-values';
+export { CORJ_CIRCULAR_MARKER, CORJ_TRUNCATED_MARKER };
 export {
   CORJ_FULL_REPORT_ARRAY_JSON_SCHEMA_LINK,
   CORJ_FULL_REPORT_OBJECT_JSON_SCHEMA_LINK,
@@ -41,184 +44,7 @@ export type { CorjSchemaLink, CorjVersion };
 //    ██║      ██║   ██║     ███████╗███████║
 //    ╚═╝      ╚═╝   ╚═╝     ╚══════╝╚══════╝
 
-/**
- * Report object.
- *
- * Fields holding their expected value (see {@link CORJ_EXPECTED_VALUES}) are omitted
- * when {@link CorjMakerOptions.omitExpectedValues} is enabled, which is the default.
- * A missing `instanceof_error`, `typeof`, `as_json` or `as_string` therefore means
- * the expected value, not a failure; failures are reported as `null`.
- * Use {@link restoreExpectedValues} to fill them back in.
- */
-export type CaughtObjectReportJson = {
-  /** Present when content or child reports were omitted to meet the size limit.
-   * When true, nullable content fields may also be null because their size budget was exhausted.
-   */
-  truncated?: true;
-  /**
-   * Result of
-   * ```typescript
-   * caught instanceof Error
-   * ```
-   * Omitted when `true` if `omitExpectedValues` is enabled (default).
-   */
-  instanceof_error?: boolean;
-  /**
-   * Result of
-   * ```typescript
-   * typeof caught
-   * ```
-   * Omitted when `"object"` if `omitExpectedValues` is enabled (default).
-   */
-  typeof?: CaughtObjectTypeof;
-  /**
-   * Result of
-   * ```typescript
-   * typeof caught?.constructor?.name !== 'string'
-   *    ? undefined
-   *    : caught?.constructor?.name;
-   * ```
-   * `undefined` result is not included in result object.
-   *
-   * `null` value means that accessing `constructor.name` on `caught` object failed.<br>
-   * Use `onCaughtMaking` option to access objects thrown when report JSON was being created.
-   *
-   * Links
-   * - [MDN on .constructor field on an instance](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Classes/constructor)
-   * - [MDN on .name field on a class](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Function/name#telling_the_constructor_name_of_an_object)
-   *
-   * For example
-   * ```typescript
-   * try { asdf.sdf } catch (caught) { console.log(caught.constructor.name) }
-   * ```
-   * will print "TypeError".
-   */
-  constructor_name?: string | null;
-  /**
-   * Result of
-   * ```typescript
-   * typeof (caught as any)?.message !== 'string'
-   *   ? undefined
-   *   : (caught as any)?.message;
-   * ```
-   * `undefined` result is not included in result object.
-   *
-   * Normally JS Error instances include a `message` property with a string.
-   *
-   * `null` value means that accessing `message` property on `caught` object failed.<br>
-   * Use `onCaughtMaking` option to access objects thrown when report JSON was being created.
-   *
-   * Links
-   * - [MDN Error.prototype.message](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Error/message)
-   */
-  message?: string | null;
-  /**
-   * A string produced from caught object using format at `as_string_format`<br>
-   *
-   * `null` value means that producing `as_string` property  failed.<br>
-   * Use `onCaughtMaking` option to access objects thrown when report JSON was being created.
-   *
-   * Omitted when it equals the first line of `stack` if `omitExpectedValues` is enabled (default).
-   * This is the case for regular `Error` instances in V8, where `stack` starts with `Error.prototype.toString()` output.
-   */
-  as_string?: string | null;
-  /**
-   * A JSON object produced from caught object using format at `as_json_format`<br>
-   *
-   * `null` value means that producing `as_json` property  failed.<br>
-   * Use `onCaughtMaking` option to access objects thrown when report JSON was being created.
-   *
-   * Shares the whole report's {@link CorjMakerOptions.maxReportSize} budget with all other fields and children.
-   * Oversized values retain a prefix with a `[caught-object-report-json: Truncated]` marker.
-   * This also applies to values returned by `.toCorjAsJson()`.
-   *
-   * Omitted when it is `{}` if `omitExpectedValues` is enabled (default).
-   * Regular `Error` instances have no enumerable own properties and serialize to `{}`.
-   */
-  as_json?: CorjJsonValue<CorjJsonPrimitive>;
-  /**
-   * A flattened representation of tree of nested error objects, collected from properties listed in `children_sources`.
-   */
-  children?: (CaughtObjectReportJsonChild | null)[];
-  /**
-   * Is set if this `caught` object has fields reported in `children_sources`, but they were omitted by implementation.
-   */
-  children_omitted_reason?: string;
-  /**
-   * Array of property names of caught object to collect into `children` property.
-   *
-   * Content of this field corresponds to a setting {@link CorjMakerOptions | CorjMakerOptions['childrenSources']}.
-   * Adding this field is controlled by {@link CorjMakerOptions | CorjMakerOptions['metadataFields']['children_sources']}.
-   * Omitted when it equals the default `["cause", "errors"]` if `omitExpectedValues` is enabled (default).
-   */
-  children_sources?: string[];
-  /**
-   * Result of
-   * ```typescript
-   * typeof (caught as any)?.stack !== 'string'
-   *   ? undefined
-   *   : (caught as any)?.stack;
-   * ```
-   * `undefined` result is not included in result object.
-   *
-   * Normally JS Error instances include a `stack` property with a string,
-   * although the property is non-standard.
-   *
-   * By default ({@link CorjMakerOptions.parseStackToArray} is `true`) the string is
-   * stored as `stack.split('\n')`: one element per line, split on `\n` only, so
-   * a `\r` before the newline stays on its line and a trailing newline yields a
-   * trailing empty string. Set `parseStackToArray: false` to keep the raw string.
-   *
-   * `null` value means that accessing `stack` property on `caught` object failed.<br>
-   * Use `onCaughtMaking` option to access objects thrown when report JSON was being created.
-   *
-   * Links
-   * - [MDN Error.prototype.stack](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Error/Stack)
-   */
-  stack?: string | string[] | null;
-  /**
-   * A version of report: {@link CORJ_VERSION} for reports that omit expected values (default),
-   * {@link CORJ_VERSION_FULL} for complete reports (`omitExpectedValues: false` or {@link restoreExpectedValues}).<br>
-   * Adding this field is controlled by {@link CorjMakerOptions | CorjMakerOptions['metadataFields']['v']}).
-   */
-  v?: CorjVersion;
-  /**
-   * Indicates a method used to obtain the value of `as_string`.<br>
-   * - "String" means value was obtained with `as_string = String(caught)`.<br>
-   *
-   * Adding this field is controlled by {@link CorjMakerOptions | CorjMakerOptions['metadataFields']['as_string_format']}).
-   * Omitted when it is `"String"` if `omitExpectedValues` is enabled (default).
-   *
-   * Links
-   * - [MDN String() constructor](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/String)
-   */
-  as_string_format?: CorjAsStringFormat | null;
-  /**
-   * Indicates a method used to obtain the value of `as_json`.<br>
-   * - "safe-stable-stringify-with-length-limit" uses the bundled safe-stable-stringify
-   *   serializer with the configured report size limit.
-   *
-   * Adding this field is controlled by {@link CorjMakerOptions | CorjMakerOptions['metadataFields']['as_json_format']}).
-   * Omitted when it is `"safe-stable-stringify-with-length-limit"` if `omitExpectedValues` is enabled (default).
-   */
-  as_json_format?: CorjAsJsonFormat | null;
-  /**
-   * Optional link to JSON schema this object conforms to. Points to the `-full` schema when
-   * `omitExpectedValues` is disabled.<br>
-   * Adding this field is controlled by {@link CorjMakerOptions | CorjMakerOptions['metadataFields']['$schema']}).
-   */
-  $schema?: CorjSchemaLink;
-};
-
-export type CaughtObjectReportJsonChild = CaughtObjectReportJson & {
-  id: string;
-  path: string;
-  level: number;
-  children?: (string | null)[];
-  children_omitted_reason?: string;
-};
-
-export type CaughtObjectTypeof =
+export type CorjTypeof =
   | 'undefined'
   | 'object'
   | 'boolean'
@@ -228,253 +54,292 @@ export type CaughtObjectTypeof =
   | 'symbol'
   | 'function';
 
-export type CaughtObjectReportJsonNestedEntries = [
-  keyof CaughtObjectReportJsonChild,
-  CaughtObjectReportJsonChild[keyof CaughtObjectReportJsonChild],
-][];
-
-export type CaughtObjectReportJsonEntries = [
-  keyof CaughtObjectReportJson,
-  CaughtObjectReportJson[keyof CaughtObjectReportJson],
-][];
-
-export type CorjJsonObject<P extends CorjJsonPrimitive> = {
-  [x: string]: CorjJsonValue<P>;
-};
-
-export type CorjJsonArray<P extends CorjJsonPrimitive> = Array<
-  CorjJsonValue<P>
->;
-
 export type CorjJsonPrimitive = string | number | boolean | null;
+export type CorjJsonObject = { [x: string]: CorjJsonValue };
+export type CorjJsonArray = CorjJsonValue[];
+export type CorjJsonValue = CorjJsonPrimitive | CorjJsonObject | CorjJsonArray;
 
-export type CorjJsonValue<P extends CorjJsonPrimitive> =
-  | P
-  | CorjJsonObject<P>
-  | CorjJsonArray<P>;
+/** How `as_string` was produced: `String(caught)` or the caught object's own `.toCorjAsString()`. */
+export type CorjAsStringFormat = 'String' | '.toCorjAsString';
+/** How `as_json` was produced: the bundled length-limited serializer or the caught object's own `.toCorjAsJson()`. */
+export type CorjAsJsonFormat =
+  | 'safe-stable-stringify-with-length-limit'
+  | '.toCorjAsJson';
+/** Why child reports of a node are missing: the `maxDepth` limit, the `maxChildren` limit, or the `maxReportSize` limit. */
+export type CorjChildrenOmitted = 'max_depth' | 'max_children' | 'max_size';
 
-export type CaughtObjectAsJsonReport = {
-  format: Required<CaughtObjectReportJson>['as_json_format'];
-  value: CaughtObjectReportJson['as_json'];
+/**
+ * Fields shared by the root report and every child report.
+ *
+ * With `omitExpectedValues` (the default) a field holding its expected value is
+ * left out, see {@link CORJ_EXPECTED_VALUES}: a missing field means the expected
+ * value, `null` means producing the value failed. {@link restoreExpectedValues}
+ * fills them back in.
+ */
+export type CorjReportBase = {
+  /** Present when content or child reports were cut to meet `maxReportSize`. On a root it covers the whole report. */
   truncated?: true;
+  /** `caught instanceof Error`. Omitted when `true`. */
+  instanceof_error?: boolean;
+  /** `typeof caught`. Omitted when `"object"`. */
+  typeof?: CorjTypeof;
+  /** `caught.constructor.name` when it is a string; `null` when reading it threw. Omitted together with `as_string` and `message` when the first stack line is `"<constructor_name>: <message>"`. */
+  constructor_name?: string | null;
+  /** `caught.message` when it is a string; `null` when reading it threw. Omitted as described for `constructor_name`. */
+  message?: string | null;
+  /** String form of `caught`, see `as_string_format`; `null` when producing it threw. Omitted when it equals the first line of `stack`. */
+  as_string?: string | null;
+  /** JSON form of `caught` without the `children_sources` properties, see `as_json_format`; `null` when it has no JSON form or producing it threw. Cut values end with {@link CORJ_TRUNCATED_MARKER}. Omitted when `{}`. */
+  as_json?: CorjJsonValue | null;
+  /** `caught.stack` when it is a string, split into lines by default (`stackFormat`); `null` when reading it threw. */
+  stack?: string | string[] | null;
+  /** Present when this node has child sources that were not reported. */
+  children_omitted?: CorjChildrenOmitted;
+  /** Root only. The properties children were collected from. Omitted when `["cause", "errors"]`. */
+  children_sources?: string[];
+  /** Omitted when `"String"`. */
+  as_string_format?: CorjAsStringFormat;
+  /** Omitted when `"safe-stable-stringify-with-length-limit"`. */
+  as_json_format?: CorjAsJsonFormat;
+  /** Root only. Report version, controlled by the `metadata` option. */
+  v?: CorjVersion;
+  /** Root only. Link to the JSON Schema of this report, controlled by the `metadata` option. */
+  $schema?: CorjSchemaLink;
 };
 
-export type CaughtObjectAsStringReport = {
-  format: Required<CaughtObjectReportJson>['as_string_format'];
-  value: CaughtObjectReportJson['as_string'];
+/** Report object produced by {@link makeCorj} and {@link CorjMaker.makeReportObject}. */
+export type CorjReport = CorjReportBase & {
+  /** Every nested error found through `children_sources`, flattened breadth-first. Absent when there are none. */
+  children?: CorjReportChild[];
 };
 
-export type CorjMakerOnCaughtMakingReason =
+/**
+ * One node of a flattened error tree: an element of {@link CorjReport.children},
+ * or of the array produced by {@link makeCorjArray} whose first element is the root.
+ */
+export type CorjReportChild = CorjReportBase & {
+  /** From `makeReportId`; `"root"` for the root and the discovery index otherwise by default. */
+  id: string;
+  /** JSONPath from the root caught object, e.g. `$.cause.errors[0]`. */
+  path: string;
+  /** Depth in the error tree; the root is `0`. */
+  level: number;
+  /** IDs of this node's direct children. An object seen before is not reported twice: its first ID is referenced instead. */
+  child_ids?: string[];
+};
+
+/** @deprecated Use {@link CorjReport}. */
+export type CaughtObjectReportJson = CorjReport;
+/** @deprecated Use {@link CorjReportChild}. */
+export type CaughtObjectReportJsonChild = CorjReportChild;
+
+export type CorjReportSizeUnit = JsonSizeUnit;
+export type CorjStackFormat = 'lines' | 'string';
+export type CorjMetadata = { v: boolean; $schema: boolean };
+
+export type CorjReportIdContext = {
+  /** `-1` for the root, then the discovery index starting at `0`. */
+  index: number;
+  level: number;
+  path: string;
+  caught: unknown;
+};
+
+/** Where in the report process an error was caught. */
+export type CorjErrorStage =
   | 'prop-access'
-  | 'error-converting-caught-to-string'
-  | 'error-converting-caught-to-json'
-  | 'unknown';
+  | 'as_string'
+  | 'as_json'
+  | 'children'
+  | 'limit'
+  | 'other';
 
-export type CorjMakerOnCaughtMakingContext = {
-  reason: CorjMakerOnCaughtMakingReason;
-  propAccessHostName?: string;
-  propAccessPropName?: string;
-  caughtWhenProcessingReportKey: keyof CaughtObjectReportJson | null;
-  //   host: string | null;
-  // key: keyof CaughtObjectReportJson | null;
-  caughtObjectNestingInfo: NestedCfg | null;
+export type CorjErrorContext = {
+  stage: CorjErrorStage;
+  /** JSONPath of the node being processed, `$` for the root. */
+  path: string;
+  /** Report field being produced, when known. */
+  key?: keyof CorjReport | keyof CorjReportChild;
+  /** Property of the caught object being accessed, when known. */
+  prop?: string;
 };
 
-export type CorjMakerOnCaughtMakingCallbackFn = (
-  caughtNew: unknown,
-  options: CorjMakerOnCaughtMakingContext,
+export type CorjErrorHandler = (
+  caught: unknown,
+  context: CorjErrorContext,
 ) => void;
 
-type CorjMakerOptionsMetadataFieldsConfig = {
-  $schema: boolean;
-  v: boolean;
-  as_string_format: boolean;
-  as_json_format: boolean;
-  children_sources: boolean;
-};
-
-export type { CorjReportSizeUnit };
-
-export type CorjMakerOptions = {
-  /** Maximum size of compact JSON for the complete report (or report array), including all fields and children.
-   * Defaults to 100,000. Must be a safe integer >= 256; null disables the limit.
-   */
-  maxReportSize?: number | null;
-  /** Measurement for maxReportSize. Defaults to UTF-8 bytes; UTF-16 code units count JavaScript string characters. */
-  reportSizeUnit?: CorjReportSizeUnit;
-  /**
-   * Leave out fields that hold their expected value to keep reports small. Defaults to `true`.
-   *
-   * | Field | Omitted when |
-   * | --- | --- |
-   * | `instanceof_error` | `true` |
-   * | `typeof` | `"object"` |
-   * | `as_json` | `{}` |
-   * | `as_string` | equal to the first line of `stack` |
-   * | `as_string_format` | `"String"` |
-   * | `as_json_format` | `"safe-stable-stringify-with-length-limit"` |
-   * | `children_sources` | `["cause", "errors"]` |
-   *
-   * Applies to the root report and to every child report. A reader must treat a missing
-   * field as the expected value; `null` still marks a failure. See {@link CORJ_EXPECTED_VALUES}
-   * and {@link restoreExpectedValues}.
-   */
+export type CorjOptions = {
+  /** Size limit of the compact JSON of the whole report, children included. Defaults to `100000`; `null` disables it. */
+  maxReportSize: number | null;
+  /** Unit of `maxReportSize`. Defaults to UTF-8 bytes; `utf16-code-units` counts `json.length`. */
+  reportSizeUnit: CorjReportSizeUnit;
+  /** Leave out fields holding their expected value, see {@link CORJ_EXPECTED_VALUES}. Defaults to `true`. */
   omitExpectedValues: boolean;
-  /**
-   * Controls adding metadata fields to report.
-   */
-  metadataFields: boolean | CorjMakerOptionsMetadataFieldsConfig;
-  childrenMetadataFields: boolean | CorjMakerOptionsMetadataFieldsConfig;
-  /**
-   *
-   */
-  asJsonFormatsToApply: [CorjAsJsonFormat, ...CorjAsJsonFormat[]];
-  asStringFormatsToApply: [CorjAsStringFormat, ...CorjAsStringFormat[]];
-  /**
-   * Controls how much levels of nested errors will be included.
-   * For example
-   * - 1 means `caught.cause` is included, but `caught.cause.cause` is not.
-   * - 2 means `caught.cause.cause` is included, but `caught.cause.cause.cause` is not.
-   */
-  maxChildrenLevel: number;
-  /**
-   * Fields to use as children.
-   */
-  childrenSources: string[];
-  /**
-   * Called once per discovered child report, and once for the root of an array report.
-   * The returned ID is reused in references to that report.
-   */
-  makeReportId: (context: {
-    index: number;
-    level: number;
-    path: string;
-    caught: unknown;
-  }) => string;
-  /**
-   * This function is called when {@link CorjMaker.makeReportObject | CorjMaker.makeReportObject} fails to produce along the way of producing a report.
-   */
-  onCaughtMaking: CorjMakerOnCaughtMakingCallbackFn | null;
-  /**
-   * Print warning when `onCaughtMaking` is not set, or when `onCaughtMaking` itself threw an error.
-   */
-  printWarningsOnUnhandledErrors: boolean;
-  /**
-   * Store `stack` as `stack.split('\n')` instead of a single string. Defaults to `true`.
-   *
-   * Only applies when `caught.stack` is a string; a non-string `stack` is not reported.
-   * Splitting is literal: no trimming, `\r` is kept, empty lines are kept, an empty
-   * stack becomes `[""]`.
-   */
-  parseStackToArray: boolean;
+  /** Store `stack` as `stack.split('\n')` (`lines`, the default) or as the raw string. */
+  stackFormat: CorjStackFormat;
+  /** Which of `v` and `$schema` to add to the root. Defaults to `v` only. */
+  metadata: CorjMetadata;
+  /** Deepest level of nested errors to report; `1` reports `caught.cause` but not `caught.cause.cause`. Defaults to `5`. */
+  maxDepth: number;
+  /** Most child reports in one report. Defaults to `100`. */
+  maxChildren: number;
+  /** Properties to collect children from. Arrays contribute one child per element. Defaults to `["cause", "errors"]`. */
+  childrenSources: readonly string[];
+  /** Produces the `id` of a node. Called once per discovered node. */
+  makeReportId: (context: CorjReportIdContext) => string;
+  /** Called when something throws while the report is produced. Defaults to `console.warn`. */
+  onError: CorjErrorHandler;
 };
 
-type DeepPartialOptions<T> = T extends object
-  ? // eslint-disable-next-line @typescript-eslint/ban-types
-    T extends Function
-    ? T
-    : T extends unknown[]
-    ? T
-    : {
-        [P in keyof T]?: DeepPartialOptions<T[P]>;
-      }
-  : T;
+/** @deprecated Use {@link CorjOptions}. */
+export type CorjMakerOptions = CorjOptions;
 
-type NestedCfg = {
-  path: string;
-  level: number;
-  index: number;
+/** Options accepted by {@link CorjMaker}, {@link makeCorj} and {@link makeCorjArray}. Missing ones keep their defaults. */
+export type CorjOptionsInput = {
+  [K in Exclude<keyof CorjOptions, 'metadata'>]?: CorjOptions[K];
+} & {
+  /** `true` adds both `v` and `$schema`, `false` neither; an object sets them individually. */
+  metadata?: boolean | Partial<CorjMetadata>;
 };
-
-export type CorjAsStringFormat =
-  | typeof CORJ_AS_STRING_FORMAT_STRING_COERCION
-  | typeof CORJ_AS_STRING_FORMAT_TO_CORJ_AS_STRING_METHOD;
-
-export type CorjAsJsonFormat =
-  | typeof CORJ_AS_JSON_FORMAT_SAFE_STABLE_STRINGIFY_WITH_LENGTH_LIMIT
-  | typeof CORJ_AS_JSON_FORMAT_TO_CORJ_AS_JSON_METHOD;
 
 //  ██████╗ ██████╗ ███╗   ██╗███████╗████████╗ █████╗ ███╗   ██╗████████╗███████╗
 // ██╔════╝██╔═══██╗████╗  ██║██╔════╝╚══██╔══╝██╔══██╗████╗  ██║╚══██╔══╝██╔════╝
 // ██║     ██║   ██║██╔██╗ ██║███████╗   ██║   ███████║██╔██╗ ██║   ██║   ███████╗
 // ██║     ██║   ██║██║╚██╗██║╚════██║   ██║   ██╔══██║██║╚██╗██║   ██║   ╚════██║
 // ╚██████╗╚██████╔╝██║ ╚████║███████║   ██║   ██║  ██║██║ ╚████║   ██║   ███████║
-// ╚═════╝ ╚═════╝ ╚═╝  ╚═══╝╚══════╝   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═══╝   ╚═╝   ╚══════╝
+//  ╚═════╝ ╚═════╝ ╚═╝  ╚═══╝╚══════╝   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═══╝   ╚═╝   ╚══════╝
 
-export const CORJ_NESTED_OMITTED_REASONS = {
-  REACHED_MAX_DEPTH: (maxDepth: number) => `Reached max depth - ${maxDepth}`,
-  REACHED_MAX_REPORT_SIZE: maxReportSizeOmittedReason,
-};
-export const CORJ_AS_JSON_FORMAT_SAFE_STABLE_STRINGIFY_WITH_LENGTH_LIMIT =
-  'safe-stable-stringify-with-length-limit';
-export const CORJ_AS_JSON_FORMAT_TO_CORJ_AS_JSON_METHOD = '.toCorjAsJson';
-export const CORJ_AS_STRING_FORMAT_STRING_COERCION = 'String';
-export const CORJ_AS_STRING_FORMAT_TO_CORJ_AS_STRING_METHOD = '.toCorjAsString';
-export const CORJ_MAKER_DEFAULT_OPTIONS = Object.freeze({
+function describeValue(value: unknown): string {
+  try {
+    return String(value);
+  } catch {
+    return '[unprintable value]';
+  }
+}
+
+function defaultOnError(caught: unknown, context: CorjErrorContext): void {
+  const where = [
+    `stage=${context.stage}`,
+    `path=${context.path}`,
+    context.key === undefined ? null : `field=${context.key}`,
+    context.prop === undefined ? null : `prop=${context.prop}`,
+  ]
+    .filter(Boolean)
+    .join(' ');
+  console.warn(
+    `[caught-object-report-json] ${where}: ${describeValue(caught)}`,
+  );
+}
+
+export const CORJ_DEFAULT_OPTIONS: CorjOptions = Object.freeze({
   maxReportSize: DEFAULT_MAX_REPORT_SIZE,
   reportSizeUnit: DEFAULT_REPORT_SIZE_UNIT,
   omitExpectedValues: true,
-  metadataFields: {
-    $schema: false,
-    as_json_format: true,
-    children_sources: true,
-    as_string_format: true,
-    v: true,
-  },
-  childrenMetadataFields: {
-    $schema: false,
-    as_json_format: false,
-    children_sources: false,
-    as_string_format: false,
-    v: false,
-  },
-  asJsonFormatsToApply: [
-    '.toCorjAsJson',
-    'safe-stable-stringify-with-length-limit',
-  ] as [CorjAsJsonFormat, CorjAsJsonFormat],
-  asStringFormatsToApply: ['.toCorjAsString', 'String'] as [
-    CorjAsStringFormat,
-    CorjAsStringFormat,
-  ],
-  maxChildrenLevel: 5,
-  childrenSources: [...CORJ_EXPECTED_VALUES.children_sources],
-  makeReportId: ({ index }) => (index === -1 ? 'root' : String(index)),
-  onCaughtMaking: (
-    caught: unknown,
-    {
-      reason,
-      propAccessHostName,
-      propAccessPropName,
-      caughtWhenProcessingReportKey,
-      caughtObjectNestingInfo,
-    },
-  ) => {
-    const message = [
-      `Reason - ${reason}`,
-      `Caught Object - ${caught}`,
-      reason !== 'prop-access' || typeof propAccessHostName !== 'string'
-        ? null
-        : `Prop Host - ${propAccessHostName}`,
-      reason !== 'prop-access' || typeof propAccessPropName !== 'string'
-        ? null
-        : `Prop Name - ${propAccessPropName}`,
-      !caughtWhenProcessingReportKey
-        ? null
-        : `Caught when processing Report Key - ${caughtWhenProcessingReportKey}`,
-      !caughtObjectNestingInfo
-        ? 'Level - Caught processing toplevel caught object'
-        : `Level - Caught processing nested caught object ${jsonStringify(
-            caughtObjectNestingInfo,
-          )}`,
-    ]
-      .filter(Boolean)
-      .map((l) => `[caught-object-report-json] [Default Error Handler] ${l}`)
-      .join('\n');
-    console.warn(message);
-  },
-  printWarningsOnUnhandledErrors: true,
-  parseStackToArray: true,
-}) satisfies CorjMakerOptions;
+  stackFormat: 'lines',
+  metadata: Object.freeze({ v: true, $schema: false }),
+  maxDepth: 5,
+  maxChildren: 100,
+  childrenSources: CORJ_EXPECTED_VALUES.children_sources,
+  makeReportId: ({ index }: CorjReportIdContext) =>
+    index === -1 ? 'root' : String(index),
+  onError: defaultOnError,
+});
+
+const OPTION_KEYS: readonly (keyof CorjOptions)[] = Object.freeze([
+  'maxReportSize',
+  'reportSizeUnit',
+  'omitExpectedValues',
+  'stackFormat',
+  'metadata',
+  'maxDepth',
+  'maxChildren',
+  'childrenSources',
+  'makeReportId',
+  'onError',
+]);
+
+function resolveOptions(
+  base: CorjOptions,
+  input: CorjOptionsInput | undefined,
+): CorjOptions {
+  if (input === undefined) return base;
+  if (typeof input !== 'object' || input === null) {
+    throw new TypeError('options must be an object');
+  }
+  for (const key of Object.keys(input)) {
+    if (!OPTION_KEYS.includes(key as keyof CorjOptions)) {
+      throw new TypeError(
+        `Unknown option "${key}". Known options: ${OPTION_KEYS.join(', ')}`,
+      );
+    }
+  }
+  const pick = <K extends Exclude<keyof CorjOptions, 'metadata'>>(
+    key: K,
+  ): CorjOptions[K] =>
+    (input[key] === undefined ? base[key] : input[key]) as CorjOptions[K];
+  const metadataInput = input.metadata;
+  let metadata: CorjMetadata;
+  if (metadataInput === undefined) {
+    metadata = base.metadata;
+  } else if (typeof metadataInput === 'boolean') {
+    metadata = { v: metadataInput, $schema: metadataInput };
+  } else if (typeof metadataInput === 'object' && metadataInput !== null) {
+    metadata = {
+      v: metadataInput.v === undefined ? base.metadata.v : metadataInput.v,
+      $schema:
+        metadataInput.$schema === undefined
+          ? base.metadata.$schema
+          : metadataInput.$schema,
+    };
+  } else {
+    throw new TypeError('metadata must be a boolean or an object');
+  }
+  if (
+    typeof metadata.v !== 'boolean' ||
+    typeof metadata.$schema !== 'boolean'
+  ) {
+    throw new TypeError('metadata.v and metadata.$schema must be booleans');
+  }
+  const options: CorjOptions = {
+    maxReportSize: pick('maxReportSize'),
+    reportSizeUnit: pick('reportSizeUnit'),
+    omitExpectedValues: pick('omitExpectedValues'),
+    stackFormat: pick('stackFormat'),
+    metadata: Object.freeze(metadata),
+    maxDepth: pick('maxDepth'),
+    maxChildren: pick('maxChildren'),
+    childrenSources: pick('childrenSources'),
+    makeReportId: pick('makeReportId'),
+    onError: pick('onError'),
+  };
+  resolveReportSizeOptions(options);
+  if (typeof options.omitExpectedValues !== 'boolean') {
+    throw new TypeError('omitExpectedValues must be a boolean');
+  }
+  if (options.stackFormat !== 'lines' && options.stackFormat !== 'string') {
+    throw new TypeError('stackFormat must be "lines" or "string"');
+  }
+  for (const key of ['maxDepth', 'maxChildren'] as const) {
+    if (!Number.isInteger(options[key]) || options[key] < 0) {
+      throw new RangeError(`${key} must be an integer >= 0`);
+    }
+  }
+  if (
+    !Array.isArray(options.childrenSources) ||
+    !options.childrenSources.every((source) => typeof source === 'string')
+  ) {
+    throw new TypeError('childrenSources must be an array of strings');
+  }
+  options.childrenSources = Object.freeze([...options.childrenSources]);
+  if (typeof options.makeReportId !== 'function') {
+    throw new TypeError('makeReportId must be a function');
+  }
+  if (typeof options.onError !== 'function') {
+    throw new TypeError('onError must be a function');
+  }
+  return Object.freeze(options);
+}
 
 // ██╗  ██╗███████╗██╗     ██████╗ ███████╗██████╗ ███████╗
 // ██║  ██║██╔════╝██║     ██╔══██╗██╔════╝██╔══██╗██╔════╝
@@ -483,852 +348,465 @@ export const CORJ_MAKER_DEFAULT_OPTIONS = Object.freeze({
 // ██║  ██║███████╗███████╗██║     ███████╗██║  ██║███████║
 // ╚═╝  ╚═╝╚══════╝╚══════╝╚═╝     ╚══════╝╚═╝  ╚═╝╚══════╝
 
-const jsonStringify = configureJsonStringify({
-  circularValue: '[caught-object-report-json: Circular]',
-  deterministic: false,
-  lengthLimit: 100_000,
-});
+type Ctx = { options: CorjOptions; stringify: Stringify };
+type Entry = [string, unknown];
+type Report = CorjReport | CorjReportChild[];
 
-function handleCaught(
-  caughtNew: unknown,
-  options: CorjMakerOptions,
-  context: CorjMakerOnCaughtMakingContext,
-) {
-  if (typeof options.onCaughtMaking === 'function') {
-    try {
-      options.onCaughtMaking(caughtNew, context);
-    } catch (caughtNew2: unknown) {
-      if (options.printWarningsOnUnhandledErrors) {
-        console.warn(
-          '[caught-object-report-json] `onCaughtMaking` callback threw!',
-        );
-      }
+type Node = {
+  id: string;
+  index: number;
+  level: number;
+  path: string;
+  obj: unknown;
+  childIds: string[];
+  childrenOmitted?: CorjChildrenOmitted;
+};
+
+function reportError(
+  ctx: Ctx,
+  caught: unknown,
+  context: CorjErrorContext,
+): void {
+  try {
+    ctx.options.onError(caught, context);
+  } catch (failure: unknown) {
+    console.warn(
+      `[caught-object-report-json] onError threw: ${describeValue(failure)}`,
+    );
+  }
+}
+
+function isObjectLike(value: unknown): value is object {
+  return (
+    (typeof value === 'object' && value !== null) || typeof value === 'function'
+  );
+}
+
+type Access = { found: boolean; threw: boolean; value?: unknown };
+
+/** Read `host[prop]` without letting a getter, proxy trap or primitive host throw out. */
+function access(
+  ctx: Ctx,
+  context: CorjErrorContext,
+  host: unknown,
+  prop: string,
+): Access {
+  if (host === undefined || host === null) {
+    return { found: false, threw: false };
+  }
+  try {
+    if (!isObjectLike(host)) {
+      const value = (host as Record<string, unknown>)[prop];
+      return value === undefined
+        ? { found: false, threw: false }
+        : { found: true, threw: false, value };
     }
-  } else {
-    if (options.printWarningsOnUnhandledErrors) {
-      console.warn(
-        '[caught-object-report-json] Muffling error because `onCaughtMaking` is not set.',
+    if (!(prop in host)) {
+      return { found: false, threw: false };
+    }
+    return {
+      found: true,
+      threw: false,
+      value: (host as Record<string, unknown>)[prop],
+    };
+  } catch (caught: unknown) {
+    reportError(ctx, caught, { ...context, prop });
+    return { found: false, threw: true };
+  }
+}
+
+function makeId(ctx: Ctx, context: CorjReportIdContext): string {
+  try {
+    const id = ctx.options.makeReportId(context);
+    if (typeof id !== 'string') {
+      throw new TypeError(
+        `makeReportId must return a string, got ${describeValue(id)}`,
       );
     }
-  }
-}
-
-function finishReport<
-  T extends CaughtObjectReportJson | CaughtObjectReportJsonChild[],
->(report: T, options: CorjMakerOptions): T {
-  try {
-    // Omit before limiting so the size budget is spent on real content, and
-    // again after: the limiter re-materializes `as_string` while trimming
-    // `stack`, and omission only shrinks a report that already fits.
-    return applyOmitExpectedValues(
-      limitReportSize(applyOmitExpectedValues(report, options), options),
-      options,
-    );
+    return id;
   } catch (caught: unknown) {
-    return reportLimitFailure(report, options, caught);
-  }
-}
-
-function applyOmitExpectedValues<
-  T extends CaughtObjectReportJson | CaughtObjectReportJsonChild[],
->(report: T, options: CorjMakerOptions): T {
-  if (options.omitExpectedValues !== true) return report;
-  try {
-    return omitExpectedValues(report);
-  } catch (e) {
-    console.error(
-      '[caught-object-report-json][Unhandled] Could not omit expected values',
-    );
-    // The report stays complete, so label it as such.
-    return markFullVersion(report);
-  }
-}
-
-function reportLimitFailure<
-  T extends CaughtObjectReportJson | CaughtObjectReportJsonChild[],
->(report: T, options: CorjMakerOptions, caught: unknown): T {
-  handleCaught(caught, options, {
-    reason: 'unknown',
-    caughtObjectNestingInfo: null,
-    caughtWhenProcessingReportKey: null,
-  });
-  return applyOmitExpectedValues(
-    makeMinimalReport(report, 'Could not limit report size'),
-    options,
-  );
-}
-
-function screenOptionsForAccessorErrors(
-  options: DeepPartialOptions<CorjMakerOptions>,
-): DeepPartialOptions<CorjMakerOptions> {
-  if (options === CORJ_MAKER_DEFAULT_OPTIONS) {
-    return options;
-  }
-  try {
-    options.metadataFields;
-    if (typeof options.metadataFields === 'object') {
-      options.metadataFields.as_json_format;
-      options.metadataFields.as_string_format;
-      options.metadataFields.v;
-      options.metadataFields.$schema;
-    }
-    options.childrenMetadataFields;
-    if (typeof options.childrenMetadataFields === 'object') {
-      options.childrenMetadataFields.as_json_format;
-      options.childrenMetadataFields.as_string_format;
-      options.childrenMetadataFields.v;
-      options.childrenMetadataFields.$schema;
-    }
-    options.asJsonFormatsToApply;
-    options.asJsonFormatsToApply?.forEach((f) => f);
-    options.asStringFormatsToApply;
-    options.asStringFormatsToApply?.forEach((f) => f);
-    options.makeReportId;
-    options.printWarningsOnUnhandledErrors;
-    options.onCaughtMaking;
-    options.maxChildrenLevel;
-    options.childrenSources;
-    options.childrenSources?.forEach((s) => s);
-    options.parseStackToArray;
-    options.maxReportSize;
-    options.reportSizeUnit;
-    options.omitExpectedValues;
-    return options;
-  } catch (caught: unknown) {
-    console.warn(
-      '[caught-object-report-json] Accessing one of properties on options object threw an error, falling back to default options',
-    );
-    return CORJ_MAKER_DEFAULT_OPTIONS;
-  }
-}
-
-function safeAccessProp(
-  caughtObjectNestingInfo: NestedCfg | null,
-  reportKey: keyof CaughtObjectReportJson | null,
-  options: CorjMakerOptions,
-  hostName: string,
-  host: unknown,
-  propName: string,
-): { value?: unknown; caughtDuring: boolean } {
-  let caughtDuring = false;
-  if (host === undefined || host === null) {
-    return { caughtDuring };
-  }
-  try {
-    if (
-      ['number', 'string', 'symbol', 'bigint', 'boolean'].includes(typeof host)
-    ) {
-      const value = (host as any)[propName];
-      if (value === undefined) {
-        return { caughtDuring };
-      }
-      return { value, caughtDuring };
-    } else {
-      if (propName in (host as any)) {
-        return { value: (host as any)[propName], caughtDuring };
-      } else {
-        return { caughtDuring };
-      }
-    }
-  } catch (caughtNew: unknown) {
-    caughtDuring = true;
-    handleCaught(caughtNew, options, {
-      propAccessPropName: propName,
-      propAccessHostName: hostName,
-      caughtObjectNestingInfo,
-      reason: 'prop-access',
-      caughtWhenProcessingReportKey: reportKey,
+    reportError(ctx, caught, {
+      stage: 'other',
+      path: context.path,
+      key: 'id',
     });
+    return context.index === -1 ? 'root' : String(context.index);
   }
-  return { caughtDuring };
 }
 
-function getNestedObjectsOfCaught(
-  caught: unknown,
-  maker: CorjMaker,
+function childSources(
+  ctx: Ctx,
+  node: Node,
+  isNew: (value: unknown) => boolean,
 ): { obj: unknown; path: string }[] {
-  if (
-    !caught ||
-    typeof caught !== 'object' ||
-    !('errors' in caught || 'cause' in caught)
-  ) {
-    return [];
-  }
-  const nestedObjects: { obj: unknown; path: string }[] = [];
-  for (const childrenSourceProp of maker.options.childrenSources) {
-    if (!(childrenSourceProp in caught)) {
+  const host = node.obj;
+  if (!isObjectLike(host)) return [];
+  const out: { obj: unknown; path: string }[] = [];
+  const context: CorjErrorContext = {
+    stage: 'children',
+    path: node.path,
+    key: node.index === -1 ? 'children' : 'child_ids',
+  };
+  // No report can hold more than `maxChildren` new nodes, so stop collecting
+  // once that many unseen objects are found; references to seen ones are free.
+  const enough = ctx.options.maxChildren + 1;
+  const local = new Set<object>();
+  let fresh = 0;
+  const push = (obj: unknown, path: string) => {
+    out.push({ obj, path });
+    if (!isObjectLike(obj)) {
+      fresh++;
+    } else if (isNew(obj) && !local.has(obj)) {
+      local.add(obj);
+      fresh++;
+    }
+  };
+  for (const prop of ctx.options.childrenSources) {
+    if (fresh >= enough) break;
+    const source = access(ctx, context, host, prop);
+    if (!source.found || source.value === undefined) continue;
+    if (!Array.isArray(source.value)) {
+      push(source.value, `${node.path}.${prop}`);
       continue;
     }
-    const source = (caught as any)[childrenSourceProp];
-    const sourceArray = Array.isArray(source)
-      ? source.map((s, i) => ({
-          obj: s,
-          path: `.${childrenSourceProp}[${i}]`,
-        }))
-      : [{ obj: source, path: `.${childrenSourceProp}` }];
-    nestedObjects.push(...sourceArray);
-  }
-  return nestedObjects;
-}
-
-function makeMetadataValue<
-  K extends
-    | keyof CorjMakerOptionsMetadataFieldsConfig
-    | keyof Pick<
-        CaughtObjectReportJson,
-        keyof CorjMakerOptionsMetadataFieldsConfig
-      >,
->(
-  nestedCfg: NestedCfg | null,
-  options: CorjMakerOptions,
-  propName: K,
-  value: CaughtObjectReportJson[K],
-): { value?: CaughtObjectReportJson[K] } {
-  try {
-    const metadataConfig =
-      nestedCfg === null
-        ? options.metadataFields
-        : options.childrenMetadataFields;
-    if (
-      metadataConfig === true ||
-      (typeof metadataConfig === 'object' && metadataConfig[propName] === true)
-    ) {
-      return { value };
+    // Own keys rather than `length`: a sparse array is not walked hole by hole.
+    const array: unknown[] = source.value;
+    let keys: string[];
+    try {
+      keys = Object.keys(array);
+    } catch (caught: unknown) {
+      reportError(ctx, caught, { ...context, prop });
+      continue;
     }
-    return {};
-  } catch (e) {
-    console.error(
-      `[caught-object-report-json][Unhandled] Could not make metadata value - ${propName}`,
-    );
-    return {};
+    for (const key of keys) {
+      if (fresh >= enough) break;
+      if (!/^(0|[1-9][0-9]*)$/.test(key)) continue;
+      const element = access(ctx, context, array, key);
+      if (!element.found || element.value === undefined) continue;
+      push(element.value, `${node.path}.${prop}[${key}]`);
+    }
   }
+  return out;
 }
 
-function mergeOptions(
-  baseOptions: CorjMakerOptions,
-  newOptions: DeepPartialOptions<CorjMakerOptions>,
-): CorjMakerOptions {
-  try {
-    // An explicitly undefined option means "not provided", not "disabled".
-    const providedOptions = Object.fromEntries(
-      Object.entries(newOptions ?? {}).filter(([, v]) => v !== undefined),
-    ) as DeepPartialOptions<CorjMakerOptions>;
-    const effectiveOptions: CorjMakerOptions =
-      newOptions === baseOptions
-        ? (newOptions as CorjMakerOptions)
-        : {
-            ...baseOptions,
-            ...providedOptions,
-            ...(newOptions?.maxReportSize === undefined &&
-            baseOptions.maxReportSize !== undefined
-              ? { maxReportSize: baseOptions.maxReportSize }
-              : {}),
-            ...(newOptions?.reportSizeUnit === undefined &&
-            baseOptions.reportSizeUnit !== undefined
-              ? { reportSizeUnit: baseOptions.reportSizeUnit }
-              : {}),
-            metadataFields:
-              typeof newOptions?.metadataFields === 'boolean'
-                ? newOptions.metadataFields
-                : newOptions?.metadataFields === undefined &&
-                  typeof baseOptions.metadataFields === 'boolean'
-                ? baseOptions.metadataFields
-                : {
-                    ...CORJ_MAKER_DEFAULT_OPTIONS.metadataFields,
-                    ...(typeof baseOptions.metadataFields === 'boolean'
-                      ? {}
-                      : baseOptions.metadataFields),
-                    ...(newOptions?.metadataFields ?? {}),
-                  },
-            childrenMetadataFields:
-              typeof newOptions?.childrenMetadataFields === 'boolean'
-                ? newOptions.childrenMetadataFields
-                : newOptions?.childrenMetadataFields === undefined &&
-                  typeof baseOptions.childrenMetadataFields === 'boolean'
-                ? baseOptions.childrenMetadataFields
-                : {
-                    ...CORJ_MAKER_DEFAULT_OPTIONS.childrenMetadataFields,
-                    ...(typeof baseOptions.childrenMetadataFields === 'boolean'
-                      ? {}
-                      : baseOptions.childrenMetadataFields),
-                    ...(newOptions?.childrenMetadataFields ?? {}),
-                  },
-          };
-    return effectiveOptions;
-  } catch (e) {
-    console.error(
-      `[caught-object-report-json][Unhandled] Could not merge options, falling back to base options`,
-    );
-    return baseOptions;
-  }
-}
-
-// ██████╗ ███████╗██████╗  ██████╗ ██████╗ ████████╗    ██████╗ ██████╗  ██████╗ ██████╗ ███████╗    ██████╗ ██╗   ██╗██╗██╗     ██████╗ ███████╗██████╗ ███████╗
-// ██╔══██╗██╔════╝██╔══██╗██╔═══██╗██╔══██╗╚══██╔══╝    ██╔══██╗██╔══██╗██╔═══██╗██╔══██╗██╔════╝    ██╔══██╗██║   ██║██║██║     ██╔══██╗██╔════╝██╔══██╗██╔════╝
-// ██████╔╝█████╗  ██████╔╝██║   ██║██████╔╝   ██║       ██████╔╝██████╔╝██║   ██║██████╔╝███████╗    ██████╔╝██║   ██║██║██║     ██║  ██║█████╗  ██████╔╝███████╗
-// ██╔══██╗██╔══╝  ██╔═══╝ ██║   ██║██╔══██╗   ██║       ██╔═══╝ ██╔══██╗██║   ██║██╔═══╝ ╚════██║    ██╔══██╗██║   ██║██║██║     ██║  ██║██╔══╝  ██╔══██╗╚════██║
-// ██║  ██║███████╗██║     ╚██████╔╝██║  ██║   ██║       ██║     ██║  ██║╚██████╔╝██║     ███████║    ██████╔╝╚██████╔╝██║███████╗██████╔╝███████╗██║  ██║███████║
-// ╚═╝  ╚═╝╚══════╝╚═╝      ╚═════╝ ╚═╝  ╚═╝   ╚═╝       ╚═╝     ╚═╝  ╚═╝ ╚═════╝ ╚═╝     ╚══════╝    ╚═════╝  ╚═════╝ ╚═╝╚══════╝╚═════╝ ╚══════╝╚═╝  ╚═╝╚══════╝
-
-function makeProp_as_string(
-  caught: unknown,
-  options: CorjMakerOptions,
-  nestedCfg: NestedCfg | null,
-): CaughtObjectAsStringReport {
-  try {
-    const formats = options.asStringFormatsToApply;
-    for (let i = 0; i < formats.length; ++i) {
-      const format = formats[i] as CorjAsStringFormat;
-      try {
-        switch (format) {
-          case CORJ_AS_STRING_FORMAT_STRING_COERCION:
-            return {
-              format,
-              value: String(caught),
-            };
-          case CORJ_AS_STRING_FORMAT_TO_CORJ_AS_STRING_METHOD: {
-            const r = safeAccessProp(
-              nestedCfg,
-              'as_string',
-              options,
-              'caught',
-              caught,
-              'toCorjAsString',
-            );
-            if (!('value' in r) || typeof r.value !== 'function') {
-              if (i < formats.length - 1) {
-                continue;
-              } else {
-                return {
-                  format,
-                  value: null,
-                };
-              }
-            } else {
-              const value = r.value.call(caught, {
-                options,
-                caught,
-                nestedCfg,
-              });
-              if (typeof value !== 'string') {
-                if (i < formats.length - 1) {
-                  continue;
-                } else {
-                  return {
-                    format,
-                    value: null,
-                  };
-                }
-              }
-              return {
-                format,
-                value,
-              };
-            }
-          }
-        }
-      } catch (caughtNew: unknown) {
-        if (i < formats.length - 1) {
-          continue;
-        } else {
-          handleCaught(caughtNew, options, {
-            reason: 'error-converting-caught-to-json',
-            caughtObjectNestingInfo: nestedCfg,
-            caughtWhenProcessingReportKey: 'as_string',
-          });
-          return {
-            format,
-            value: null,
-          };
-        }
+/** Breadth-first walk of the error tree. Each object is reported once; repeats become ID references. */
+function discover(ctx: Ctx, caught: unknown): { root: Node; nodes: Node[] } {
+  const { maxDepth, maxChildren } = ctx.options;
+  const root: Node = {
+    id: makeId(ctx, { index: -1, level: 0, path: '$', caught }),
+    index: -1,
+    level: 0,
+    path: '$',
+    obj: caught,
+    childIds: [],
+  };
+  const seen = new Map<object, string>();
+  if (isObjectLike(caught)) seen.set(caught, root.id);
+  const isNew = (value: unknown) => !(isObjectLike(value) && seen.has(value));
+  const nodes: Node[] = [];
+  const queue: Node[] = [root];
+  let index = 0;
+  for (let head = 0; head < queue.length; head++) {
+    const current = queue[head]!;
+    const sources = childSources(ctx, current, isNew);
+    if (sources.length === 0) continue;
+    if (current.level >= maxDepth) {
+      current.childrenOmitted = 'max_depth';
+      continue;
+    }
+    for (const source of sources) {
+      const seenId = isObjectLike(source.obj)
+        ? seen.get(source.obj)
+        : undefined;
+      if (seenId !== undefined) {
+        current.childIds.push(seenId);
+        continue;
       }
+      if (nodes.length >= maxChildren) {
+        current.childrenOmitted = 'max_children';
+        break;
+      }
+      const node: Node = {
+        id: '',
+        index: index++,
+        level: current.level + 1,
+        path: source.path,
+        obj: source.obj,
+        childIds: [],
+      };
+      node.id = makeId(ctx, {
+        index: node.index,
+        level: node.level,
+        path: node.path,
+        caught: node.obj,
+      });
+      if (isObjectLike(source.obj)) seen.set(source.obj, node.id);
+      current.childIds.push(node.id);
+      nodes.push(node);
+      queue.push(node);
     }
-    return {
-      format: null,
-      value: null,
-    };
-  } catch (e) {
-    console.error(
-      `[caught-object-report-json][Unhandled] Could not make as_string`,
-    );
-    return {
-      format: null,
-      value: null,
-    };
   }
+  return { root, nodes };
 }
 
-function makeProp_as_string_format(
-  format: CorjAsStringFormat | null,
-  options: CorjMakerOptions,
-  nestedCfg: NestedCfg | null,
-) {
-  const res = makeMetadataValue(nestedCfg, options, 'as_string_format', format);
-  if ('value' in res) {
-    return res.value;
-  }
-  return undefined;
-}
+// ██████╗ ███████╗██████╗  ██████╗ ██████╗ ████████╗    ██████╗ ██████╗  ██████╗ ██████╗ ███████╗
+// ██╔══██╗██╔════╝██╔══██╗██╔═══██╗██╔══██╗╚══██╔══╝    ██╔══██╗██╔══██╗██╔═══██╗██╔══██╗██╔════╝
+// ██████╔╝█████╗  ██████╔╝██║   ██║██████╔╝   ██║       ██████╔╝██████╔╝██║   ██║██████╔╝███████╗
+// ██╔══██╗██╔══╝  ██╔═══╝ ██║   ██║██╔══██╗   ██║       ██╔═══╝ ██╔══██╗██║   ██║██╔═══╝ ╚════██║
+// ██║  ██║███████╗██║     ╚██████╔╝██║  ██║   ██║       ██║     ██║  ██║╚██████╔╝██║     ███████║
+// ╚═╝  ╚═╝╚══════╝╚═╝      ╚═════╝ ╚═╝  ╚═╝   ╚═╝       ╚═╝     ╚═╝  ╚═╝ ╚═════╝ ╚═╝     ╚══════╝
 
-function makeProp_children_sources(
-  options: CorjMakerOptions,
-  nestedCfg: NestedCfg | null,
-) {
-  const res = makeMetadataValue(
-    nestedCfg,
-    options,
-    'children_sources',
-    options.childrenSources,
+function stringProp(
+  ctx: Ctx,
+  node: Node,
+  key: keyof CorjReportBase,
+  prop: string,
+): string | null | undefined {
+  const r = access(
+    ctx,
+    { stage: 'prop-access', path: node.path, key },
+    node.obj,
+    prop,
   );
-  if ('value' in res) {
-    return res.value;
-  }
-  return undefined;
+  if (r.threw) return null;
+  return typeof r.value === 'string' ? r.value : undefined;
 }
 
-function makeProp_as_json_format(
-  format: CorjAsJsonFormat | null,
-  options: CorjMakerOptions,
-  nestedCfg: NestedCfg | null,
-) {
-  const res = makeMetadataValue(nestedCfg, options, 'as_json_format', format);
-  if ('value' in res) {
-    return res.value;
-  }
-  return undefined;
+function makeConstructorName(ctx: Ctx, node: Node): string | null | undefined {
+  const context: CorjErrorContext = {
+    stage: 'prop-access',
+    path: node.path,
+    key: 'constructor_name',
+  };
+  const ctor = access(ctx, context, node.obj, 'constructor');
+  if (ctor.threw) return null;
+  if (!ctor.found) return undefined;
+  const name = access(ctx, context, ctor.value, 'name');
+  if (name.threw) return null;
+  return typeof name.value === 'string' ? name.value : undefined;
 }
 
-function makeProp_v(options: CorjMakerOptions, nestedCfg: NestedCfg | null) {
-  const res = makeMetadataValue(
-    nestedCfg,
-    options,
-    'v',
-    options.omitExpectedValues === true ? CORJ_VERSION : CORJ_VERSION_FULL,
+function makeAsString(
+  ctx: Ctx,
+  node: Node,
+): { value: string | null; format: CorjAsStringFormat } {
+  const { obj, path } = node;
+  const context: CorjErrorContext = {
+    stage: 'as_string',
+    path,
+    key: 'as_string',
+  };
+  const method = access(
+    ctx,
+    { ...context, stage: 'prop-access' },
+    obj,
+    'toCorjAsString',
   );
-  if ('value' in res) {
-    return res.value;
+  if (method.found && typeof method.value === 'function') {
+    try {
+      const value: unknown = method.value.call(obj, {
+        path,
+        options: ctx.options,
+      });
+      if (typeof value === 'string') {
+        return { value, format: '.toCorjAsString' };
+      }
+    } catch (caught: unknown) {
+      reportError(ctx, caught, { ...context, prop: 'toCorjAsString' });
+    }
   }
-  return undefined;
+  try {
+    return { value: String(obj), format: 'String' };
+  } catch (caught: unknown) {
+    reportError(ctx, caught, context);
+    return { value: null, format: 'String' };
+  }
 }
 
-function makeProp_$schema(
-  options: CorjMakerOptions,
-  nestedCfg: NestedCfg | null,
-) {
-  const res = makeMetadataValue(
-    nestedCfg,
-    options,
-    '$schema',
-    options.omitExpectedValues === true
-      ? nestedCfg === null
-        ? CORJ_REPORT_OBJECT_JSON_SCHEMA_LINK
-        : CORJ_REPORT_ARRAY_JSON_SCHEMA_LINK
-      : nestedCfg === null
-      ? CORJ_FULL_REPORT_OBJECT_JSON_SCHEMA_LINK
-      : CORJ_FULL_REPORT_ARRAY_JSON_SCHEMA_LINK,
-  );
-  if ('value' in res) {
-    return res.value;
-  }
-  return undefined;
-}
-
-function makeProp_as_json(
-  caught: unknown,
-  options: CorjMakerOptions,
-  nestedCfg: NestedCfg | null,
-): CaughtObjectAsJsonReport {
-  const { maxReportSize, reportSizeUnit } = resolveReportSizeOptions(options);
+function serialize(
+  ctx: Ctx,
+  value: unknown,
+  replacer: ((this: object, key: string, value: unknown) => unknown) | null,
+): { json: string | undefined; truncated: boolean } {
   let truncated = false;
-  const jsonStringify = configureJsonStringify({
-    circularValue: '[caught-object-report-json: Circular]',
-    deterministic: false,
-    ...(maxReportSize === null ? {} : { lengthLimit: maxReportSize }),
-    lengthUnit: reportSizeUnit,
+  const json = ctx.stringify(value, replacer, {
     onTruncate: () => {
       truncated = true;
     },
   });
-  try {
-    const formats = options.asJsonFormatsToApply;
-    for (let i = 0; i < formats.length; ++i) {
-      const format = formats[i] as CorjAsJsonFormat;
-      truncated = false;
-      try {
-        switch (format) {
-          case CORJ_AS_JSON_FORMAT_TO_CORJ_AS_JSON_METHOD: {
-            const r = safeAccessProp(
-              nestedCfg,
-              'as_string',
-              options,
-              'caught',
-              caught,
-              'toCorjAsJson',
-            );
-            if (!('value' in r) || typeof r.value !== 'function') {
-              if (i < formats.length - 1) {
-                continue;
-              } else {
-                return {
-                  format,
-                  value: null,
-                };
-              }
-            } else {
-              const stringValue = jsonStringify(
-                r.value.call(caught, { options, caught, nestedCfg }),
-              );
-              if (typeof stringValue !== 'string') {
-                if (i < formats.length - 1) {
-                  continue;
-                } else {
-                  return {
-                    format,
-                    value: null,
-                  };
-                }
-              } else {
-                return {
-                  format,
-                  value: JSON.parse(stringValue),
-                  ...(truncated ? { truncated: true as const } : {}),
-                };
-              }
-            }
-          }
-          case CORJ_AS_JSON_FORMAT_SAFE_STABLE_STRINGIFY_WITH_LENGTH_LIMIT: {
-            const jsonString = jsonStringify(
-              caught,
-              function (this: object, key: string, value: unknown) {
-                if (this === caught && options.childrenSources.includes(key)) {
-                  return undefined;
-                }
-                return value;
-              },
-            );
-            if (typeof jsonString !== 'string') {
-              const err = new Error(
-                `Could not convert caught object to json string using ${format}.`,
-              );
-              (err as any).originalCaught = caught;
-              (err as any).originalCaughtStringifyResult = jsonString;
-              throw err;
-            }
-            return {
-              format,
-              value: JSON.parse(jsonString),
-              ...(truncated ? { truncated: true as const } : {}),
-            };
-          }
-        }
-      } catch (caughtNew: unknown) {
-        if (i < formats.length - 1) {
-          continue;
-        }
-        handleCaught(caughtNew, options, {
-          reason: 'error-converting-caught-to-json',
-          caughtObjectNestingInfo: nestedCfg,
-          caughtWhenProcessingReportKey: 'as_json',
-        });
-        return {
-          format,
-          value: null,
-        };
-      }
-    }
-    return {
-      format: null,
-      value: null,
-    };
-  } catch (e) {
-    console.error(
-      `[caught-object-report-json][Unhandled] Could not make as_json`,
-    );
-    return {
-      format: null,
-      value: null,
-    };
-  }
+  return { json, truncated };
 }
 
-function makeProp_message(
-  caught: unknown,
-  options: CorjMakerOptions,
-  nestedCfg: NestedCfg | null,
-): string | null | undefined {
-  try {
-    const safeAccessPropHere = safeAccessProp.bind(
-      null,
-      nestedCfg,
-      'message',
-      options,
-    );
-    const r = safeAccessPropHere('caught', caught, 'message');
-    if (r.caughtDuring) {
-      return null;
-    }
-    if (!('value' in r) || typeof r.value !== 'string') {
-      return undefined;
-    }
-    return r.value;
-  } catch (caughtNew: unknown) {
-    handleCaught(caughtNew, options, {
-      reason: 'unknown',
-      caughtObjectNestingInfo: nestedCfg,
-      caughtWhenProcessingReportKey: 'message',
-    });
-    return null;
-  }
-}
-
-function makeProp_stack(
-  caught: unknown,
-  options: CorjMakerOptions,
-  nestedCfg: NestedCfg | null,
-): string | string[] | null | undefined {
-  try {
-    const safeAccessPropHere = safeAccessProp.bind(
-      null,
-      nestedCfg,
-      'stack',
-      options,
-    );
-    const r = safeAccessPropHere('caught', caught, 'stack');
-    if (r.caughtDuring) {
-      return null;
-    }
-    if (!('value' in r) || typeof r.value !== 'string') {
-      return undefined;
-    }
-    if (options.parseStackToArray) {
-      const stackArr = r.value.split('\n');
-      return stackArr;
-    }
-    return r.value;
-  } catch (caughtNew: unknown) {
-    handleCaught(caughtNew, options, {
-      reason: 'unknown',
-      caughtObjectNestingInfo: nestedCfg,
-      caughtWhenProcessingReportKey: 'stack',
-    });
-    return null;
-  }
-}
-
-function makeProp_constructor_name(
-  caught: unknown,
-  options: CorjMakerOptions,
-  nestedCfg: NestedCfg | null,
-): string | null | undefined {
-  try {
-    const safeAccessPropHere = safeAccessProp.bind(
-      null,
-      nestedCfg,
-      'constructor_name',
-      options,
-    );
-    const r = safeAccessPropHere('caught', caught, 'constructor');
-    if (r.caughtDuring) {
-      return null;
-    }
-    if (!('value' in r)) {
-      return undefined;
-    }
-    const constructor = r.value;
-    const rr = safeAccessPropHere('caught.constructor', constructor, 'name');
-    if (rr.caughtDuring) {
-      return null;
-    }
-    if (!('value' in rr) || typeof rr.value !== 'string') {
-      return undefined;
-    }
-    return rr.value;
-  } catch (caughtNew: unknown) {
-    handleCaught(caughtNew, options, {
-      reason: 'unknown',
-      caughtWhenProcessingReportKey: 'constructor_name',
-      caughtObjectNestingInfo: nestedCfg,
-    });
-    return null;
-  }
-}
-
-// ██████╗ ███████╗██████╗  ██████╗ ██████╗ ████████╗    ██████╗ ██╗   ██╗██╗██╗     ██████╗ ███████╗██████╗ ███████╗
-// ██╔══██╗██╔════╝██╔══██╗██╔═══██╗██╔══██╗╚══██╔══╝    ██╔══██╗██║   ██║██║██║     ██╔══██╗██╔════╝██╔══██╗██╔════╝
-// ██████╔╝█████╗  ██████╔╝██║   ██║██████╔╝   ██║       ██████╔╝██║   ██║██║██║     ██║  ██║█████╗  ██████╔╝███████╗
-// ██╔══██╗██╔══╝  ██╔═══╝ ██║   ██║██╔══██╗   ██║       ██╔══██╗██║   ██║██║██║     ██║  ██║██╔══╝  ██╔══██╗╚════██║
-// ██║  ██║███████╗██║     ╚██████╔╝██║  ██║   ██║       ██████╔╝╚██████╔╝██║███████╗██████╔╝███████╗██║  ██║███████║
-// ╚═╝  ╚═╝╚══════╝╚═╝      ╚═════╝ ╚═╝  ╚═╝   ╚═╝       ╚═════╝  ╚═════╝ ╚═╝╚══════╝╚═════╝ ╚══════╝╚═╝  ╚═╝╚══════╝
-
-function makeChildrenEntries(
-  maker: CorjMaker,
-  caught: unknown,
+function makeAsJson(
+  ctx: Ctx,
+  node: Node,
 ): {
-  omittedReason: string | undefined;
-  flatChildrenEntries?: [string, unknown][][];
-  rootIds: string[];
+  value: CorjJsonValue | null;
+  format: CorjAsJsonFormat;
+  truncated: boolean;
 } {
-  const root = { index: -1, obj: caught, path: '$', level: 0 };
-  const stack: { index: number; obj: unknown; path: string; level: number }[] =
-    [root];
-  const childrenObject = [];
-  let index = 0;
-  while (stack.length > 0) {
-    const cur = stack.pop() as {
-      level: number;
-      nestedIds: string[];
-      omittedReason?: string;
-      index: number;
-      obj: unknown;
-      path: string;
-    };
-    cur.nestedIds = [];
-    const thisLevel = cur.level + 1;
-    const nestedObjectsOf = getNestedObjectsOfCaught(cur.obj, maker);
-    if (thisLevel > maker.options.maxChildrenLevel) {
-      if (nestedObjectsOf.length > 0) {
-        cur.omittedReason = CORJ_NESTED_OMITTED_REASONS.REACHED_MAX_DEPTH(
-          maker.options.maxChildrenLevel,
-        );
+  const { obj, path } = node;
+  const context: CorjErrorContext = { stage: 'as_json', path, key: 'as_json' };
+  const method = access(
+    ctx,
+    { ...context, stage: 'prop-access' },
+    obj,
+    'toCorjAsJson',
+  );
+  if (method.found && typeof method.value === 'function') {
+    try {
+      const raw: unknown = method.value.call(obj, {
+        path,
+        options: ctx.options,
+      });
+      const { json, truncated } = serialize(ctx, raw, null);
+      if (json !== undefined) {
+        return { value: JSON.parse(json), format: '.toCorjAsJson', truncated };
       }
-      continue;
+    } catch (caught: unknown) {
+      reportError(ctx, caught, { ...context, prop: 'toCorjAsJson' });
     }
-    const withIds = nestedObjectsOf.map((n) => {
-      const child = {
-        index: index++,
-        obj: n.obj,
-        path: cur.path + n.path,
-        level: thisLevel,
-      };
-      return {
-        ...child,
-        id: maker.options.makeReportId({
-          caught: child.obj,
-          index: child.index,
-          path: child.path,
-          level: child.level,
-        }),
-      };
+  }
+  const format = CORJ_EXPECTED_VALUES.as_json_format;
+  try {
+    const sources = ctx.options.childrenSources;
+    const { json, truncated } = serialize(ctx, obj, function (key, value) {
+      return this === obj && sources.includes(key) ? undefined : value;
     });
-    cur.nestedIds = withIds.map((n) => n.id);
-    childrenObject.push(...withIds);
-    stack.push(...withIds);
+    if (json === undefined) {
+      // Functions, symbols and undefined have no JSON form.
+      return { value: null, format, truncated: false };
+    }
+    return { value: JSON.parse(json), format, truncated };
+  } catch (caught: unknown) {
+    reportError(ctx, caught, context);
+    return { value: null, format, truncated: false };
   }
-  if (childrenObject.length === 0) {
-    return {
-      rootIds: (root as any).nestedIds,
-      omittedReason: (root as any).omittedReason,
-    };
+}
+
+type NodeFields = {
+  entries: Entry[];
+  formatEntries: Entry[];
+  truncated: boolean;
+};
+
+function makeNodeFields(ctx: Ctx, node: Node): NodeFields {
+  const { obj, path } = node;
+  let instanceofError = false;
+  try {
+    instanceofError = obj instanceof Error;
+  } catch (caught: unknown) {
+    reportError(ctx, caught, { stage: 'other', path, key: 'instanceof_error' });
   }
+  const constructorName = makeConstructorName(ctx, node);
+  const message = stringProp(ctx, node, 'message', 'message');
+  const rawStack = stringProp(ctx, node, 'stack', 'stack');
+  const stack =
+    typeof rawStack === 'string' && ctx.options.stackFormat === 'lines'
+      ? rawStack.split('\n')
+      : rawStack;
+  const asString = makeAsString(ctx, node);
+  const asJson = makeAsJson(ctx, node);
   return {
-    rootIds: (root as any).nestedIds,
-    omittedReason: (root as any).omittedReason,
-    flatChildrenEntries: childrenObject
-      .map((no) => {
-        const { mainEntries, metadataEntries } = makeParentObjectSelfEntries(
-          maker,
-          no.obj,
-          {
-            level: no.level,
-            path: no.path,
-            index: no.index,
-          },
-        );
-        return [
-          ['id', no.id],
-          ['path', no.path],
-          ['level', no.level],
-          ...mainEntries,
-          // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-          // @ts-ignore
-          ['children', no.nestedIds.length > 0 ? no.nestedIds : undefined],
-          ['children_omitted_reason', (no as any).omittedReason],
-          ...metadataEntries,
-        ].filter(([, v]) => v !== undefined) as [string, unknown][];
-      })
-      .filter(([, v]) => v !== undefined) as [string, unknown][][],
+    entries: [
+      ['instanceof_error', instanceofError],
+      ['typeof', typeof obj],
+      ['constructor_name', constructorName],
+      ['message', message],
+      ['as_string', asString.value],
+      ['as_json', asJson.value],
+      ['stack', stack],
+    ],
+    formatEntries: [
+      ['as_string_format', asString.format],
+      ['as_json_format', asJson.format],
+    ],
+    truncated: asJson.truncated,
   };
 }
 
-function makeParentObjectSelfEntries(
-  maker: CorjMaker,
-  caught: unknown,
-  nestedCfg: NestedCfg | null,
-): { mainEntries: [string, unknown][]; metadataEntries: [string, unknown][] } {
-  // Preserve required fields even when a proxy throws during instanceof.
-  let instanceof_error: CaughtObjectReportJson['instanceof_error'] = false;
-  const typeof_prop: CaughtObjectReportJson['typeof'] = typeof caught;
-  let constructor_name: CaughtObjectReportJson['constructor_name'] | undefined;
-  let message: CaughtObjectReportJson['message'] | undefined;
-  let as_string_format: CaughtObjectReportJson['as_string_format'] | undefined;
-  let as_string: CaughtObjectReportJson['as_string'] = null;
-  let as_json_format: CaughtObjectReportJson['as_json_format'] | undefined;
-  let as_json: CaughtObjectReportJson['as_json'] = null;
-  let truncated: true | undefined;
-  let stack: CaughtObjectReportJson['stack'] | undefined;
-  let v: CaughtObjectReportJson['v'] | undefined;
-  let $schema: CaughtObjectReportJson['$schema'] | undefined;
-  let children_sources: CaughtObjectReportJson['children_sources'] | undefined;
-  try {
-    // Metadata
-    v = makeProp_v(maker.options, nestedCfg);
-    $schema = makeProp_$schema(maker.options, nestedCfg);
-    children_sources = makeProp_children_sources(maker.options, nestedCfg);
+function toObject<T>(entries: Entry[]): T {
+  return Object.fromEntries(
+    entries.filter(([, value]) => value !== undefined),
+  ) as T;
+}
 
-    // Less likely to throw in onCaughtMaking
-    instanceof_error = caught instanceof Error;
-    constructor_name = makeProp_constructor_name(
-      caught,
-      maker.options,
-      nestedCfg,
-    );
-    message = makeProp_message(caught, maker.options, nestedCfg);
-    stack = makeProp_stack(caught, maker.options, nestedCfg);
-
-    // More likely to throw in onCaughtMaking
-    const asString = makeProp_as_string(caught, maker.options, nestedCfg);
-    as_string_format = makeProp_as_string_format(
-      asString.format,
-      maker.options,
-      nestedCfg,
-    );
-    as_string = asString.value;
-    const asJson = makeProp_as_json(caught, maker.options, nestedCfg);
-    as_json_format = makeProp_as_json_format(
-      asJson.format,
-      maker.options,
-      nestedCfg,
-    );
-    as_json = asJson.value;
-    truncated = asJson.truncated;
-  } catch (caughtNew: unknown) {
-    handleCaught(caughtNew, maker.options, {
-      reason: 'unknown',
-      caughtObjectNestingInfo: nestedCfg,
-      caughtWhenProcessingReportKey: null,
-    });
+function build(ctx: Ctx, caught: unknown, asArray: boolean): Report {
+  const { root, nodes } = discover(ctx, caught);
+  const rootFields = makeNodeFields(ctx, root);
+  let anyTruncated = rootFields.truncated;
+  const rows = nodes.map((node) => {
+    const fields = makeNodeFields(ctx, node);
+    anyTruncated ||= fields.truncated;
+    return toObject<CorjReportChild>([
+      ['id', node.id],
+      ['path', node.path],
+      ['level', node.level],
+      ['truncated', fields.truncated ? true : undefined],
+      ...fields.entries,
+      ['children_omitted', node.childrenOmitted],
+      ['child_ids', node.childIds.length > 0 ? node.childIds : undefined],
+      ...fields.formatEntries,
+    ]);
+  });
+  const { metadata, omitExpectedValues: omit } = ctx.options;
+  const schemaLink = omit
+    ? asArray
+      ? CORJ_REPORT_ARRAY_JSON_SCHEMA_LINK
+      : CORJ_REPORT_OBJECT_JSON_SCHEMA_LINK
+    : asArray
+    ? CORJ_FULL_REPORT_ARRAY_JSON_SCHEMA_LINK
+    : CORJ_FULL_REPORT_OBJECT_JSON_SCHEMA_LINK;
+  const tail: Entry[] = [
+    ['children_sources', [...ctx.options.childrenSources]],
+    ...rootFields.formatEntries,
+    ['v', metadata.v ? (omit ? CORJ_VERSION : CORJ_VERSION_FULL) : undefined],
+    ['$schema', metadata.$schema ? schemaLink : undefined],
+  ];
+  if (asArray) {
+    const rootRow = toObject<CorjReportChild>([
+      ['id', root.id],
+      ['path', root.path],
+      ['level', root.level],
+      ['truncated', anyTruncated ? true : undefined],
+      ...rootFields.entries,
+      ['children_omitted', root.childrenOmitted],
+      ['child_ids', root.childIds.length > 0 ? root.childIds : undefined],
+      ...tail,
+    ]);
+    return [rootRow, ...rows];
   }
-  const mainEntries = [
-    ['as_string', as_string],
-    ['as_json', as_json],
-    ['truncated', truncated],
-    ['stack', stack],
-    ['instanceof_error', instanceof_error],
-    ['typeof', typeof_prop],
-    ['constructor_name', constructor_name],
-    ['message', message],
-  ].filter(([, v]) => v !== undefined);
-  const metadataEntries = [
-    ['children_sources', children_sources],
-    ['as_string_format', as_string_format],
-    ['as_json_format', as_json_format],
-    ['v', v],
-    ['$schema', $schema],
-  ].filter(([, v]) => v !== undefined);
-  return {
-    mainEntries: mainEntries as [string, unknown][],
-    metadataEntries: metadataEntries as [string, unknown][],
+  return toObject<CorjReport>([
+    ['truncated', anyTruncated ? true : undefined],
+    ...rootFields.entries,
+    ['children_omitted', root.childrenOmitted],
+    ['children', rows.length > 0 ? rows : undefined],
+    ...tail,
+  ]);
+}
+
+function finish<T extends Report>(ctx: Ctx, report: T): T {
+  let omissionFailed = false;
+  const omit = <R extends Report>(value: R): R => {
+    if (!ctx.options.omitExpectedValues || omissionFailed) return value;
+    try {
+      return omitExpectedValues(value);
+    } catch (caught: unknown) {
+      omissionFailed = true;
+      reportError(ctx, caught, { stage: 'other', path: '$' });
+      // The report stays complete, so label it as such.
+      return markFullVersion(value);
+    }
   };
+  try {
+    // Omit before limiting so the size budget is spent on real content, and
+    // again after: the limiter re-materializes `as_string` while trimming
+    // `stack`, and omission only shrinks a report that already fits.
+    return omit(limitReportSize(omit(report), ctx.options, ctx.stringify));
+  } catch (caught: unknown) {
+    reportError(ctx, caught, { stage: 'limit', path: '$' });
+    return omit(makeMinimalReport(report));
+  }
 }
 
 // ███████╗██╗  ██╗██████╗  ██████╗ ██████╗ ████████╗███████╗
@@ -1338,168 +816,61 @@ function makeParentObjectSelfEntries(
 // ███████╗██╔╝ ██╗██║     ╚██████╔╝██║  ██║   ██║   ███████║
 // ╚══════╝╚═╝  ╚═╝╚═╝      ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚══════╝
 
+/** Produces reports with one set of options. Construct once, reuse for every caught object. */
 export class CorjMaker {
-  public options: CorjMakerOptions;
+  readonly options: CorjOptions;
+  private readonly ctx: Ctx;
 
-  constructor(options: CorjMakerOptions) {
-    this.options = screenOptionsForAccessorErrors(options) as CorjMakerOptions;
-    resolveReportSizeOptions(this.options);
+  /** Invalid options throw a `TypeError` or `RangeError`; unknown option names are rejected too. */
+  constructor(options?: CorjOptionsInput) {
+    this.options = resolveOptions(CORJ_DEFAULT_OPTIONS, options);
+    const { maxReportSize, reportSizeUnit } = this.options;
+    this.ctx = {
+      options: this.options,
+      stringify: configureStringify({
+        circularValue: CORJ_CIRCULAR_MARKER,
+        deterministic: false,
+        lengthUnit: reportSizeUnit,
+        ...(maxReportSize === null ? {} : { lengthLimit: maxReportSize }),
+      }) as Stringify,
+    };
   }
 
-  /**
-   * This exists to produce entries in dependable order.
-   */
-  makeReportObjectEntries(caught: unknown): CaughtObjectReportJsonEntries {
-    const { mainEntries, metadataEntries } = makeParentObjectSelfEntries(
-      this,
-      caught,
-      null,
-    );
-    const { omittedReason, flatChildrenEntries } = makeChildrenEntries(
-      this,
-      caught,
-    );
-    const entries = [
-      ...mainEntries,
-      ['children_omitted_reason', omittedReason],
-      [
-        'children',
-        !Array.isArray(flatChildrenEntries)
-          ? undefined
-          : flatChildrenEntries.map((chEntries) =>
-              Object.fromEntries(chEntries as [string, unknown][]),
-            ),
-      ],
-      ...metadataEntries,
-    ].filter(([, v]) => v !== undefined) as [
-      string,
-      unknown,
-    ][] as CaughtObjectReportJsonEntries;
-    const report = Object.fromEntries(entries) as CaughtObjectReportJson;
-    // Each child was just constructed with Object.fromEntries above.
-    if (report.children?.some((child) => child!.truncated))
-      report.truncated = true;
-    return Object.entries(
-      finishReport(report, this.options),
-    ) as CaughtObjectReportJsonEntries;
+  /** A new maker with these options applied on top of this maker's options. */
+  with(options: CorjOptionsInput): CorjMaker {
+    return new CorjMaker(resolveOptions(this.options, options));
   }
 
-  makeReportObject(caught: unknown): CaughtObjectReportJson {
-    return Object.fromEntries(
-      this.makeReportObjectEntries(caught),
-    ) as CaughtObjectReportJson;
+  makeReportObject(caught: unknown): CorjReport {
+    return finish(this.ctx, build(this.ctx, caught, false) as CorjReport);
   }
 
-  makeReportArrayEntries(
-    caught: unknown,
-  ): CaughtObjectReportJsonNestedEntries[] {
-    let effectiveMaker: CorjMaker;
-    try {
-      effectiveMaker = this.cloneWith({
-        childrenMetadataFields: this.options.metadataFields,
-      });
-    } catch (failure: unknown) {
-      const { mainEntries } = makeParentObjectSelfEntries(this, caught, null);
-      const root = Object.fromEntries([
-        ['id', 'root'],
-        ['path', '$'],
-        ['level', 0],
-        ...mainEntries,
-      ]) as CaughtObjectReportJsonChild;
-      const fallback = reportLimitFailure([root], this.options, failure);
-      return fallback.map((row) =>
-        Object.entries(row),
-      ) as CaughtObjectReportJsonNestedEntries[];
-    }
-    const { mainEntries, metadataEntries } = makeParentObjectSelfEntries(
-      effectiveMaker,
-      caught,
-      null,
-    );
-    const rootId = effectiveMaker.options.makeReportId({
-      caught,
-      index: -1,
-      path: '$',
-      level: 0,
-    });
-    const { rootIds, omittedReason, flatChildrenEntries } = makeChildrenEntries(
-      effectiveMaker,
-      caught,
-    );
-    const entries = [
-      [
-        ['id', rootId],
-        ['path', '$'],
-        ['level', 0],
-        ...mainEntries,
-        ['children_omitted_reason', omittedReason],
-        ['children', rootIds],
-        ...metadataEntries,
-      ].filter(([_, v]) => v !== undefined),
-      ...(!Array.isArray(flatChildrenEntries) ? [] : flatChildrenEntries),
-    ] as CaughtObjectReportJsonNestedEntries[];
-    const report = entries.map((row) =>
-      Object.fromEntries(row),
-    ) as CaughtObjectReportJsonChild[];
-    if (report.some((row) => row.truncated)) report[0]!.truncated = true;
-    return finishReport(report, this.options).map((row) =>
-      Object.entries(row),
-    ) as CaughtObjectReportJsonNestedEntries[];
-  }
-
-  makeReportArray(caught: unknown): CaughtObjectReportJsonChild[] {
-    const arrayEntries = this.makeReportArrayEntries(caught);
-    return arrayEntries.map((reportObjectEntries) =>
-      Object.fromEntries(
-        reportObjectEntries as CaughtObjectReportJsonNestedEntries,
-      ),
-    ) as unknown as CaughtObjectReportJsonChild[];
-  }
-
-  static withDefaults(
-    options: DeepPartialOptions<CorjMakerOptions> = CORJ_MAKER_DEFAULT_OPTIONS,
-  ): CorjMaker {
-    const screenedOptions = screenOptionsForAccessorErrors(options);
-    const effectiveOptions: CorjMakerOptions = mergeOptions(
-      CORJ_MAKER_DEFAULT_OPTIONS,
-      screenedOptions,
-    );
-    return new CorjMaker(effectiveOptions);
-  }
-
-  cloneWith(
-    options: DeepPartialOptions<CorjMakerOptions> = CORJ_MAKER_DEFAULT_OPTIONS,
-  ): CorjMaker {
-    return new CorjMaker(mergeOptions(this.options, options));
+  /** The root as the first element followed by every child; nodes link to each other by `child_ids`. */
+  makeReportArray(caught: unknown): CorjReportChild[] {
+    return finish(this.ctx, build(this.ctx, caught, true) as CorjReportChild[]);
   }
 }
 
-/**
- * Wrapper for {@link CorjMaker#makeReportObjectReportObject | CorjMaker.makeReportObject} with default options specified in {@link CORJ_MAKER_DEFAULT_OPTIONS}.
- */
-export function makeCaughtObjectReportJson(
+let defaultMaker: CorjMaker | undefined;
+
+function makerFor(options: CorjOptionsInput | undefined): CorjMaker {
+  if (options !== undefined) return new CorjMaker(options);
+  defaultMaker ??= new CorjMaker();
+  return defaultMaker;
+}
+
+/** {@link CorjMaker.makeReportObject} with {@link CORJ_DEFAULT_OPTIONS} and the given overrides. */
+export function makeCorj(
   caught: unknown,
-  options?: DeepPartialOptions<CorjMakerOptions>,
-): CaughtObjectReportJson {
-  return CorjMaker.withDefaults(options).makeReportObject(caught);
+  options?: CorjOptionsInput,
+): CorjReport {
+  return makerFor(options).makeReportObject(caught);
 }
 
-/**
- * Alias for {@link makeCaughtObjectReportJson}.
- */
-export const bakeCorj = makeCaughtObjectReportJson;
-
-/**
- * Wrapper for {@link CorjMaker#makeReportObjectReportObject | CorjMaker.makeReportArray} with default options specified in {@link CORJ_MAKER_DEFAULT_OPTIONS}.
- */
-export function makeCaughtObjectReportJsonArray(
+/** {@link CorjMaker.makeReportArray} with {@link CORJ_DEFAULT_OPTIONS} and the given overrides. */
+export function makeCorjArray(
   caught: unknown,
-  options?: DeepPartialOptions<CorjMakerOptions>,
-): CaughtObjectReportJsonChild[] {
-  return CorjMaker.withDefaults(options).makeReportArray(caught);
+  options?: CorjOptionsInput,
+): CorjReportChild[] {
+  return makerFor(options).makeReportArray(caught);
 }
-
-/**
- * Alias for {@link makeCaughtObjectReportJsonArray}.
- */
-export const bakeCorjArray = makeCaughtObjectReportJsonArray;

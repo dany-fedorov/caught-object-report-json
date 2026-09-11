@@ -1,4 +1,4 @@
-import { CorjMaker, CorjMakerOnCaughtMakingContext } from '../src';
+import { CorjErrorContext, CorjMaker } from '../src';
 import {
   getReportArrayReportValidator,
   getReportObjectReportValidator,
@@ -9,169 +9,64 @@ describe('maker option and failure boundaries', () => {
     jest.restoreAllMocks();
   });
 
-  test('a null clone override preserves individual parent and child metadata flags', () => {
-    const errors: string[] = [];
-    jest.spyOn(console, 'error').mockImplementation((message: string) => {
-      errors.push(message);
-    });
-    const maker = CorjMaker.withDefaults({
-      omitExpectedValues: false,
-      metadataFields: { as_string_format: false },
-      childrenMetadataFields: { as_json_format: true },
-    });
-
-    // JavaScript callers can supply null even though TypeScript excludes it.
-    // @ts-expect-error Exercise the runtime null-override fallback.
-    const report = maker.cloneWith(null).makeReportObject({ cause: 'child' });
-
-    expect(report.as_string).toBe('[object Object]');
-    expect(report.as_json).toEqual({});
-    expect(report).not.toHaveProperty('as_string_format');
-    expect(report.as_json_format).toBe(
-      'safe-stable-stringify-with-length-limit',
-    );
-    expect(report.children).toEqual([
-      {
-        id: '0',
-        path: '$.cause',
-        level: 1,
-        as_string: 'child',
-        as_json: 'child',
-        instanceof_error: false,
-        typeof: 'string',
-        constructor_name: 'String',
-        as_json_format: 'safe-stable-stringify-with-length-limit',
+  test('options are read once at construction, so a throwing accessor throws there', () => {
+    const input = {
+      get maxDepth(): number {
+        throw new Error('options unavailable');
       },
-    ]);
-    expect(errors).toEqual([]);
+    };
+    expect(() => new CorjMaker(input)).toThrow('options unavailable');
   });
 
-  test('a null clone override preserves disabled metadata for both generations', () => {
-    const errors: string[] = [];
-    jest.spyOn(console, 'error').mockImplementation((message: string) => {
-      errors.push(message);
-    });
-    const maker = CorjMaker.withDefaults({
-      omitExpectedValues: false,
-      metadataFields: false,
-      childrenMetadataFields: false,
-    });
+  test('options read at construction are not re-read later', () => {
+    let reads = 0;
+    const input = {
+      get maxDepth(): number {
+        reads++;
+        return 1;
+      },
+    };
+    const maker = new CorjMaker(input);
+    const readsAtConstruction = reads;
+    expect(readsAtConstruction).toBeGreaterThan(0);
+    maker.makeReportObject({ cause: { cause: 'deep' } });
+    maker.makeReportArray({ cause: { cause: 'deep' } });
+    expect(reads).toBe(readsAtConstruction);
+    expect(maker.options.maxDepth).toBe(1);
+  });
 
-    // @ts-expect-error Exercise the runtime null-override fallback.
-    const report = maker.cloneWith(null).makeReportObject({ cause: 'child' });
-
+  test('with() without changes keeps every option', () => {
+    const maker = new CorjMaker({ maxDepth: 0, metadata: false });
+    const report = maker.with({}).makeReportObject({ cause: 'child' });
     expect(report).toEqual({
-      as_string: '[object Object]',
-      as_json: {},
       instanceof_error: false,
-      typeof: 'object',
       constructor_name: 'Object',
-      children: [
-        {
-          id: '0',
-          path: '$.cause',
-          level: 1,
-          as_string: 'child',
-          as_json: 'child',
-          instanceof_error: false,
-          typeof: 'string',
-          constructor_name: 'String',
-        },
-      ],
+      as_string: '[object Object]',
+      children_omitted: 'max_depth',
     });
-    expect(errors).toEqual([]);
   });
 
-  test('individual flags can replace disabled metadata without changing the original maker', () => {
-    const maker = CorjMaker.withDefaults({
-      omitExpectedValues: false,
-      metadataFields: false,
-      childrenMetadataFields: false,
+  test('with() can lift a limit again', () => {
+    const maker = new CorjMaker({ maxDepth: 0 });
+    const report = maker.with({ maxDepth: 5 }).makeReportObject({
+      cause: 'child',
     });
-    const clone = maker.cloneWith({
-      metadataFields: { as_string_format: false },
-      childrenMetadataFields: { as_json_format: true },
-    });
-
-    const report = clone.makeReportObject({ cause: 'child' });
-
-    expect(report).not.toHaveProperty('as_string_format');
-    expect(report.as_json_format).toBe(
-      'safe-stable-stringify-with-length-limit',
-    );
-    expect(report.children_sources).toEqual(['cause', 'errors']);
+    expect(report).not.toHaveProperty('children_omitted');
     expect(report.children).toEqual([
       {
         id: '0',
         path: '$.cause',
         level: 1,
-        as_string: 'child',
-        as_json: 'child',
         instanceof_error: false,
         typeof: 'string',
         constructor_name: 'String',
-        as_json_format: 'safe-stable-stringify-with-length-limit',
-      },
-    ]);
-    const originalReport = maker.makeReportObject({ cause: 'child' });
-    expect(originalReport).not.toHaveProperty('as_json_format');
-    expect(originalReport.children![0]).not.toHaveProperty('as_json_format');
-  });
-
-  test('cloning without arguments reapplies the default child traversal options', () => {
-    const maker = CorjMaker.withDefaults({ maxChildrenLevel: 0 });
-
-    const report = maker.cloneWith().makeReportObject({ cause: 'child' });
-
-    expect(report).not.toHaveProperty('children_omitted_reason');
-    expect(report.children).toEqual([
-      {
-        id: '0',
-        path: '$.cause',
-        level: 1,
         as_string: 'child',
         as_json: 'child',
-        instanceof_error: false,
-        typeof: 'string',
-        constructor_name: 'String',
       },
     ]);
     expect(maker.makeReportObject({ cause: 'child' })).toMatchObject({
-      children_omitted_reason: 'Reached max depth - 0',
+      children_omitted: 'max_depth',
     });
-  });
-
-  test('a failing metadata accessor omits that field while preserving report content', () => {
-    const errors: string[] = [];
-    jest.spyOn(console, 'error').mockImplementation((message: string) => {
-      errors.push(message);
-    });
-    const maker = CorjMaker.withDefaults({ omitExpectedValues: false });
-    maker.options.metadataFields = {
-      $schema: false,
-      as_string_format: true,
-      as_json_format: true,
-      children_sources: true,
-      get v(): boolean {
-        throw new Error('metadata unavailable');
-      },
-    };
-
-    const report = maker.makeReportObject('preserved');
-
-    expect(report).toEqual({
-      as_string: 'preserved',
-      as_json: 'preserved',
-      instanceof_error: false,
-      typeof: 'string',
-      constructor_name: 'String',
-      children_sources: ['cause', 'errors'],
-      as_string_format: 'String',
-      as_json_format: 'safe-stable-stringify-with-length-limit',
-    });
-    expect(errors).toEqual([
-      expect.stringContaining('Could not make metadata value - v'),
-    ]);
   });
 
   test('a child with a throwing prototype lookup still produces a valid report and identifies the failed child', () => {
@@ -188,7 +83,7 @@ describe('maker option and failure boundaries', () => {
       },
     );
 
-    const report = CorjMaker.withDefaults().makeReportObject({
+    const report = new CorjMaker().makeReportObject({
       message: 'outer',
       cause: child,
     });
@@ -196,21 +91,22 @@ describe('maker option and failure boundaries', () => {
     expect(getReportObjectReportValidator()(report)).toBe(true);
     expect(report.message).toBe('outer');
     expect(report.as_json).toEqual({ message: 'outer' });
+    // Only instanceof walks the prototype through the proxy trap; String()
+    // and the serializer read own properties, and the constructor lookup is
+    // an ordinary [[Get]] on the target.
     expect(report.children).toEqual([
       {
         id: '0',
         path: '$.cause',
         level: 1,
-        as_string: null,
-        as_json: null,
         instanceof_error: false,
+        constructor_name: 'Object',
+        as_string: '[object Object]',
       },
     ]);
-    expect(warnings).toHaveLength(1);
-    expect(warnings[0]).toContain('prototype unavailable');
-    expect(warnings[0]).toContain('nested caught object');
-    expect(warnings[0]).toContain('"path":"$.cause"');
-    expect(warnings[0]).not.toContain('Caught when processing Report Key');
+    expect(warnings).toEqual([
+      '[caught-object-report-json] stage=other path=$.cause field=instanceof_error: Error: prototype unavailable',
+    ]);
   });
 
   test.each([
@@ -222,10 +118,7 @@ describe('maker option and failure boundaries', () => {
     '$format reports contain prototype failures (nested: $nested)',
     ({ format, nested }) => {
       const failure = new Error('prototype unavailable');
-      const caughtDuring: {
-        caught: unknown;
-        context: CorjMakerOnCaughtMakingContext;
-      }[] = [];
+      const caughtDuring: { caught: unknown; context: CorjErrorContext }[] = [];
       const problematic = new Proxy(
         {},
         {
@@ -234,10 +127,10 @@ describe('maker option and failure boundaries', () => {
           },
         },
       );
-      const maker = CorjMaker.withDefaults({
+      const maker = new CorjMaker({
         maxReportSize: 512,
-        metadataFields: false,
-        onCaughtMaking: (caught, context) => {
+        metadata: false,
+        onError: (caught, context) => {
           caughtDuring.push({ caught, context });
         },
       });
@@ -246,10 +139,11 @@ describe('maker option and failure boundaries', () => {
         : problematic;
       // `typeof: "object"` is an expected value and is omitted by default.
       const fallback = {
-        as_string: null,
-        as_json: null,
         instanceof_error: false,
+        constructor_name: 'Object',
+        as_string: '[object Object]',
       };
+      const path = nested ? '$.cause' : '$';
 
       if (format === 'object') {
         const report = maker.makeReportObject(caught);
@@ -274,11 +168,16 @@ describe('maker option and failure boundaries', () => {
         ).toBeLessThanOrEqual(512);
         if (nested) {
           expect(report).toHaveLength(2);
-          expect(report[0]).toMatchObject({
+          expect(report[0]).toEqual({
             id: 'root',
+            path: '$',
+            level: 0,
+            instanceof_error: false,
+            constructor_name: 'Object',
             message: 'outer',
+            as_string: '[object Object]',
             as_json: { message: 'outer' },
-            children: ['0'],
+            child_ids: ['0'],
           });
           expect(report[1]).toEqual({
             id: '0',
@@ -288,20 +187,18 @@ describe('maker option and failure boundaries', () => {
           });
         } else {
           expect(report).toEqual([
-            { id: 'root', path: '$', level: 0, ...fallback, children: [] },
+            { id: 'root', path: '$', level: 0, ...fallback },
           ]);
         }
       }
 
-      expect(caughtDuring).toHaveLength(1);
-      expect(caughtDuring[0]!.caught).toBe(failure);
-      expect(caughtDuring[0]!.context).toEqual({
-        reason: 'unknown',
-        caughtWhenProcessingReportKey: null,
-        caughtObjectNestingInfo: nested
-          ? { path: '$.cause', index: 0, level: 1 }
-          : null,
-      });
+      // Only the instanceof check walks the prototype through the trap.
+      expect(caughtDuring).toEqual([
+        {
+          caught: failure,
+          context: { stage: 'other', path, key: 'instanceof_error' },
+        },
+      ]);
     },
   );
 });

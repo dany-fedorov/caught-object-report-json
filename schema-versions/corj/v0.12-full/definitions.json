@@ -1,0 +1,208 @@
+{
+  "$id": "https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.12-full/definitions.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Caught Object Report JSON",
+  "description": "A JS caught object representation. Default implementation is https://www.npmjs.com/package/caught-object-report-json.",
+  "$defs": {
+    "BASE_PROPERTIES_MIXIN": {
+      "$id": "https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.12-full/definitions.json/$defs/BASE_PROPERTIES_MIXIN",
+      "type": "object",
+      "description": "Base properties shared by all report objects. This is the complete form of corj/v0.12: the default implementation produces it with `omitExpectedValues: false`, and `restoreExpectedValues` converts a corj/v0.12 report into it. No field is omitted for holding its expected value.",
+      "required": [
+        "instanceof_error",
+        "typeof",
+        "as_string",
+        "as_json"
+      ],
+      "properties": {
+        "truncated": {
+          "description": "Present when content or child reports were omitted to meet the configured whole-report size limit. On the root of an array report, this flag applies to the entire array.",
+          "const": true
+        },
+        "instanceof_error": {
+          "description": "Required base property. Result of `caught instanceof Error`.",
+          "type": "boolean"
+        },
+        "typeof": {
+          "description": "Required base property. Result of `typeof caught`.",
+          "enum": [
+            "undefined",
+            "object",
+            "boolean",
+            "number",
+            "bigint",
+            "string",
+            "symbol",
+            "function"
+          ]
+        },
+        "constructor_name": {
+          "description": "Optional base property. Result of `caught.constructor.name`. Not set if `caught` does not have a `constructor.name`. Set to `null` if accessing `caught.constructor.name` throws.",
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "message": {
+          "description": "Optional base property. Result of `caught.message`. Not set if `caught` does not have a `message`. Set to `null` if accessing `caught.message` throws.",
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "as_string": {
+          "description": "Required base property. String representation of `caught` created using the format in `as_string_format` described in this schema. Set to `null` if creating string representation throws.",
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "as_json": {
+          "description": "Required base property. JSON representation of `caught` created using the format in field `as_json_format` described in this schema. The default implementation shares a configurable whole-report size budget across all fields and children (100,000 UTF-8 bytes by default) and marks partial values with [truncated]. Set to `null` if creating JSON representation throws.",
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "array"
+            },
+            {
+              "type": "object"
+            }
+          ]
+        },
+        "stack": {
+          "description": "Optional base property. Result of `caught.stack`. Not set if `caught` does not have a string `stack`. Set to `null` if accessing `caught.stack` throws. The default implementation stores `stack.split(\"\\n\")` as an array of lines (`parseStackToArray`, on by default); the raw string is stored when that option is off.",
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          ]
+        },
+        "children_omitted": {
+          "description": "Optional base property. Present when this node has child sources that were not reported: \"max_depth\" for the maxDepth option, \"max_children\" for the maxChildren option, \"max_size\" for the maxReportSize option.",
+          "enum": [
+            "max_depth",
+            "max_children",
+            "max_size"
+          ]
+        },
+        "v": {
+          "description": "Optional root property. A version of report, added by the metadata option. `corj/v0.12-full` marks a complete report.",
+          "enum": [
+            "corj/v0.12-full"
+          ]
+        },
+        "as_string_format": {
+          "description": "Optional base property. A format of `as_string` field, can be omitted.",
+          "oneOf": [
+            {
+              "enum": [
+                ".toCorjAsString",
+                "String"
+              ]
+            }
+          ]
+        },
+        "as_json_format": {
+          "description": "Optional base property. A format of `as_json` field, can be omitted.",
+          "oneOf": [
+            {
+              "enum": [
+                ".toCorjAsJson",
+                "safe-stable-stringify-with-length-limit"
+              ]
+            }
+          ]
+        },
+        "children_sources": {
+          "description": "Optional base property. Root only. Array of property names of caught object to collect into `children` property.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "REPORT_OBJECT_PROPERTIES_MIXIN": {
+      "$id": "https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.12-full/definitions.json/$defs/REPORT_OBJECT_PROPERTIES_MIXIN",
+      "type": "object",
+      "properties": {
+        "children": {
+          "description": "Optional root property. Every nested error found through `children_sources`, flattened breadth-first. An object that appears more than once in the tree is reported once; later occurrences reference its `id` from `child_ids`.",
+          "type": "array",
+          "items": {
+            "allOf": [
+              {
+                "$ref": "https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.12-full/definitions.json/$defs/BASE_PROPERTIES_MIXIN"
+              },
+              {
+                "$ref": "https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.12-full/definitions.json/$defs/REPORT_OBJECT_IN_ARRAY_PROPERTIES_MIXIN"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "REPORT_OBJECT_IN_ARRAY_PROPERTIES_MIXIN": {
+      "$id": "https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.12-full/definitions.json/$defs/REPORT_OBJECT_IN_ARRAY_PROPERTIES_MIXIN",
+      "type": "object",
+      "required": [
+        "id",
+        "path",
+        "level"
+      ],
+      "properties": {
+        "id": {
+          "description": "Required array-element property. String id unique for this report, from the makeReportId option. The root is \"root\" by default.",
+          "type": "string"
+        },
+        "path": {
+          "description": "Required array-element property. JSONPath from top-level caught object.",
+          "type": "string"
+        },
+        "level": {
+          "description": "Required array-element property. Level of this object in the tree of nested error objects. Top-level is 0.",
+          "type": "number"
+        },
+        "child_ids": {
+          "description": "Optional array-element property. IDs of the direct children of this node. A reference to the root uses the root id. Absent when there are none.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

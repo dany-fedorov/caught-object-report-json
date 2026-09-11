@@ -6,8 +6,9 @@
   `(1).toCorjAsJson(2)safe-stable-stringify@2.4.2`, `(1).toCorjAsString(2)String`
 - [ ] (feat) Try to use safe-json-values instead. I think it is better (look more into this). The challenge is to convert it to cjs fist.
 - [ ] (test,docs) Try cucumber testing to better maintain the list of test cases. Maybe the list can serve (or be converted to) a list of edge cases that this lib handles for the user.
-- [ ] (refactor) Refactor to use better TypeScript, make code more readable.
+- [x] (refactor) Refactor to use better TypeScript, make code more readable.
 - [x] (docs) Mention JSON.stringify(e, Object.getOwnPropertyNames(e), 2) as a relatively good quick workaround, but point out edge cases with nested errors.
 - [ ] (docs) Decide on a single source of truth when documenting separate properties of the report + behavior of the library. Should it be same source of truth or not?
-- [ ] (docs) Reread and fix the docs
-- [ ] (tests) Write more tests, maybe completely refactor existing tests, get to ~99% coverage.
+- [x] (docs) Reread and fix the docs
+- [x] (tests) Write more tests, maybe completely refactor existing tests, get to ~99% coverage.
+- [ ] (feat) Consider `stackFilter` to drop `node:internal` / `node_modules` frames. See API-REVIEW.md 2.1; `maxStackLines` was rejected because the size limit already bounds the stack and dropping frames by count loses them silently.

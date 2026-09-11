@@ -1,9 +1,9 @@
 import {
-  CORJ_MAKER_DEFAULT_OPTIONS,
+  CORJ_DEFAULT_OPTIONS,
+  CorjErrorContext,
   CorjMaker,
-  CorjMakerOnCaughtMakingContext,
-  makeCaughtObjectReportJson,
-  makeCaughtObjectReportJsonArray,
+  makeCorj,
+  makeCorjArray,
   restoreExpectedValues,
 } from '../src';
 import {
@@ -11,8 +11,8 @@ import {
   getReportObjectReportValidator,
 } from './utils/getReportObjectReportValidator';
 
-const marker = '[caught-object-report-json: Truncated]';
-const quiet = { onCaughtMaking: null, printWarningsOnUnhandledErrors: false };
+const marker = '[truncated]';
+const quiet = { onError: () => undefined };
 
 /** A caught object with a controlled stack and no derivable header fields. */
 function withStack(stack: unknown) {
@@ -21,14 +21,14 @@ function withStack(stack: unknown) {
 
 describe('stack as an array of lines', () => {
   test('is on by default', () => {
-    expect(CORJ_MAKER_DEFAULT_OPTIONS.parseStackToArray).toBe(true);
-    expect(CorjMaker.withDefaults().options.parseStackToArray).toBe(true);
-    expect(CorjMaker.withDefaults({}).options.parseStackToArray).toBe(true);
+    expect(CORJ_DEFAULT_OPTIONS.stackFormat).toBe('lines');
+    expect(new CorjMaker().options.stackFormat).toBe('lines');
+    expect(new CorjMaker({}).options.stackFormat).toBe('lines');
   });
 
   test('splits an Error stack exactly like stack.split("\\n")', () => {
     const caught = new Error('boom');
-    const report = makeCaughtObjectReportJson(caught);
+    const report = makeCorj(caught);
     expect(getReportObjectReportValidator()(report)).toBe(true);
     expect(report.stack).toEqual(caught.stack!.split('\n'));
     const lines = report.stack as string[];
@@ -41,10 +41,10 @@ describe('stack as an array of lines', () => {
     expect(lines.join('\n')).toBe(caught.stack);
   });
 
-  test('parseStackToArray: false keeps the raw string', () => {
+  test("stackFormat: 'string' keeps the raw string", () => {
     const caught = new Error('boom');
-    const report = makeCaughtObjectReportJson(caught, {
-      parseStackToArray: false,
+    const report = makeCorj(caught, {
+      stackFormat: 'string',
     });
     expect(getReportObjectReportValidator()(report)).toBe(true);
     expect(report.stack).toBe(caught.stack);
@@ -79,11 +79,11 @@ describe('stack as an array of lines', () => {
     ['a lone surrogate survives', 'a\ud800\nb', ['a\ud800', 'b']],
   ])('splits %s', (_name, stack, expected) => {
     expect(stack.split('\n')).toEqual(expected);
-    const report = makeCaughtObjectReportJson(withStack(stack));
+    const report = makeCorj(withStack(stack));
     expect(report.stack).toEqual(expected);
     expect(getReportObjectReportValidator()(report)).toBe(true);
-    const raw = makeCaughtObjectReportJson(withStack(stack), {
-      parseStackToArray: false,
+    const raw = makeCorj(withStack(stack), {
+      stackFormat: 'string',
     });
     expect(raw.stack).toBe(stack);
   });
@@ -92,7 +92,7 @@ describe('stack as an array of lines', () => {
     const stack = Array.from({ length: 5_000 }, (_, i) => `line ${i}`).join(
       '\n',
     );
-    const report = makeCaughtObjectReportJson(withStack(stack), {
+    const report = makeCorj(withStack(stack), {
       maxReportSize: null,
     });
     expect(report.stack).toHaveLength(5_000);
@@ -110,33 +110,31 @@ describe('stack as an array of lines', () => {
     ['a function', () => 'line'],
     ['an already split array', ['Error: x', '    at y']],
   ])('a stack that is %s is not reported', (_name, stack) => {
-    const report = makeCaughtObjectReportJson(withStack(stack), quiet);
+    const report = makeCorj(withStack(stack), quiet);
     expect(report).not.toHaveProperty('stack');
     expect(getReportObjectReportValidator()(report)).toBe(true);
     // and the same without parsing
-    const raw = makeCaughtObjectReportJson(withStack(stack), {
+    const raw = makeCorj(withStack(stack), {
       ...quiet,
-      parseStackToArray: false,
+      stackFormat: 'string',
     });
     expect(raw).not.toHaveProperty('stack');
   });
 
   test('a String object stack is not a string primitive and is not reported', () => {
-    const report = makeCaughtObjectReportJson(
-      withStack(new String('Error: x\n    at y')),
-    );
+    const report = makeCorj(withStack(new String('Error: x\n    at y')));
     expect(report).not.toHaveProperty('stack');
   });
 
   test('a stack getter that throws yields null', () => {
-    const contexts: CorjMakerOnCaughtMakingContext[] = [];
+    const contexts: CorjErrorContext[] = [];
     const caught = {
       get stack(): string {
         throw new Error('no stack for you');
       },
     };
-    const report = makeCaughtObjectReportJson(caught, {
-      onCaughtMaking: (_error, context) => {
+    const report = makeCorj(caught, {
+      onError: (_error, context) => {
         contexts.push(context);
       },
     });
@@ -144,25 +142,21 @@ describe('stack as an array of lines', () => {
     expect(getReportObjectReportValidator()(report)).toBe(true);
     // The JSON serializer trips over the getter as well; the stack read itself
     // is reported exactly once.
-    expect(contexts.filter((c) => c.reason === 'prop-access')).toEqual([
-      {
-        reason: 'prop-access',
-        propAccessHostName: 'caught',
-        propAccessPropName: 'stack',
-        caughtWhenProcessingReportKey: 'stack',
-        caughtObjectNestingInfo: null,
-      },
+    expect(contexts.filter((c) => c.stage === 'prop-access')).toEqual([
+      { stage: 'prop-access', path: '$', key: 'stack', prop: 'stack' },
     ]);
-    expect(contexts.map((c) => c.caughtWhenProcessingReportKey)).toEqual([
-      'stack',
-      'as_json',
-    ]);
+    expect(contexts.map((c) => c.key)).toEqual(['stack', 'as_json']);
+    expect(contexts[1]).toEqual({
+      stage: 'as_json',
+      path: '$',
+      key: 'as_json',
+    });
   });
 
   test('a stack inherited from the prototype is split too', () => {
     const proto = { stack: 'Proto: x\n    at y' };
     const caught = Object.create(proto);
-    const report = makeCaughtObjectReportJson(caught);
+    const report = makeCorj(caught);
     expect(report.stack).toEqual(['Proto: x', '    at y']);
   });
 
@@ -176,7 +170,7 @@ describe('stack as an array of lines', () => {
       // Keep the JSON serializer away from the getter.
       toCorjAsJson: () => ({}),
     };
-    const report = makeCaughtObjectReportJson(caught);
+    const report = makeCorj(caught);
     expect(reads).toBe(1);
     expect(report.stack).toEqual(['a', 'b']);
   });
@@ -190,20 +184,20 @@ describe('stack as an array of lines', () => {
     ['undefined', undefined],
     ['null', null],
   ])('%s has no stack to split', (_name, caught) => {
-    const report = makeCaughtObjectReportJson(caught, quiet);
+    const report = makeCorj(caught, quiet);
     expect(report).not.toHaveProperty('stack');
   });
 
   test('a function with a string stack property is split', () => {
     const fn = () => undefined;
     (fn as any).stack = 'Fn: x\n    at y';
-    const report = makeCaughtObjectReportJson(fn, quiet);
+    const report = makeCorj(fn, quiet);
     expect(report.typeof).toBe('function');
     expect(report.stack).toEqual(['Fn: x', '    at y']);
   });
 
   test('a stack containing the truncation marker is not flagged as truncated', () => {
-    const report = makeCaughtObjectReportJson(withStack(`a\n${marker}\nb`));
+    const report = makeCorj(withStack(`a\n${marker}\nb`));
     expect(report.stack).toEqual(['a', marker, 'b']);
     expect(report).not.toHaveProperty('truncated');
   });
@@ -215,7 +209,7 @@ describe('stack as an array of lines', () => {
     const outer = new Error('outer');
     (outer as any).errors = [middle, 'no stack here'];
 
-    const object = makeCaughtObjectReportJson(outer);
+    const object = makeCorj(outer);
     expect(getReportObjectReportValidator()(object)).toBe(true);
     expect(object.stack).toEqual(outer.stack!.split('\n'));
     expect(object.children).toHaveLength(3);
@@ -223,7 +217,7 @@ describe('stack as an array of lines', () => {
     expect(object.children![1]).not.toHaveProperty('stack');
     expect(object.children![2]!.stack).toEqual(inner.stack!.split('\n'));
 
-    const array = makeCaughtObjectReportJsonArray(outer);
+    const array = makeCorjArray(outer);
     expect(getReportArrayReportValidator()(array)).toBe(true);
     expect(array.map((row) => row.stack)).toEqual([
       outer.stack!.split('\n'),
@@ -232,8 +226,8 @@ describe('stack as an array of lines', () => {
       inner.stack!.split('\n'),
     ]);
 
-    const raw = makeCaughtObjectReportJsonArray(outer, {
-      parseStackToArray: false,
+    const raw = makeCorjArray(outer, {
+      stackFormat: 'string',
     });
     expect(raw.map((row) => row.stack)).toEqual([
       outer.stack,
@@ -243,83 +237,64 @@ describe('stack as an array of lines', () => {
     ]);
   });
 
-  test('the entries API carries the array', () => {
-    const caught = new Error('entries');
-    const entries = CorjMaker.withDefaults().makeReportObjectEntries(caught);
-    const stack = entries.find(([key]) => key === 'stack');
-    expect(stack).toEqual(['stack', caught.stack!.split('\n')]);
-    const rows = CorjMaker.withDefaults().makeReportArrayEntries(caught);
-    expect(rows[0]!.find(([key]) => key === 'stack')).toEqual([
-      'stack',
-      caught.stack!.split('\n'),
-    ]);
-  });
-
   test('the option is inherited by clones and can be flipped either way', () => {
     const caught = new Error('clone');
-    const raw = CorjMaker.withDefaults({ parseStackToArray: false });
-    expect(raw.cloneWith({}).makeReportObject(caught).stack).toBe(caught.stack);
+    const raw = new CorjMaker({ stackFormat: 'string' });
+    expect(raw.with({}).makeReportObject(caught).stack).toBe(caught.stack);
     expect(
-      raw.cloneWith({ parseStackToArray: true }).makeReportObject(caught).stack,
+      raw.with({ stackFormat: 'lines' }).makeReportObject(caught).stack,
     ).toEqual(caught.stack!.split('\n'));
-    const split = CorjMaker.withDefaults();
+    const split = new CorjMaker();
     expect(
-      split.cloneWith({ parseStackToArray: false }).makeReportObject(caught)
-        .stack,
+      split.with({ stackFormat: 'string' }).makeReportObject(caught).stack,
     ).toBe(caught.stack);
-    // Direct construction uses the option as given.
+    // Full option objects are accepted as given.
     expect(
       new CorjMaker({
-        ...CORJ_MAKER_DEFAULT_OPTIONS,
-        parseStackToArray: false,
+        ...CORJ_DEFAULT_OPTIONS,
+        stackFormat: 'string',
       }).makeReportObject(caught).stack,
     ).toBe(caught.stack);
-    // Mutating the options after construction is honoured on the next report.
-    const maker = CorjMaker.withDefaults({});
-    maker.options.parseStackToArray = false;
-    expect(maker.makeReportObject(caught).stack).toBe(caught.stack);
+    // The options of a maker cannot be changed after construction.
+    const maker = new CorjMaker({});
+    expect(() => {
+      (maker.options as { stackFormat: string }).stackFormat = 'string';
+    }).toThrow(TypeError);
+    expect(maker.makeReportObject(caught).stack).toEqual(
+      caught.stack!.split('\n'),
+    );
   });
 
   test('an explicitly undefined option means the default', () => {
     const caught = new Error('undefined');
     expect(
-      CorjMaker.withDefaults({ parseStackToArray: undefined as any }).options
-        .parseStackToArray,
-    ).toBe(true);
+      new CorjMaker({ stackFormat: undefined as any }).options.stackFormat,
+    ).toBe('lines');
     expect(
-      makeCaughtObjectReportJson(caught, {
-        parseStackToArray: undefined as any,
+      makeCorj(caught, {
+        stackFormat: undefined as any,
       }).stack,
     ).toEqual(caught.stack!.split('\n'));
     // A clone inherits the parent's explicit choice when the override is undefined.
     expect(
-      CorjMaker.withDefaults({ parseStackToArray: false }).cloneWith({
-        parseStackToArray: undefined as any,
-      }).options.parseStackToArray,
-    ).toBe(false);
+      new CorjMaker({ stackFormat: 'string' }).with({
+        stackFormat: undefined as any,
+      }).options.stackFormat,
+    ).toBe('string');
   });
 
-  test('truthy and falsy non-boolean option values behave like booleans', () => {
-    const caught = new Error('loose');
-    expect(
-      makeCaughtObjectReportJson(caught, { parseStackToArray: 1 as any }).stack,
-    ).toEqual(caught.stack!.split('\n'));
-    expect(
-      makeCaughtObjectReportJson(caught, { parseStackToArray: 0 as any }).stack,
-    ).toBe(caught.stack);
-    expect(
-      makeCaughtObjectReportJson(caught, { parseStackToArray: 'yes' as any })
-        .stack,
-    ).toEqual(caught.stack!.split('\n'));
-    expect(
-      makeCaughtObjectReportJson(caught, { parseStackToArray: '' as any })
-        .stack,
-    ).toBe(caught.stack);
-  });
+  test.each([true, false, 1, 0, 'yes', '', 'LINES', null])(
+    'rejects a stack format that is not "lines" or "string" (%j)',
+    (stackFormat) => {
+      expect(() => new CorjMaker({ stackFormat: stackFormat as any })).toThrow(
+        TypeError,
+      );
+    },
+  );
 
   test('as_string is derived from the first element and restored from it', () => {
     const caught = new Error('first');
-    const report = makeCaughtObjectReportJson(caught);
+    const report = makeCorj(caught);
     expect(report).not.toHaveProperty('as_string');
     const restored = restoreExpectedValues(report);
     expect(restored.as_string).toBe('Error: first');
@@ -333,7 +308,7 @@ describe('stack as an array of lines', () => {
       constructor: { name: '' },
       toString: () => '',
     };
-    const report = makeCaughtObjectReportJson(caught);
+    const report = makeCorj(caught);
     expect(report.stack).toEqual(['']);
     expect(report).not.toHaveProperty('as_string');
     expect(report).not.toHaveProperty('constructor_name');
@@ -354,7 +329,7 @@ describe('stack as an array of lines', () => {
         'utf8-bytes',
         'utf16-code-units',
       ] as const) {
-        const report = makeCaughtObjectReportJson(caught, {
+        const report = makeCorj(caught, {
           maxReportSize: 1_000,
           reportSizeUnit,
         });
@@ -377,25 +352,24 @@ describe('stack as an array of lines', () => {
 
     test('an exactly fitting report with a stack array is preserved', () => {
       const caught = new Error('exact');
-      const unlimited = makeCaughtObjectReportJson(caught, {
+      const unlimited = makeCorj(caught, {
         maxReportSize: null,
       });
       const size = Buffer.byteLength(JSON.stringify(unlimited), 'utf8');
-      expect(
-        makeCaughtObjectReportJson(caught, { maxReportSize: size }),
-      ).toEqual(unlimited);
-      expect(
-        makeCaughtObjectReportJson(caught, { maxReportSize: size - 1 }),
-      ).toHaveProperty('truncated', true);
+      expect(makeCorj(caught, { maxReportSize: size })).toEqual(unlimited);
+      expect(makeCorj(caught, { maxReportSize: size - 1 })).toHaveProperty(
+        'truncated',
+        true,
+      );
     });
 
     test('a truncated stack never yields a wrong derived as_string', () => {
       const caught = new Error('x'.repeat(120));
       const complete = String(caught);
       for (let maxReportSize = 256; maxReportSize <= 900; maxReportSize += 7) {
-        const report = makeCaughtObjectReportJson(caught, {
+        const report = makeCorj(caught, {
           maxReportSize,
-          metadataFields: false,
+          metadata: false,
         });
         expect(getReportObjectReportValidator()(report)).toBe(true);
         const restored = restoreExpectedValues(report);

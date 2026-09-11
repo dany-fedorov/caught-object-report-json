@@ -1,8 +1,4 @@
-import {
-  CorjMaker,
-  makeCaughtObjectReportJson,
-  makeCaughtObjectReportJsonArray,
-} from '../src';
+import { CorjMaker, makeCorj, makeCorjArray } from '../src';
 import {
   getReportArrayReportValidator,
   getReportObjectReportValidator,
@@ -17,33 +13,31 @@ describe('whole report size limit', () => {
     (caught as Error & { cause?: Error }).cause = new Error(
       '😀'.repeat(50_000),
     );
-    const report = makeCaughtObjectReportJson(caught);
+    const report = makeCorj(caught);
     expect(byteSize(report)).toBeLessThanOrEqual(100_000);
     expect(report).toHaveProperty('truncated', true);
-    expect(report.message).toContain('[caught-object-report-json: Truncated]');
+    expect(report.message).toContain('[truncated]');
     expect(getReportObjectReportValidator()(report)).toBe(true);
   });
 
   test('configures a small budget and retains schema-valid partial output', () => {
-    const report = makeCaughtObjectReportJson(
+    const report = makeCorj(
       { code: 'FETCH_FAILED', attempts: Array(100).fill('timeout') },
       { maxReportSize: 512 },
     );
     expect(byteSize(report)).toBeLessThanOrEqual(512);
     expect(report).toHaveProperty('truncated', true);
-    expect(JSON.stringify(report)).toContain(
-      '[caught-object-report-json: Truncated]',
-    );
+    expect(JSON.stringify(report)).toContain('[truncated]');
     expect(getReportObjectReportValidator()(report)).toBe(true);
   });
 
   test('supports UTF-16 code units as an alternative to UTF-8 bytes', () => {
     const caught = '😀'.repeat(500);
-    const utf8 = makeCaughtObjectReportJson(caught, {
+    const utf8 = makeCorj(caught, {
       maxReportSize: 512,
       reportSizeUnit: 'utf8-bytes',
     });
-    const utf16 = makeCaughtObjectReportJson(caught, {
+    const utf16 = makeCorj(caught, {
       maxReportSize: 512,
       reportSizeUnit: 'utf16-code-units',
     });
@@ -57,16 +51,16 @@ describe('whole report size limit', () => {
 
   test('preserves fitting reports exactly and can disable the size limit', () => {
     const caught = { message: 'unchanged', payload: 'a'.repeat(500) };
-    const unlimited = makeCaughtObjectReportJson(caught, {
+    const unlimited = makeCorj(caught, {
       maxReportSize: null,
     });
-    const exact = makeCaughtObjectReportJson(caught, {
+    const exact = makeCorj(caught, {
       maxReportSize: byteSize(unlimited),
     });
     expect(exact).toEqual(unlimited);
     expect(exact).not.toHaveProperty('truncated');
     const huge = 'x'.repeat(120_000);
-    const report = makeCaughtObjectReportJson(huge, {
+    const report = makeCorj(huge, {
       maxReportSize: null,
     });
     expect(report.as_json).toBe(huge);
@@ -81,7 +75,7 @@ describe('whole report size limit', () => {
         cause: { message: 'nested ' + i },
       })),
     };
-    const report = makeCaughtObjectReportJsonArray(caught, {
+    const report = makeCorjArray(caught, {
       maxReportSize: 1_024,
     });
     expect(byteSize(report)).toBeLessThanOrEqual(1_024);
@@ -91,12 +85,15 @@ describe('whole report size limit', () => {
     expect(getReportArrayReportValidator()(report)).toBe(true);
     const ids = new Set(report.map((item) => item.id));
     for (const item of report) {
-      for (const childId of item.children ?? [])
-        expect(ids.has(childId!)).toBe(true);
+      for (const childId of item.child_ids ?? [])
+        expect(ids.has(childId)).toBe(true);
     }
+    expect(report[0]!.children_omitted).toBe('max_size');
     expect(
-      report.some((item) =>
-        item.children_omitted_reason?.includes('max report size'),
+      report.every(
+        (item) =>
+          item.children_omitted === undefined ||
+          item.children_omitted === 'max_size',
       ),
     ).toBe(true);
   });
@@ -108,45 +105,44 @@ describe('whole report size limit', () => {
         cause: { message: 'nested ' + i },
       })),
     };
-    const report = makeCaughtObjectReportJson(caught, {
+    const report = makeCorj(caught, {
       maxReportSize: 1_024,
     });
     expect(byteSize(report)).toBeLessThanOrEqual(1_024);
     expect(getReportObjectReportValidator()(report)).toBe(true);
     expect(report.children!.length).toBeLessThan(40);
-    const ids = new Set(report.children!.map((item) => item!.id));
+    expect(report.children!.length).toBeGreaterThan(0);
+    expect(report.children_omitted).toBe('max_size');
+    const ids = new Set(report.children!.map((item) => item.id));
     for (const item of report.children!) {
-      for (const childId of item!.children ?? [])
-        expect(ids.has(childId!)).toBe(true);
+      for (const childId of item.child_ids ?? [])
+        expect(ids.has(childId)).toBe(true);
     }
   });
 
-  test('covers entries APIs and cloned makers without changing the source', () => {
-    const maker = CorjMaker.withDefaults({ maxReportSize: 512 });
+  test('applies the limit to cloned makers without changing the source', () => {
+    const maker = new CorjMaker({ maxReportSize: 512 });
     const caught = {
       message: 'x'.repeat(5_000),
       stack: 'y'.repeat(5_000),
       cause: { message: 'child' },
     };
-    const object = Object.fromEntries(maker.makeReportObjectEntries(caught));
-    const array = maker
-      .makeReportArrayEntries(caught)
-      .map((entries) => Object.fromEntries(entries));
+    const object = maker.makeReportObject(caught);
+    const array = maker.makeReportArray(caught);
     expect(byteSize(object)).toBeLessThanOrEqual(512);
     expect(byteSize(array)).toBeLessThanOrEqual(512);
     expect(
-      byteSize(
-        maker.cloneWith({ maxReportSize: 2_048 }).makeReportObject(caught),
-      ),
+      byteSize(maker.with({ maxReportSize: 2_048 }).makeReportObject(caught)),
     ).toBeGreaterThan(512);
+    expect(byteSize(maker.makeReportObject(caught))).toBeLessThanOrEqual(512);
     expect(caught.message).toHaveLength(5_000);
+    expect(caught.stack).toHaveLength(5_000);
   });
 
   test('handles the smallest budget with large metadata and custom identifiers', () => {
-    const maker = CorjMaker.withDefaults({
+    const maker = new CorjMaker({
       maxReportSize: 256,
-      metadataFields: true,
-      childrenMetadataFields: true,
+      metadata: true,
       makeReportId: () => 'id'.repeat(1_000),
       childrenSources: ['cause', 'x'.repeat(1_000)],
     });
@@ -162,19 +158,19 @@ describe('whole report size limit', () => {
   test.each([0, 255, -1, NaN, Infinity, 512.5])(
     'rejects invalid maximum report sizes (%s)',
     (maxReportSize) => {
-      expect(() => CorjMaker.withDefaults({ maxReportSize })).toThrow();
+      expect(() => new CorjMaker({ maxReportSize })).toThrow(RangeError);
     },
   );
 
   test('rejects unknown size units', () => {
-    expect(() =>
-      CorjMaker.withDefaults({ reportSizeUnit: 'bytes' as any }),
-    ).toThrow();
+    expect(() => new CorjMaker({ reportSizeUnit: 'bytes' as any })).toThrow(
+      TypeError,
+    );
   });
 
-  test('preserves schema validity when an existing depth-omission reason cannot fit', () => {
+  test('preserves schema validity when an existing depth omission cannot fit', () => {
     const huge = 'x'.repeat(1_000);
-    const report = makeCaughtObjectReportJson(
+    const report = makeCorj(
       {
         constructor: { name: huge },
         message: huge,
@@ -184,16 +180,13 @@ describe('whole report size limit', () => {
       },
       {
         maxReportSize: 256,
-        maxChildrenLevel: 0,
-        metadataFields: {
-          as_json_format: true,
-          as_string_format: false,
-          children_sources: false,
-        },
+        maxDepth: 0,
+        metadata: true,
       },
     );
     expect(byteSize(report)).toBeLessThanOrEqual(256);
     expect(getReportObjectReportValidator()(report)).toBe(true);
     expect(report.truncated).toBe(true);
+    expect(report.children_omitted).toBe('max_depth');
   });
 });

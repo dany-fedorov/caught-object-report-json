@@ -1,11 +1,11 @@
-import { makeCaughtObjectReportJson } from '../src';
+import { makeCorj } from '../src';
 
-const report = makeCaughtObjectReportJson(
+const report = makeCorj(
   { code: 'FETCH_FAILED', attempts: Array(100).fill('timeout') },
   {
     maxReportSize: 256,
     reportSizeUnit: 'utf8-bytes',
-    metadataFields: false,
+    metadata: false,
   },
 );
 

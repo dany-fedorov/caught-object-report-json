@@ -1,4 +1,4 @@
-import { makeCaughtObjectReportJson } from '../src';
+import { makeCorj } from '../src';
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
@@ -23,15 +23,9 @@ caught.nestedError = 'lvl 1; obj 1';
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
 caught.extraField = 'error info';
-const report = makeCaughtObjectReportJson(caught, {
-  maxChildrenLevel: 2,
+const report = makeCorj(caught, {
+  maxDepth: 2,
   childrenSources: ['cause', 'errors', 'nestedError'],
-  metadataFields: {
-    $schema: false,
-    as_json_format: false,
-    as_string_format: false,
-    v: false,
-    children_sources: true,
-  },
+  metadata: false,
 });
 console.log(JSON.stringify(report, null, 2));

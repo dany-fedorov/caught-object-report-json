@@ -1,8 +1,6 @@
 import { CorjMaker } from '../src';
 
-const corj = CorjMaker.withDefaults({
-  metadataFields: false,
-});
+const corj = new CorjMaker({ metadata: false });
 
 try {
   throw new Error(`Hi, I'm a regular Error object.`);

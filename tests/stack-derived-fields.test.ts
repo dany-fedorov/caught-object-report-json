@@ -6,8 +6,8 @@ import {
   CORJ_VERSION,
   CORJ_VERSION_FULL,
   CorjMaker,
-  makeCaughtObjectReportJson,
-  makeCaughtObjectReportJsonArray,
+  makeCorj,
+  makeCorjArray,
   restoreExpectedValues,
 } from '../src';
 import {
@@ -21,8 +21,8 @@ import {
   getReportObjectReportValidator,
 } from './utils/getReportObjectReportValidator';
 
-const marker = '[caught-object-report-json: Truncated]';
-const quiet = { onCaughtMaking: null, printWarningsOnUnhandledErrors: false };
+const marker = '[truncated]';
+const quiet = { onError: () => undefined };
 
 describe('parseStackHeader', () => {
   test.each([
@@ -70,7 +70,7 @@ describe('parseStackHeader', () => {
 describe('deriving constructor_name and message from the stack', () => {
   test('a plain Error keeps only stack and v', () => {
     const caught = new Error('boom');
-    const report = makeCaughtObjectReportJson(caught);
+    const report = makeCorj(caught);
     expect(getReportObjectReportValidator()(report)).toBe(true);
     expect(report).toEqual({
       stack: caught.stack!.split('\n'),
@@ -113,10 +113,10 @@ describe('deriving constructor_name and message from the stack', () => {
     ],
   ])('%s: both fields are omitted and restored exactly', (_name, make) => {
     const caught = make();
-    const full = makeCaughtObjectReportJson(caught, {
+    const full = makeCorj(caught, {
       omitExpectedValues: false,
     });
-    const report = makeCaughtObjectReportJson(caught);
+    const report = makeCorj(caught);
     expect(getReportObjectReportValidator()(report)).toBe(true);
     expect(getReportObjectReportValidator('full')(full)).toBe(true);
     // Under a source-map-aware test runner the header of an empty-message
@@ -132,12 +132,10 @@ describe('deriving constructor_name and message from the stack', () => {
     }
     expect(typeof full.constructor_name).toBe('string');
     expect(typeof full.message).toBe('string');
-    const { as_string_format, as_json_format, children_sources, ...rest } =
-      full;
-    expect(as_string_format).toBe('String');
-    expect(as_json_format).toBe('safe-stable-stringify-with-length-limit');
-    expect(children_sources).toEqual(['cause', 'errors']);
-    expect(restoreExpectedValues(report)).toEqual(rest);
+    expect(full.as_string_format).toBe('String');
+    expect(full.as_json_format).toBe('safe-stable-stringify-with-length-limit');
+    expect(full.children_sources).toEqual(['cause', 'errors']);
+    expect(restoreExpectedValues(report)).toEqual(full);
   });
 
   test.each([
@@ -204,7 +202,7 @@ describe('deriving constructor_name and message from the stack', () => {
     '%s: the fields stay because the line does not reproduce them',
     (_name, make, expected) => {
       const caught = make();
-      const report = makeCaughtObjectReportJson(caught);
+      const report = makeCorj(caught);
       expect(getReportObjectReportValidator()(report)).toBe(true);
       expect(report).toMatchObject(expected);
       const restored = restoreExpectedValues(report);
@@ -217,7 +215,7 @@ describe('deriving constructor_name and message from the stack', () => {
     // V8 builds the header on first access, so the new message is in it.
     const error = new Error('boom');
     error.message = 'changed';
-    const report = makeCaughtObjectReportJson(error);
+    const report = makeCorj(error);
     expect((report.stack as string[])[0]).toBe('Error: changed');
     expect(report).not.toHaveProperty('message');
     expect(restoreExpectedValues(report).message).toBe('changed');
@@ -230,7 +228,7 @@ describe('deriving constructor_name and message from the stack', () => {
       constructor: { name: 'Error' },
       toString: () => 'Error',
     };
-    const report = makeCaughtObjectReportJson(caught);
+    const report = makeCorj(caught);
     expect(report.stack).toEqual(['Error', '    at x']);
     expect(report).not.toHaveProperty('as_string');
     expect(report).not.toHaveProperty('constructor_name');
@@ -250,7 +248,7 @@ describe('deriving constructor_name and message from the stack', () => {
       constructor: { name: 'Error' },
       toString: () => 'Error',
     };
-    const report = makeCaughtObjectReportJson(caught);
+    const report = makeCorj(caught);
     expect(report).toMatchObject({
       as_string: 'Error',
       constructor_name: 'Error',
@@ -278,7 +276,7 @@ describe('deriving constructor_name and message from the stack', () => {
         return 'custom';
       }
     }
-    const report = makeCaughtObjectReportJson(new Custom('boom'));
+    const report = makeCorj(new Custom('boom'));
     expect(report).toMatchObject({
       as_string: 'custom',
       constructor_name: 'Custom',
@@ -295,7 +293,7 @@ describe('deriving constructor_name and message from the stack', () => {
     const error = new Error('boom');
     void error.stack; // freeze the header before changing the message
     (error as any).message = 42;
-    const report = makeCaughtObjectReportJson(error);
+    const report = makeCorj(error);
     expect(report).not.toHaveProperty('message');
     expect(report.constructor_name).toBe('Error');
     expect((report.stack as string[])[0]).toBe('Error: boom');
@@ -313,7 +311,7 @@ describe('deriving constructor_name and message from the stack', () => {
       constructor: { name: 'Error' },
       toString: () => 'Error: boom',
     };
-    const report = makeCaughtObjectReportJson(caught);
+    const report = makeCorj(caught);
     expect(report).not.toHaveProperty('message');
     expect(report).not.toHaveProperty('as_string');
     expect(report.constructor_name).toBe('Error');
@@ -332,7 +330,7 @@ describe('deriving constructor_name and message from the stack', () => {
       },
       toString: () => 'Error: boom',
     };
-    const report = makeCaughtObjectReportJson(caught, quiet);
+    const report = makeCorj(caught, quiet);
     expect(report.message).toBeNull();
     expect(report.constructor_name).toBe('Error');
     expect(report).not.toHaveProperty('as_string');
@@ -352,7 +350,7 @@ describe('deriving constructor_name and message from the stack', () => {
       },
       toString: () => 'Error: boom',
     };
-    const report = makeCaughtObjectReportJson(caught, quiet);
+    const report = makeCorj(caught, quiet);
     expect(report.constructor_name).toBeNull();
     expect(report.message).toBe('boom');
     expect(report).not.toHaveProperty('as_string');
@@ -367,7 +365,7 @@ describe('deriving constructor_name and message from the stack', () => {
     const caught = Object.create(null);
     caught.stack = 'Error: boom\n    at x';
     caught.toString = () => 'Error: boom';
-    const report = makeCaughtObjectReportJson(caught);
+    const report = makeCorj(caught);
     expect(getReportObjectReportValidator()(report)).toBe(true);
     expect(report).toEqual({
       as_string: 'Error: boom',
@@ -384,7 +382,7 @@ describe('deriving constructor_name and message from the stack', () => {
 
   test('a plain object with a copied stack keeps constructor_name and gets no message', () => {
     const copy = { stack: new Error('boom').stack };
-    const report = makeCaughtObjectReportJson(copy);
+    const report = makeCorj(copy);
     expect(report.constructor_name).toBe('Object');
     expect(report).not.toHaveProperty('message');
     expect(report.as_string).toBe('[object Object]');
@@ -398,7 +396,7 @@ describe('deriving constructor_name and message from the stack', () => {
     caught.stack = 'Error: boom\n    at x';
     caught.message = 'boom';
     caught.toString = () => 'Error: boom';
-    const report = makeCaughtObjectReportJson(caught);
+    const report = makeCorj(caught);
     expect(report).toMatchObject({ message: 'boom' });
     expect(report).not.toHaveProperty('as_string');
     expect(report).not.toHaveProperty('constructor_name');
@@ -410,8 +408,8 @@ describe('deriving constructor_name and message from the stack', () => {
 
   test('works the same with a string stack', () => {
     const caught = new Error('raw');
-    const report = makeCaughtObjectReportJson(caught, {
-      parseStackToArray: false,
+    const report = makeCorj(caught, {
+      stackFormat: 'string',
     });
     expect(report).toEqual({ stack: caught.stack, v: CORJ_VERSION });
     expect(restoreExpectedValues(report)).toMatchObject({
@@ -426,7 +424,7 @@ describe('deriving constructor_name and message from the stack', () => {
     const inner = new TypeError('inner');
     const outer = new Error('outer');
     (outer as any).cause = inner;
-    const object = makeCaughtObjectReportJson(outer);
+    const object = makeCorj(outer);
     expect(object).toEqual({
       stack: outer.stack!.split('\n'),
       children: [
@@ -439,14 +437,14 @@ describe('deriving constructor_name and message from the stack', () => {
       ],
       v: CORJ_VERSION,
     });
-    const array = makeCaughtObjectReportJsonArray(outer);
+    const array = makeCorjArray(outer);
     expect(array).toEqual([
       {
         id: 'root',
         path: '$',
         level: 0,
         stack: outer.stack!.split('\n'),
-        children: ['0'],
+        child_ids: ['0'],
         v: CORJ_VERSION,
       },
       {
@@ -454,7 +452,6 @@ describe('deriving constructor_name and message from the stack', () => {
         path: '$.cause',
         level: 1,
         stack: inner.stack!.split('\n'),
-        v: CORJ_VERSION,
       },
     ]);
     const restoredArray = restoreExpectedValues(array);
@@ -462,8 +459,9 @@ describe('deriving constructor_name and message from the stack', () => {
       constructor_name: 'TypeError',
       message: 'inner',
       as_string: 'TypeError: inner',
-      v: CORJ_VERSION_FULL,
     });
+    expect(restoredArray[1]).not.toHaveProperty('v');
+    expect(restoredArray[0]).toHaveProperty('v', CORJ_VERSION_FULL);
     expect(getReportArrayReportValidator('full')(restoredArray)).toBe(true);
     expect(
       getReportObjectReportValidator('full')(restoreExpectedValues(object)),
@@ -547,9 +545,9 @@ describe('deriving constructor_name and message from the stack', () => {
   });
 
   describe('with the report size limit', () => {
-    test.each([false, true])(
-      'restored header fields are exact or marked truncations (parseStackToArray=%s)',
-      (parseStackToArray) => {
+    test.each(['lines', 'string'] as const)(
+      'restored header fields are exact or marked truncations (stackFormat=%s)',
+      (stackFormat) => {
         const caught = new Error('m'.repeat(150) + ': ' + 'n'.repeat(150));
         const complete = {
           as_string: String(caught),
@@ -562,10 +560,10 @@ describe('deriving constructor_name and message from the stack', () => {
           maxReportSize <= 1_200;
           maxReportSize += 5
         ) {
-          const report = makeCaughtObjectReportJson(caught, {
+          const report = makeCorj(caught, {
             maxReportSize,
-            metadataFields: false,
-            parseStackToArray,
+            metadata: false,
+            stackFormat,
           });
           expect(getReportObjectReportValidator()(report)).toBe(true);
           expect(
@@ -591,14 +589,14 @@ describe('deriving constructor_name and message from the stack', () => {
 
     test('a big budget keeps the compact form, a tight one keeps the fields', () => {
       const caught = new Error('boom');
-      const compact = makeCaughtObjectReportJson(caught, {
+      const compact = makeCorj(caught, {
         maxReportSize: 4_096,
-        metadataFields: false,
+        metadata: false,
       });
       expect(compact).toEqual({ stack: caught.stack!.split('\n') });
-      const tight = makeCaughtObjectReportJson(caught, {
+      const tight = makeCorj(caught, {
         maxReportSize: 256,
-        metadataFields: false,
+        metadata: false,
       });
       expect(tight.truncated).toBe(true);
       expect((tight.stack as string[])[0]).toBe('Error: boom');
@@ -617,19 +615,19 @@ describe('deriving constructor_name and message from the stack', () => {
 
 describe('report versions', () => {
   test('constants', () => {
-    expect(CORJ_VERSION).toBe('corj/v0.11');
-    expect(CORJ_VERSION_FULL).toBe('corj/v0.11-full');
+    expect(CORJ_VERSION).toBe('corj/v0.12');
+    expect(CORJ_VERSION_FULL).toBe('corj/v0.12-full');
     expect(CORJ_REPORT_OBJECT_JSON_SCHEMA_LINK).toContain(
-      '/corj/v0.11/report-object.json',
+      '/corj/v0.12/report-object.json',
     );
     expect(CORJ_REPORT_ARRAY_JSON_SCHEMA_LINK).toContain(
-      '/corj/v0.11/report-array.json',
+      '/corj/v0.12/report-array.json',
     );
     expect(CORJ_FULL_REPORT_OBJECT_JSON_SCHEMA_LINK).toContain(
-      '/corj/v0.11-full/report-object.json',
+      '/corj/v0.12-full/report-object.json',
     );
     expect(CORJ_FULL_REPORT_ARRAY_JSON_SCHEMA_LINK).toContain(
-      '/corj/v0.11-full/report-array.json',
+      '/corj/v0.12-full/report-array.json',
     );
   });
 
@@ -638,11 +636,8 @@ describe('report versions', () => {
     (array) => {
       const caught = new Error('v');
       (caught as any).cause = new Error('child');
-      const maker = CorjMaker.withDefaults({
-        metadataFields: true,
-        childrenMetadataFields: true,
-      });
-      const fullMaker = maker.cloneWith({ omitExpectedValues: false });
+      const maker = new CorjMaker({ metadata: true });
+      const fullMaker = maker.with({ omitExpectedValues: false });
       const compact = array
         ? maker.makeReportArray(caught)
         : maker.makeReportObject(caught);
@@ -650,21 +645,28 @@ describe('report versions', () => {
         ? fullMaker.makeReportArray(caught)
         : fullMaker.makeReportObject(caught);
       const nodes = (report: unknown) =>
-        Array.isArray(report)
+        (Array.isArray(report)
           ? report
-          : [report, ...(report as { children: unknown[] }).children];
+          : [
+              report,
+              ...(report as { children: unknown[] }).children,
+            ]) as Record<string, unknown>[];
       expect(nodes(compact)).toHaveLength(2);
-      for (const node of nodes(compact) as Record<string, unknown>[]) {
-        expect(node['v']).toBe(CORJ_VERSION);
-        expect(node['$schema']).toMatch(
-          /\/corj\/v0\.11\/report-(object|array)\.json$/,
-        );
-      }
-      for (const node of nodes(full) as Record<string, unknown>[]) {
-        expect(node['v']).toBe(CORJ_VERSION_FULL);
-        expect(node['$schema']).toMatch(
-          /\/corj\/v0\.11-full\/report-(object|array)\.json$/,
-        );
+      expect(nodes(full)).toHaveLength(2);
+      // Only the root carries the version and schema link.
+      const kind = array ? 'array' : 'object';
+      expect(nodes(compact)[0]!['v']).toBe(CORJ_VERSION);
+      expect(nodes(compact)[0]!['$schema']).toBe(
+        `https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.12/report-${kind}.json`,
+      );
+      expect(nodes(full)[0]!['v']).toBe(CORJ_VERSION_FULL);
+      expect(nodes(full)[0]!['$schema']).toBe(
+        `https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.12-full/report-${kind}.json`,
+      );
+      for (const report of [compact, full]) {
+        expect(nodes(report)[1]).not.toHaveProperty('v');
+        expect(nodes(report)[1]).not.toHaveProperty('$schema');
+        expect(nodes(report)[1]).not.toHaveProperty('children_sources');
       }
       const validate = array
         ? getReportArrayReportValidator()
@@ -677,23 +679,10 @@ describe('report versions', () => {
       // Each version rejects the other's label.
       expect(validate(full)).toBe(false);
       expect(validateFull(compact)).toBe(false);
-      // Restoring relabels to the full version; only metadata format fields
-      // and children_sources are not restored.
+      // Restoring relabels to the full version and reproduces the full report.
       const restored = restoreExpectedValues(compact);
       expect(validateFull(restored)).toBe(true);
-      const strip = (node: unknown) => {
-        const { as_string_format, as_json_format, children_sources, ...rest } =
-          node as Record<string, unknown>;
-        expect(as_string_format).toBe('String');
-        expect(as_json_format).toBe('safe-stable-stringify-with-length-limit');
-        expect(children_sources).toEqual(['cause', 'errors']);
-        return rest;
-      };
-      expect(restored).toEqual(
-        Array.isArray(full)
-          ? full.map(strip)
-          : { ...strip(full), children: full.children!.map(strip) },
-      );
+      expect(restored).toEqual(full);
     },
   );
 
@@ -716,7 +705,6 @@ describe('report versions', () => {
       v: CORJ_VERSION,
       $schema: CORJ_REPORT_OBJECT_JSON_SCHEMA_LINK,
       children: [
-        null,
         {
           id: '0',
           path: '$.cause',
@@ -730,7 +718,6 @@ describe('report versions', () => {
       v: CORJ_VERSION_FULL,
       $schema: CORJ_FULL_REPORT_OBJECT_JSON_SCHEMA_LINK,
       children: [
-        null,
         {
           id: '0',
           path: '$.cause',

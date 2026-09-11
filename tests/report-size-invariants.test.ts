@@ -1,7 +1,8 @@
 import {
-  CaughtObjectReportJsonChild,
+  CorjReportChild,
   CorjMaker,
-  CorjMakerOptions,
+  CorjOptions,
+  CorjOptionsInput,
   CorjReportSizeUnit,
 } from '../src';
 import {
@@ -10,10 +11,11 @@ import {
 } from './utils/getReportObjectReportValidator';
 
 const units: CorjReportSizeUnit[] = ['utf8-bytes', 'utf16-code-units'];
-const metadataCases = [
+const metadataCases: CorjOptionsInput['metadata'][] = [
   false,
   true,
-  { as_json_format: true, as_string_format: false, children_sources: false },
+  { $schema: true },
+  { v: false },
 ];
 const matrix = units.flatMap((unit) =>
   [false, true].flatMap((array) =>
@@ -71,12 +73,14 @@ function measure(value: unknown, unit: CorjReportSizeUnit) {
   return unit === 'utf8-bytes' ? Buffer.byteLength(json, 'utf8') : json.length;
 }
 
-function assertReferences(rows: CaughtObjectReportJsonChild[]) {
+/** Every child link points at a retained node or at the root. */
+function assertReferences(rows: CorjReportChild[], rootId: string) {
   const ids = new Set(rows.map((row) => row.id));
   expect(ids.size).toBe(rows.length);
+  ids.add(rootId);
   for (const row of rows) {
-    for (const id of (row.children ?? []) as (string | null)[]) {
-      if (id !== null) expect(ids.has(id)).toBe(true);
+    for (const id of row.child_ids ?? []) {
+      expect(ids.has(id)).toBe(true);
     }
   }
 }
@@ -86,23 +90,19 @@ describe('whole-report invariants', () => {
     for (let seed = 1; seed <= 6; seed++) {
       const caught = fixture(seed);
       const original = fixture(seed);
-      const options = {
+      const options: CorjOptionsInput = {
         maxReportSize: limit,
         reportSizeUnit: unit,
-        metadataFields: metadata,
-        childrenMetadataFields: metadata,
-        maxChildrenLevel: seed % 3,
-        parseStackToArray: seed % 2 === 0,
-        onCaughtMaking: null,
-        printWarningsOnUnhandledErrors: false,
+        ...(metadata === undefined ? {} : { metadata }),
+        maxDepth: seed % 3,
+        stackFormat: seed % 2 === 0 ? 'lines' : 'string',
+        onError: () => undefined,
         makeReportId: ({ index }: { index: number }) =>
           `report-${seed}-${index}`,
       };
-      const maker = CorjMaker.withDefaults(options);
-      const unlimitedMaker = CorjMaker.withDefaults({
-        ...options,
-        maxReportSize: null,
-      });
+      const maker = new CorjMaker(options);
+      const optionsBefore = { ...maker.options };
+      const unlimitedMaker = maker.with({ maxReportSize: null });
       const report = array
         ? maker.makeReportArray(caught)
         : maker.makeReportObject(caught);
@@ -117,19 +117,34 @@ describe('whole-report invariants', () => {
         ? getReportArrayReportValidator()
         : getReportObjectReportValidator();
       expect(validate(report)).toBe(true);
+      expect(validate(unlimited)).toBe(true);
+      const root = Array.isArray(report) ? report[0]! : report;
       if (measure(unlimited, unit) <= limit) {
         expect(report).toEqual(unlimited);
+        expect(root).not.toHaveProperty('truncated');
       } else {
-        const root = Array.isArray(report) ? report[0]! : report;
         expect(root.truncated).toBe(true);
       }
       const rows = Array.isArray(report)
-        ? report
-        : (report.children ?? []).filter(
-            (row): row is CaughtObjectReportJsonChild => row !== null,
-          );
-      assertReferences(rows);
+        ? report.slice(1)
+        : report.children ?? [];
+      assertReferences(rows, `report-${seed}--1`);
+      if (Array.isArray(report)) {
+        expect(report[0]!.id).toBe(`report-${seed}--1`);
+        expect(report[0]!.path).toBe('$');
+        expect(report[0]!.level).toBe(0);
+      } else {
+        expect(report).not.toHaveProperty('children_omitted', 'max_children');
+        expect(report.children).not.toEqual([]);
+      }
+      for (const row of rows) {
+        expect(row).not.toHaveProperty('v');
+        expect(row).not.toHaveProperty('$schema');
+        expect(row).not.toHaveProperty('children_sources');
+      }
       expect(caught).toEqual(original);
+      expect(maker.options).toEqual(optionsBefore);
+      expect(Object.isFrozen(maker.options)).toBe(true);
     }
   });
 
@@ -137,17 +152,17 @@ describe('whole-report invariants', () => {
     'preserves exact-fit Unicode reports and truncates one unit below (%s)',
     (reportSizeUnit) => {
       const caught = { message: 'Ж😀'.repeat(100), payload: '界'.repeat(200) };
-      const unlimited = CorjMaker.withDefaults({
+      const unlimited = new CorjMaker({
         maxReportSize: null,
       }).makeReportObject(caught);
       const size = measure(unlimited, reportSizeUnit);
-      const maker = CorjMaker.withDefaults({
+      const maker = new CorjMaker({
         maxReportSize: size,
         reportSizeUnit,
       });
       expect(maker.makeReportObject(caught)).toEqual(unlimited);
       const smaller = maker
-        .cloneWith({ maxReportSize: size - 1 })
+        .with({ maxReportSize: size - 1 })
         .makeReportObject(caught);
       expect(measure(smaller, reportSizeUnit)).toBeLessThanOrEqual(size - 1);
       expect(smaller.truncated).toBe(true);
@@ -157,18 +172,17 @@ describe('whole-report invariants', () => {
 
   test.each([true, false])(
     'cloning the size budget preserves boolean metadata settings (%s)',
-    (metadataFields) => {
-      const maker = CorjMaker.withDefaults({
-        metadataFields,
-        childrenMetadataFields: metadataFields,
-      });
+    (metadata) => {
+      const maker = new CorjMaker({ metadata });
       const caught = { message: 'root', cause: { message: 'child' } };
-      const clone = maker.cloneWith({
+      const clone = maker.with({
         maxReportSize: 10_000,
         reportSizeUnit: 'utf16-code-units',
       });
-      expect(clone.options.metadataFields).toBe(metadataFields);
-      expect(clone.options.childrenMetadataFields).toBe(metadataFields);
+      expect(clone.options.metadata).toEqual({
+        v: metadata,
+        $schema: metadata,
+      });
       expect(clone.makeReportObject(caught)).toEqual(
         maker.makeReportObject(caught),
       );
@@ -195,9 +209,9 @@ describe('whole-report invariants', () => {
       },
     };
     const errors: unknown[] = [];
-    const report = CorjMaker.withDefaults({
+    const report = new CorjMaker({
       maxReportSize: 512,
-      onCaughtMaking: (error) => errors.push(error),
+      onError: (error) => errors.push(error),
     }).makeReportObject(caught);
     expect(measure(report, 'utf8-bytes')).toBeLessThanOrEqual(512);
     expect(report.truncated).toBe(true);
@@ -210,8 +224,8 @@ describe('whole-report invariants', () => {
   });
 
   test('does not infer truncation from marker text supplied by the caller', () => {
-    const marker = '[caught-object-report-json: Truncated]';
-    const maker = CorjMaker.withDefaults({ maxReportSize: 4_096 });
+    const marker = '[truncated]';
+    const maker = new CorjMaker({ maxReportSize: 4_096 });
     expect(maker.makeReportObject('x'.repeat(5_000)).truncated).toBe(true);
     const report = maker.makeReportObject({
       message: marker,
@@ -227,10 +241,9 @@ describe('whole-report invariants', () => {
   test.each([false, true])(
     'propagates child truncation even when the assembled report fits (array=%s)',
     (array) => {
-      const maker = CorjMaker.withDefaults({
+      const maker = new CorjMaker({
         maxReportSize: 1_000,
-        metadataFields: false,
-        childrenMetadataFields: false,
+        metadata: false,
       });
       const caught = { cause: { ['x'.repeat(2_000)]: 1 } };
       const report = array
@@ -245,7 +258,7 @@ describe('whole-report invariants', () => {
   );
 
   test('preserves retained custom IDs exactly when they contain escaped and multibyte characters', () => {
-    const maker = CorjMaker.withDefaults({
+    const maker = new CorjMaker({
       maxReportSize: 2_048,
       makeReportId: ({ index }) => `error-"\\😀-${index}`,
     });
@@ -256,7 +269,7 @@ describe('whole-report invariants', () => {
       })),
     };
     const unlimited = maker
-      .cloneWith({ maxReportSize: null })
+      .with({ maxReportSize: null })
       .makeReportArray(caught);
     const report = maker.makeReportArray(caught);
     expect(report.length).toBeGreaterThan(1);
@@ -266,54 +279,46 @@ describe('whole-report invariants', () => {
     for (const row of report) {
       const original = byPath.get(row.path)!;
       expect(row.id).toBe(original.id);
-      for (const id of row.children ?? [])
-        expect(original.children).toContain(id);
+      for (const id of row.child_ids ?? [])
+        expect(original.child_ids).toContain(id);
     }
-    assertReferences(report);
+    assertReferences(report.slice(1), report[0]!.id);
   });
 
   test.each(['maxReportSize', 'reportSizeUnit'] as const)(
-    'uses safe defaults if reading %s throws',
+    'rejects options whose %s accessor throws',
     (key) => {
-      const warn = jest
-        .spyOn(console, 'warn')
-        .mockImplementation(() => undefined);
-      try {
-        const options = Object.defineProperty({}, key, {
-          get() {
-            throw new Error('Unavailable option');
-          },
-        });
-        const report = CorjMaker.withDefaults(options).makeReportObject({
-          message: 'x'.repeat(120_000),
-        });
-        expect(measure(report, 'utf8-bytes')).toBeLessThanOrEqual(100_000);
-        expect(getReportObjectReportValidator()(report)).toBe(true);
-      } finally {
-        warn.mockRestore();
-      }
+      const options = Object.defineProperty({}, key, {
+        enumerable: true,
+        get() {
+          throw new Error('Unavailable option');
+        },
+      });
+      expect(() => new CorjMaker(options)).toThrow('Unavailable option');
     },
   );
 
   test.each(['512', false, {}, []])(
     'rejects nonnumeric limits (%j)',
     (maxReportSize) => {
-      expect(() =>
-        CorjMaker.withDefaults({
-          maxReportSize,
-        } as unknown as CorjMakerOptions),
-      ).toThrow();
+      expect(
+        () =>
+          new CorjMaker({
+            maxReportSize,
+          } as unknown as CorjOptions),
+      ).toThrow(RangeError);
     },
   );
 
   test.each([null, false, {}, 'utf16-bytes'])(
     'rejects unsupported measurement modes (%j)',
     (reportSizeUnit) => {
-      expect(() =>
-        CorjMaker.withDefaults({
-          reportSizeUnit,
-        } as unknown as CorjMakerOptions),
-      ).toThrow();
+      expect(
+        () =>
+          new CorjMaker({
+            reportSizeUnit,
+          } as unknown as CorjOptions),
+      ).toThrow(TypeError);
     },
   );
 });

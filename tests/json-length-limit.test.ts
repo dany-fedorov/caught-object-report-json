@@ -1,23 +1,15 @@
-import {
-  CORJ_AS_JSON_FORMAT_SAFE_STABLE_STRINGIFY_WITH_LENGTH_LIMIT,
-  CORJ_AS_JSON_FORMAT_TO_CORJ_AS_JSON_METHOD,
-  CorjMaker,
-  CORJ_MAKER_DEFAULT_OPTIONS,
-} from '../src';
+import { CorjMaker, CORJ_TRUNCATED_MARKER } from '../src';
 import {
   getReportArrayReportValidator,
   getReportObjectReportValidator,
 } from './utils/getReportObjectReportValidator';
 
-const marker = '[caught-object-report-json: Truncated]';
+const marker = CORJ_TRUNCATED_MARKER;
+const quiet = { onError: () => undefined };
 
 describe('report JSON length limit', () => {
   test('shares the default budget between string and JSON representations', () => {
-    const maker = new CorjMaker({
-      ...CORJ_MAKER_DEFAULT_OPTIONS,
-      onCaughtMaking: null,
-      omitExpectedValues: false,
-    });
+    const maker = new CorjMaker({ ...quiet, omitExpectedValues: false });
     const report = maker.makeReportObject('x'.repeat(100_000));
     expect(Buffer.byteLength(JSON.stringify(report))).toBeLessThanOrEqual(
       100_000,
@@ -26,36 +18,28 @@ describe('report JSON length limit', () => {
     expect(String(report.as_string).endsWith(marker)).toBe(true);
     expect(report.truncated).toBe(true);
     expect(report.as_json_format).toBe(
-      CORJ_AS_JSON_FORMAT_SAFE_STABLE_STRINGIFY_WITH_LENGTH_LIMIT,
+      'safe-stable-stringify-with-length-limit',
     );
-    expect(report.v).toBe('corj/v0.11-full');
+    expect(report.v).toBe('corj/v0.12-full');
     expect(getReportObjectReportValidator('full')(report)).toBe(true);
   });
 
   test('bounds custom JSON output without reporting truncation as a conversion failure', () => {
     const errors: unknown[] = [];
-    const maker = new CorjMaker({
-      ...CORJ_MAKER_DEFAULT_OPTIONS,
-      onCaughtMaking: (error) => errors.push(error),
-    });
+    const maker = new CorjMaker({ onError: (error) => errors.push(error) });
     const report = maker.makeReportObject({
       toCorjAsJson: () => ({ message: 'kept', payload: '\n'.repeat(100_000) }),
     });
     expect(JSON.stringify(report.as_json).length).toBeLessThanOrEqual(100_000);
     expect(report.as_json).toMatchObject({ message: 'kept' });
     expect(JSON.stringify(report.as_json)).toContain(marker);
-    expect(report.as_json_format).toBe(
-      CORJ_AS_JSON_FORMAT_TO_CORJ_AS_JSON_METHOD,
-    );
+    expect(report.as_json_format).toBe('.toCorjAsJson');
     expect(errors).toEqual([]);
     expect(getReportObjectReportValidator()(report)).toBe(true);
   });
 
   test('shares the budget with nested reports and excludes child sources from parent JSON', () => {
-    const maker = new CorjMaker({
-      ...CORJ_MAKER_DEFAULT_OPTIONS,
-      onCaughtMaking: null,
-    });
+    const maker = new CorjMaker(quiet);
     const caught = {
       message: 'parent',
       cause: { message: 'child', payload: 'y'.repeat(100_000) },
@@ -87,10 +71,7 @@ describe('report JSON length limit', () => {
   });
 
   test('retains safe conversions and circular references in fitting reports', () => {
-    const maker = new CorjMaker({
-      ...CORJ_MAKER_DEFAULT_OPTIONS,
-      onCaughtMaking: null,
-    });
+    const maker = new CorjMaker(quiet);
     const caught: Record<string, unknown> = {
       bigint: BigInt(123),
       nonfinite: Infinity,
@@ -106,15 +87,12 @@ describe('report JSON length limit', () => {
       date: '2020-01-02T00:00:00.000Z',
       bytes: { 0: 1, 1: 2 },
       array: [null, null, null],
-      self: '[caught-object-report-json: Circular]',
+      self: '[circular]',
     });
   });
 
   test('counts the numeric representation of bigints after JSON parsing', () => {
-    const maker = new CorjMaker({
-      ...CORJ_MAKER_DEFAULT_OPTIONS,
-      onCaughtMaking: null,
-    });
+    const maker = new CorjMaker(quiet);
     const values = Array(5_882).fill(BigInt('9999999999999999'));
     for (const caught of [values, { toCorjAsJson: () => values }]) {
       const report = maker.makeReportObject(caught);

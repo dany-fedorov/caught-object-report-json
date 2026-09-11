@@ -1,4 +1,11 @@
-import { configure } from '../src/safe-stable-stringify';
+import { configure, TRUNCATED_MARKER } from '../src/safe-stable-stringify';
+
+// Boundaries below are expressed relative to the marker so they keep testing
+// the same conditions if the marker text changes. `M + 2` is the JSON of the
+// marker alone (with quotes); `M + 4` a one-element array holding it;
+// `M + 10` an object holding it under the reserved "..." key.
+const M = TRUNCATED_MARKER.length;
+const MARKER_JSON = JSON.stringify(TRUNCATED_MARKER);
 
 describe('serializer configuration contracts', () => {
   test.each([false, 1, {}, () => undefined])(
@@ -141,7 +148,7 @@ describe('stable serializer traversal', () => {
       })(value)!;
       expect(measure(truncated)).toBeLessThanOrEqual(exactSize - 1);
       expect(JSON.parse(truncated)).not.toStrictEqual(value);
-      expect(truncated).toContain('[caught-object-report-json: Truncated]');
+      expect(truncated).toContain(TRUNCATED_MARKER);
     },
   );
 
@@ -259,25 +266,25 @@ describe('serializer truncation boundaries', () => {
   );
 
   test.each([
-    [39, 'null'],
-    [40, '"[caught-object-report-json: Truncated]"'],
-    [41, '"x[caught-object-report-json: Truncated]"'],
+    [M + 1, 'null'],
+    [M + 2, MARKER_JSON],
+    [M + 3, `"x${TRUNCATED_MARKER}"`],
   ])('fits a root string marker at limit %i', (lengthLimit, want) => {
     expect(configure({ lengthLimit })('x'.repeat(100))).toBe(want);
   });
 
   test.each([
-    [40, '"[caught-object-report-json: Truncated]"'],
-    [41, '"[caught-object-report-json: Truncated]"'],
-    [42, '["[caught-object-report-json: Truncated]"]'],
+    [M + 2, MARKER_JSON],
+    [M + 3, MARKER_JSON],
+    [M + 4, `[${MARKER_JSON}]`],
   ])('fits a root array marker at limit %i', (lengthLimit, want) => {
     expect(configure({ lengthLimit })(['x'.repeat(100)])).toBe(want);
   });
 
   test.each([
-    [40, '"[caught-object-report-json: Truncated]"'],
-    [47, '"[caught-object-report-json: Truncated]"'],
-    [48, '{"...":"[caught-object-report-json: Truncated]"}'],
+    [M + 2, MARKER_JSON],
+    [M + 9, MARKER_JSON],
+    [M + 10, `{"...":${MARKER_JSON}}`],
   ])('fits a root object marker at limit %i', (lengthLimit, want) => {
     expect(configure({ lengthLimit })({ value: 'x'.repeat(100) })).toBe(want);
   });
@@ -286,11 +293,11 @@ describe('serializer truncation boundaries', () => {
     const value: Record<string, unknown> = {};
     value['self'] = value;
     expect(
-      configure({ lengthLimit: 40, circularValue: 'Ж'.repeat(100) })(value),
-    ).toBe('"[caught-object-report-json: Truncated]"');
+      configure({ lengthLimit: M + 2, circularValue: 'Ж'.repeat(100) })(value),
+    ).toBe(MARKER_JSON);
   });
 
-  test('fits extreme numeric representations within a marker-sized budget', () => {
+  test('fits extreme numeric representations within a modest budget', () => {
     const stringify = configure({ lengthLimit: 40 });
     expect(stringify(Number.MAX_VALUE)).toBe('1.7976931348623157e+308');
     expect(stringify(-Number.MAX_VALUE)).toBe('-1.7976931348623157e+308');
@@ -299,31 +306,38 @@ describe('serializer truncation boundaries', () => {
 
   test('replaces an existing metadata property when it is the only retained entry', () => {
     expect(
-      configure({ lengthLimit: 48, deterministic: false })({
+      configure({ lengthLimit: M + 10, deterministic: false })({
         '...': 1,
         long: 'x'.repeat(200),
       }),
-    ).toBe('{"...":"[caught-object-report-json: Truncated]"}');
+    ).toBe(`{"...":${MARKER_JSON}}`);
   });
 
   test('uses the length marker when an array breadth explanation cannot fit', () => {
+    // The 15-digit element plus the marker needs M + 20; the marker alone M + 4.
     expect(
-      configure({ maximumBreadth: 1, lengthLimit: 44 })([123456789012345, 2]),
-    ).toBe('["[caught-object-report-json: Truncated]"]');
+      configure({ maximumBreadth: 1, lengthLimit: M + 6 })([
+        123456789012345, 2,
+      ]),
+    ).toBe(`[${MARKER_JSON}]`);
   });
 
   test('uses the length marker when an object breadth explanation cannot fit', () => {
+    // The 18-unit entry plus the "..." marker needs M + 29; the marker alone M + 10.
     expect(
-      configure({ maximumBreadth: 1, lengthLimit: 48 })({
+      configure({ maximumBreadth: 1, lengthLimit: M + 10 })({
         key: '1234567890',
         later: 2,
       }),
-    ).toBe('{"...":"[caught-object-report-json: Truncated]"}');
+    ).toBe(`{"...":${MARKER_JSON}}`);
   });
 
   test('uses null when an omitted-only object cannot fit any truncation marker', () => {
     expect(
-      configure({ maximumBreadth: 1, lengthLimit: 20 })({ a: undefined, b: 2 }),
+      configure({ maximumBreadth: 1, lengthLimit: M + 1 })({
+        a: undefined,
+        b: 2,
+      }),
     ).toBe('null');
   });
 });

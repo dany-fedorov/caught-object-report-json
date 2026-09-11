@@ -41,15 +41,20 @@ SOFTWARE.
 
 const { hasOwnProperty } = Object.prototype;
 
+/** Appended to a value that was cut to fit a length limit. */
+const TRUNCATED_MARKER = '[truncated]';
+
 const stringify = configure();
 
 stringify.configure = configure;
+stringify.TRUNCATED_MARKER = TRUNCATED_MARKER;
 stringify.stringify = stringify;
 
 stringify.default = stringify;
 
 exports.stringify = stringify;
 exports.configure = configure;
+exports.TRUNCATED_MARKER = TRUNCATED_MARKER;
 
 module.exports = stringify;
 
@@ -230,18 +235,38 @@ function configure(options) {
   /**
    * @param {unknown} value
    * @param {((this: object, key: string, value: any) => any) | null} [replacer]
+   * @param {{ lengthLimit?: number, onTruncate?: () => void }} [perCall]
+   *   Per-call overrides of the configured `lengthLimit` and `onTruncate`.
    * @returns {string | undefined}
    */
-  function stringify(value, replacer = null) {
+  function stringify(value, replacer = null, perCall = undefined) {
     if (Array.isArray(replacer)) {
       throw new Error(
         'caught-object-report-json::Internal Error: Array replacer is not supported',
       );
     }
+    let callLengthLimit = lengthLimit;
+    let callOnTruncate = onTruncate;
+    if (perCall !== undefined) {
+      if (perCall.lengthLimit !== undefined) {
+        callLengthLimit = getPositiveIntegerOption(perCall, 'lengthLimit');
+        if (callLengthLimit < 4) {
+          throw new RangeError('The "lengthLimit" argument must be >= 4');
+        }
+      }
+      if (perCall.onTruncate !== undefined) {
+        if (typeof perCall.onTruncate !== 'function') {
+          throw new TypeError(
+            'The "onTruncate" argument must be of type function',
+          );
+        }
+        callOnTruncate = perCall.onTruncate;
+      }
+    }
     // State belongs to this call so a replacer can safely invoke stringify again.
     const stack = [];
     const overflow = Symbol('length limit');
-    const marker = '[caught-object-report-json: Truncated]';
+    const marker = TRUNCATED_MARKER;
     const markerJson = strEscape(marker);
     const markerSize = measure(markerJson);
     let truncated = false;
@@ -432,8 +457,8 @@ function configure(options) {
       }
     }
 
-    const result = serialize(read('', { '': value }), lengthLimit);
-    if (truncated && onTruncate) onTruncate();
+    const result = serialize(read('', { '': value }), callLengthLimit);
+    if (truncated && callOnTruncate) callOnTruncate();
     // Strings and containers already return the marker whenever it fits.
     // Root overflow therefore means a tiny budget; null always fits that budget.
     return result === overflow ? 'null' : result;

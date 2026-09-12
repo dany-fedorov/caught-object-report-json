@@ -1,3 +1,12 @@
+## 9.0.1 (2026-09-12)
+
+### Documentation
+
+* Refresh the npm README with uniform, bounded exception data for self-correction in agentic workflows, LLM harnesses, and agent graphs.
+* Explain how a host selects failure feedback, validates proposed corrections, bounds retries, and checks recovery outcomes.
+* Keep practical reporting and disclosure limits while removing positioning audit notes.
+* No runtime or public API changes.
+
 # [9.0.0](https://github.com/dany-fedorov/caught-object-report-json/compare/v8.0.0...v9.0.0) (2026-09-12)
 
 ### Features and fixes

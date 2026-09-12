@@ -1,6 +1,6 @@
 {
   "name": "caught-object-report-json",
-  "version": "9.0.0",
+  "version": "9.0.1",
   "description": "Uniform, bounded JSON exception data for self-correction in agentic workflows, LLM harnesses, and agent graphs.",
   "main": "./index.js",
   "scripts": {

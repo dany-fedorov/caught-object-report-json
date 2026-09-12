@@ -25,6 +25,7 @@ try {
 
 * [Motivation](#motivation)
 * [Before Using This Library](#before-using-this-library)
+* [Installation](#installation)
 * [Quick start](#quick-start)
 * [The report](#the-report)
     * [Fields](#fields)
@@ -63,6 +64,14 @@ Compared to that, `caught-object-report-json`
 - flattens nested errors into one array you can query with JSONPath-like tools, with cycles and shared errors reported once;
 - keeps the whole report under a size limit while keeping it valid JSON with a known shape;
 - omits what is predictable, so a plain `Error` costs one stack array and a version tag.
+
+# Installation
+
+Package: [caught-object-report-json on npm](https://www.npmjs.com/package/caught-object-report-json).
+
+```sh
+npm install caught-object-report-json
+```
 
 # Quick start
 

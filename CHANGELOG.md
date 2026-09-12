@@ -1,3 +1,76 @@
+# [9.0.0](https://github.com/dany-fedorov/caught-object-report-json/compare/v8.0.0...v9.0.0) (2026-09-12)
+
+
+### Bug Fixes
+
+* address report sizing and identity review findings ([6d7fb31](https://github.com/dany-fedorov/caught-object-report-json/commit/6d7fb318b0a0db36389faa6c31dffd3f5266913a))
+* preserve metadata when cloning report options ([1307ab1](https://github.com/dany-fedorov/caught-object-report-json/commit/1307ab127cba17c57af6a9e9d86b2e959a56eb31))
+* preserve required report fields and enforce full coverage ([3dc848a](https://github.com/dany-fedorov/caught-object-report-json/commit/3dc848a122f43713aeaff0cf1bf9ba2d9c381c4c))
+
+
+### Features
+
+* Add next version of schema and update safe-stable-stringify name ([c184e5d](https://github.com/dany-fedorov/caught-object-report-json/commit/c184e5d5502e999a0da8a5696121c3cd8d52f857))
+* apply configurable size budgets to complete reports ([20cf6d4](https://github.com/dany-fedorov/caught-object-report-json/commit/20cf6d46597575b5243266ba5f7114ceba676b81))
+* finish length-limited JSON serialization ([489ea58](https://github.com/dany-fedorov/caught-object-report-json/commit/489ea58170fb49dad3dd3cc70df51cfc8a135319))
+* omit report fields that hold their expected value ([0e51179](https://github.com/dany-fedorov/caught-object-report-json/commit/0e511799b39b285beaac831a40a88d9ec577e49f))
+* shorten the API, bound child discovery, add corj/v0.12 ([5f77460](https://github.com/dany-fedorov/caught-object-report-json/commit/5f774607232aff37bca5a22d885e66a228045b74))
+* store stack as lines, derive header fields, split report versions ([3fbad67](https://github.com/dany-fedorov/caught-object-report-json/commit/3fbad6756db2a858d7b1d0ed908b3d9dbe8f7cf3))
+* WIP on cutting JSONs that are too long ([e93b77a](https://github.com/dany-fedorov/caught-object-report-json/commit/e93b77a3edf4a73357dbecb33b8ffda0ca7be973))
+* WIP on JSON length counter ([8b9db03](https://github.com/dany-fedorov/caught-object-report-json/commit/8b9db0386f309b2848bcebc8e30abfad015df696))
+
+
+### BREAKING CHANGES
+
+* report schema is corj/v0.12 and the API is renamed.
+
+- `makeCaughtObjectReportJson` / `...Array` and the `bakeCorj` aliases
+  become `makeCorj` / `makeCorjArray`.
+- `new CorjMaker(options?)` takes partial options and validates them,
+  replacing `CorjMaker.withDefaults`; `cloneWith` becomes `with`;
+  `maker.options` is frozen; the `*Entries` methods are gone.
+- `CORJ_MAKER_DEFAULT_OPTIONS` becomes `CORJ_DEFAULT_OPTIONS`.
+- Options: `maxChildrenLevel` -> `maxDepth`, `parseStackToArray` ->
+  `stackFormat`, `metadataFields` + `childrenMetadataFields` -> `metadata`,
+  `onCaughtMaking` + `printWarningsOnUnhandledErrors` -> `onError`.
+  `asJsonFormatsToApply` / `asStringFormatsToApply` are gone: the
+  `toCorjAsJson` / `toCorjAsString` methods are always tried first.
+  Unknown option names now throw.
+- Report: child nodes link through `child_ids` instead of `children`;
+  free-text `children_omitted_reason` becomes `children_omitted` with the
+  codes `max_depth`, `max_children` and `max_size`; `null` children are
+  never produced; markers are `[truncated]` and `[circular]`.
+- Types are prefixed `Corj*`; the old names remain as deprecated aliases.
+
+Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01Bk8TYkYWn5cHYno8ifiznV
+* `stack` is an array of lines by default; pass
+`parseStackToArray: false` for the previous string. `constructor_name` and
+`message` are absent from default reports when derivable from the first
+stack line. Complete reports carry `v: "corj/v0.11-full"` and validate
+against the `corj/v0.11-full` schema.
+
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01Bk8TYkYWn5cHYno8ifiznV
+* `instanceof_error`, `typeof`, `as_string`, `as_json`,
+`as_json_format` and `children_sources` are optional in
+`CaughtObjectReportJson` and absent from default reports when they hold
+their expected value. Reports validate against corj/v0.11, not v0.10.
+Pass `omitExpectedValues: false` or use `restoreExpectedValues()` to get
+the previous shape.
+
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01Bk8TYkYWn5cHYno8ifiznV
+* The default size limit now applies to the whole CORJ report
+or report array in UTF-8 bytes. All content fields can be truncated and child
+reports can be omitted to meet this limit. Configure maxReportSize and
+reportSizeUnit to match the integration's budget.
+* Reports use corj/v0.10 and the
+safe-stable-stringify-with-length-limit format. Replace
+CORJ_AS_JSON_FORMAT_SAFE_STABLE_STRINGIFY_2_4_1 with
+CORJ_AS_JSON_FORMAT_SAFE_STABLE_STRINGIFY_WITH_LENGTH_LIMIT. Oversized as_json
+values are now truncated at 100,000 serialized UTF-16 code units.
+
 # [8.0.0](https://github.com/dany-fedorov/caught-object-report-json/compare/v7.2.0...v8.0.0) (2024-09-15)
 
 

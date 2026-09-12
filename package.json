@@ -1,7 +1,7 @@
 {
   "name": "caught-object-report-json",
   "version": "9.0.0",
-  "description": "JS Error JSON representation",
+  "description": "Bounded JSON diagnostics for heterogeneous thrown values and nested causes in TypeScript apps and LLM harnesses.",
   "main": "./index.js",
   "scripts": {
     "test": "NODE_OPTIONS='--stack-trace-limit=1000' ./node_modules/.bin/jest",
@@ -32,7 +32,18 @@
     "error log",
     "error",
     "js error",
-    "jsonify error"
+    "jsonify error",
+    "agentic",
+    "agentic-development",
+    "llm",
+    "harness",
+    "agent-harness",
+    "graph",
+    "agent-graph",
+    "context-engineering",
+    "evals",
+    "metadata",
+    "json-schema"
   ],
   "author": "Dany Fedorov",
   "license": "MIT",

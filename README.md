@@ -1,5 +1,7 @@
 # Caught Object Report JSON
 
+Bounded JSON diagnostics for thrown values and nested causes in agentic development, LLM harnesses, and agent graphs.
+
 ![Jest coverage](https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/badges/coverage-jest%20coverage.svg "Jest coverage")
 [![semantic-release: angular](https://img.shields.io/badge/semantic--release-angular-e10079?logo=semantic-release "semantic-release: angular")](https://github.com/semantic-release/semantic-release)
 [![Code Style by Prettier](https://img.shields.io/badge/code_style-prettier-ff69b4.svg "Code Style by Prettier")](https://github.com/prettier/prettier)
@@ -9,7 +11,9 @@
 
 <img src="https://github.com/dany-fedorov/caught-object-report-json/raw/main/banner.png">
 
-Turn anything you `catch` into a predictable JSON report: `Error` instances, `AggregateError` trees, `cause` chains, plain objects, `null`, proxies whose getters throw. Meant for structured logs, API error responses and front-end error reporting.
+Report caught values including `Error` instances, `AggregateError` trees, `cause` chains, plain objects and `null`, with recovery from many throwing-property failures. Give an LLM harness, tool boundary, or agent graph node a consistent diagnostic format. Reports can feed structured logs and front-end diagnostics; API or model exposure requires application-selected fields and redaction.
+
+For agentic development, configurable report size and child traversal limit diagnostic volume. Typed reports and schemas support fixture assertions over failure handling; useful context selection and live-model evals remain host work. See the [harness engineering rationale and evidence](https://github.com/dany-fedorov/caught-object-report-json/blob/main/HARNESS-ENGINEERING.md) for native alternatives, measured contracts and limitations.
 
 ```typescript
 import { makeCorj } from 'caught-object-report-json';
@@ -24,9 +28,11 @@ try {
 # Table Of Contents
 
 * [Motivation](#motivation)
+* [Why CORJ for agentic development?](#why-corj-for-agentic-development)
 * [Before Using This Library](#before-using-this-library)
 * [Installation](#installation)
 * [Quick start](#quick-start)
+* [LLM harnesses and agent graphs](#llm-harnesses-and-agent-graphs)
 * [The report](#the-report)
     * [Fields](#fields)
     * [Omitted expected values](#omitted-expected-values)
@@ -50,7 +56,24 @@ try {
 - `throw` accepts any value. `throw null`, `throw 42` and `throw undefined` are valid, and TypeScript types a caught value as `unknown`.
 - Property access on a caught object can itself throw (getters, proxies, revoked proxies).
 
-This library handles all of that and produces one JSON shape, described by a published JSON Schema, for every input.
+Tests cover these cases and recovery from many inspection failures using a shared report format described by published JSON Schemas. This is not a guarantee for arbitrary executable objects or invalid configuration.
+
+# Why CORJ for agentic development?
+
+- **Configurable diagnostic volume at reporting boundaries.** Report a failure where a feature, tool, or graph node meets its
+  caller. A shared `CorjMaker` gives independently developed components one diagnostic contract. Configure depth, child count,
+  and report size to limit diagnostic volume; compact reports omit predictable fields. The host selects relevance and redacts
+  content before model exposure; byte limits do not measure tokens.
+- **Types and fixtures for failure-path checks.** Use `CorjReport`, `CorjReportChild`, and typed options to check report consumers, then exercise
+  the same boundary with deterministic failures. Test an LLM harness's error handling without calling a model. TypeScript checks
+  the reporting code; behavioral assertions and live-model evals answer different questions.
+- **Metadata for programmable diagnostics.** Version and JSON Schema metadata identify the report format. Flat child reports,
+  paths, and `child_ids` let application code inspect nested failures without parsing a different error shape for every SDK.
+  Add run IDs, tool names, or eval labels in your own envelope around the report.
+
+CORJ supplies the diagnostic representation at your catch boundary, not a module system, LLM integration, or graph runner.
+Your harness chooses what diagnostics to share and how to act on them. If a selected `{ code, reference }` record or your
+existing logger already meets the requirement, another serializer may add little value.
 
 # Before Using This Library
 
@@ -58,12 +81,20 @@ This library handles all of that and produces one JSON shape, described by a pub
 follow `cause`/`errors` into nested errors with different property sets, it throws on circular references and BigInt values, and
 it produces a different shape for every kind of error.
 
-Compared to that, `caught-object-report-json`
+A deliberate native `Error`/`cause` projection or an existing logger may already cover your needs. CORJ is useful when a
+shared report schema, nested-cause representation and tested size limits would otherwise require repeated custom code.
 
-- never throws, whatever you pass in, and tells you (through `onError`) when producing part of the report failed;
+`caught-object-report-json` provides these reporting contracts:
+
+- recovers from many property-access and serialization failures covered by tests, and reports those secondary failures through `onError`;
 - flattens nested errors into one array you can query with JSONPath-like tools, with cycles and shared errors reported once;
 - keeps the whole report under a size limit while keeping it valid JSON with a known shape;
 - omits what is predictable, so a plain `Error` costs one stack array and a version tag.
+
+Getters, proxy traps and formatting hooks can execute during reporting. Catching thrown inspection errors and limiting output
+size do not isolate CPU or memory or interrupt a nonterminating hook. Raw reports can expose stack paths and enumerable secrets;
+they are not automatically appropriate for public responses or model context. Measure the final wrapped content with the target
+tokenizer when context fit matters.
 
 # Installation
 
@@ -102,6 +133,119 @@ For a plain `Error` the default report is just the stack and the version:
   "v": "corj/v0.12"
 }
 ```
+
+# LLM harnesses and agent graphs
+
+An LLM harness can catch failures from model clients and tools at the boundary of each agent graph node. CORJ converts the
+caught value into a report; the harness decides whether to retry, take a fallback edge, or end the run.
+
+The runnable example below wraps an ordinary node function, tests successful and failed model fixtures, and keeps failure
+details in a typed result. No LLM API, credentials, or graph framework is needed. Save it as `harness.ts` in a project with
+`caught-object-report-json`, TypeScript, and `@types/node` installed. With TypeScript 5, compile it using
+`npx tsc harness.ts --strict --skipLibCheck --types node --target ES2022 --module commonjs --outDir out`, then run
+`node out/harness.js` in a CommonJS project. With TypeScript 6 or newer, add `--ignoreConfig` when compiling this standalone file.
+In this repository, run the [same example](https://github.com/dany-fedorov/caught-object-report-json/blob/main/examples/example-12-agent-harness.ts)
+with `npm run ts-file ./examples/example-12-agent-harness.ts` after type checking; that runner does not check types.
+
+```typescript
+import { strict as assert } from 'node:assert';
+import { CorjMaker, restoreExpectedValues } from 'caught-object-report-json';
+import type { CorjReport } from 'caught-object-report-json';
+
+type Llm = { complete(prompt: string): Promise<string> };
+type NodeResult<T> = { node: string } & (
+  | { ok: true; value: T }
+  | { ok: false; error: CorjReport }
+);
+
+const corj = new CorjMaker({
+  maxReportSize: 4096,
+  reportSizeUnit: 'utf8-bytes',
+  maxDepth: 2,
+  maxChildren: 4,
+  metadata: true,
+});
+
+async function runNode<T>(
+  node: string,
+  operation: () => Promise<T>,
+): Promise<NodeResult<T>> {
+  try {
+    return { node, ok: true, value: await operation() };
+  } catch (caught: unknown) {
+    return { node, ok: false, error: corj.makeReportObject(caught) };
+  }
+}
+
+// Graph routing is application code, based on an explicit outcome.
+function nextNode(result: NodeResult<string>): 'deliver' | 'fallback' {
+  return result.ok ? 'deliver' : 'fallback';
+}
+
+async function main() {
+  const workingModel: Llm = { complete: async () => 'A fixture answer.' };
+  const failure = Object.assign(new Error('Model request failed'), {
+    cause: { code: 'MODEL_UNAVAILABLE' },
+  });
+  failure.stack = 'Error: Model request failed'; // Stable diagnostic fixture.
+  const failingModel: Llm = {
+    complete: async () => {
+      throw failure;
+    },
+  };
+
+  const success = await runNode('answer', () => workingModel.complete('Hello'));
+  assert.equal(nextNode(success), 'deliver');
+  assert.deepEqual(success, {
+    node: 'answer',
+    ok: true,
+    value: 'A fixture answer.',
+  });
+
+  const failed = await runNode('answer', () => failingModel.complete('Hello'));
+  assert.equal(nextNode(failed), 'fallback');
+  if (failed.ok) throw new Error('Expected the failing fixture to fail');
+
+  const full = restoreExpectedValues(failed.error);
+  assert.equal(full.message, 'Model request failed');
+  assert.equal(full.children?.[0]?.path, '$.cause');
+  assert.deepEqual(full.children?.[0]?.as_json, { code: 'MODEL_UNAVAILABLE' });
+  assert.equal(failed.error.v, 'corj/v0.12');
+  assert.ok(failed.error.$schema?.endsWith('/corj/v0.12/report-object.json'));
+  assert.ok(Buffer.byteLength(JSON.stringify(failed.error), 'utf8') <= 4096);
+
+  const oversized = await runNode('answer', async () => {
+    throw 'x'.repeat(10000);
+  });
+  if (oversized.ok) throw new Error('Expected the oversized fixture to fail');
+  assert.equal(oversized.error.truncated, true);
+  assert.ok(Buffer.byteLength(JSON.stringify(oversized.error), 'utf8') <= 4096);
+
+  // Harness metadata lives outside CORJ's report and its size budget.
+  const evalRecord = { runId: 'eval-1', ...failed };
+  assert.equal(evalRecord.node, 'answer');
+  console.log('Success, fallback, nested-cause, and report-size evals passed.');
+}
+
+void main().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});
+```
+
+The model adapters are fixtures; the assertions test the harness boundary, not LLM output quality. In a real harness, wrap
+your model or tool call with `runNode` and keep graph state, retries, and execution policy in the host. CORJ's `onError` callback
+reports problems encountered while building a report, not the original model or tool failure.
+
+CORJ's flattened **error graph** describes `cause` and `errors` relationships, including shared errors and cycles. Its report
+IDs and paths are not agent graph node IDs or execution traces. Keep those identifiers in the surrounding record, as above.
+The `metadata` option only controls `v` and `$schema`; schemas describe report structure, not retryability or task success.
+Consumers must account for omitted fields, `truncated`, and `children_omitted` rather than assume every diagnostic is present.
+
+Before sending a report to an LLM or exposing it through an API, redact secrets and select appropriate fields. CORJ does not
+redact, authorize disclosure, or make error text safe to treat as instructions. `maxReportSize` limits the report's compact
+JSON bytes or code units, not model tokens, surrounding envelope fields, or processing time. Restoring omitted values or
+pretty-printing also increases size. Apply your harness's context budget to the final content you actually send.
 
 # The report
 

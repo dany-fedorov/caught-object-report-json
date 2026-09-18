@@ -705,8 +705,20 @@ function reportError(ctx: Ctx, caught: unknown, context: CorjContext): void {
     // A copy: a handler that rewrites its record cannot rewrite the report's row.
     ctx.options.onError(caught, { ...record });
   } catch (failure: unknown) {
+    // This line is emitted text like any other: a handler that quotes what it
+    // was handling would otherwise print the one string the policy protects.
+    const described = describeValue(failure);
     console.warn(
-      `[caught-object-report-json] onError threw: ${describeValue(failure)}`,
+      `[caught-object-report-json] onError threw: ${
+        ctx.redactor === null
+          ? described
+          : ctx.redactor.text(described, {
+              stage: 'warning',
+              path: context.path,
+              key: context.key,
+              prop: context.prop,
+            })
+      }`,
     );
   }
 }

@@ -602,6 +602,28 @@ describe('redact: the reporting boundary itself', () => {
     expect(report.constructor_name).toBe(CORJ_REDACTED_MARKER);
   });
 
+  test('the line about a handler that threw goes through the policy', () => {
+    const warn = jest
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
+    const caught = Object.defineProperty({}, 'message', {
+      enumerable: true,
+      get(): never {
+        throw new Error(`trap holding ${SECRET}`);
+      },
+    });
+    new CorjMaker({
+      redact: { patterns: [/sk-live-[A-Za-z0-9-]+/g] },
+      onError: (failure: unknown) => {
+        throw new Error(`sink failed for ${String(failure)}`);
+      },
+    }).makeReportObject(caught);
+    const printed = warn.mock.calls.map((call) => String(call[0])).join('\n');
+    expect(printed).toContain('onError threw');
+    expect(printed).toContain(CORJ_REDACTED_MARKER);
+    expect(printed).not.toContain(SECRET);
+  });
+
   test('a failure with no field name is still redacted and reported', () => {
     const warn = jest
       .spyOn(console, 'warn')

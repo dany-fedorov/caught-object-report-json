@@ -615,19 +615,19 @@ describe('deriving constructor_name and message from the stack', () => {
 
 describe('report versions', () => {
   test('constants', () => {
-    expect(CORJ_VERSION).toBe('corj/v0.13');
-    expect(CORJ_VERSION_FULL).toBe('corj/v0.13-full');
+    expect(CORJ_VERSION).toBe('corj/v0.14');
+    expect(CORJ_VERSION_FULL).toBe('corj/v0.14-full');
     expect(CORJ_REPORT_OBJECT_JSON_SCHEMA_LINK).toContain(
-      '/corj/v0.13/report-object.json',
+      '/corj/v0.14/report-object.json',
     );
     expect(CORJ_REPORT_ARRAY_JSON_SCHEMA_LINK).toContain(
-      '/corj/v0.13/report-array.json',
+      '/corj/v0.14/report-array.json',
     );
     expect(CORJ_FULL_REPORT_OBJECT_JSON_SCHEMA_LINK).toContain(
-      '/corj/v0.13-full/report-object.json',
+      '/corj/v0.14-full/report-object.json',
     );
     expect(CORJ_FULL_REPORT_ARRAY_JSON_SCHEMA_LINK).toContain(
-      '/corj/v0.13-full/report-array.json',
+      '/corj/v0.14-full/report-array.json',
     );
   });
 
@@ -657,11 +657,11 @@ describe('report versions', () => {
       const kind = array ? 'array' : 'object';
       expect(nodes(compact)[0]!['v']).toBe(CORJ_VERSION);
       expect(nodes(compact)[0]!['$schema']).toBe(
-        `https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.13/report-${kind}.json`,
+        `https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.14/report-${kind}.json`,
       );
       expect(nodes(full)[0]!['v']).toBe(CORJ_VERSION_FULL);
       expect(nodes(full)[0]!['$schema']).toBe(
-        `https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.13-full/report-${kind}.json`,
+        `https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.14-full/report-${kind}.json`,
       );
       for (const report of [compact, full]) {
         expect(nodes(report)[1]).not.toHaveProperty('v');

@@ -1,4 +1,6 @@
 import {
+  CORJ_VERSION,
+  CORJ_VERSION_FULL,
   CorjMaker,
   CorjOptions,
   CorjErrorContext,
@@ -49,7 +51,7 @@ describe('review regressions', () => {
         as_string: '[truncated]',
         as_json: null,
         children_omitted: 'max_size',
-        v: 'corj/v0.13',
+        v: CORJ_VERSION,
       },
     ]);
   });
@@ -86,7 +88,7 @@ describe('review regressions', () => {
         as_string: '[truncated]',
         as_json: null,
         children_omitted: 'max_size',
-        v: 'corj/v0.13',
+        v: CORJ_VERSION,
       });
       expect(Array.isArray(report) ? report.length : 1).toBe(1);
       expect(errors).toEqual([
@@ -114,7 +116,7 @@ describe('review regressions', () => {
       typeof: 'object',
       as_string: '[truncated]',
       as_json: null,
-      v: 'corj/v0.13-full',
+      v: CORJ_VERSION_FULL,
     });
   });
 

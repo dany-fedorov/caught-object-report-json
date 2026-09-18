@@ -53,7 +53,7 @@ describe('CorjMaker', () => {
       delete report.stack;
       expect(report).toMatchInlineSnapshot(`
         Object {
-          "v": "corj/v0.13",
+          "v": "corj/v0.14",
         }
       `);
       expect(errors).toEqual([]);
@@ -72,7 +72,7 @@ describe('CorjMaker', () => {
           "constructor_name": "String",
           "instanceof_error": false,
           "typeof": "string",
-          "v": "corj/v0.13",
+          "v": "corj/v0.14",
         }
       `);
       expect(errors).toEqual([]);
@@ -88,7 +88,7 @@ describe('CorjMaker', () => {
           "as_string": "undefined",
           "instanceof_error": false,
           "typeof": "undefined",
-          "v": "corj/v0.13",
+          "v": "corj/v0.14",
         }
       `);
       expect(errors).toEqual([]);
@@ -126,7 +126,7 @@ describe('CorjMaker', () => {
           "as_json": null,
           "as_string": "null",
           "instanceof_error": false,
-          "v": "corj/v0.13",
+          "v": "corj/v0.14",
         }
       `);
       expect(errors).toEqual([]);
@@ -143,7 +143,7 @@ describe('CorjMaker', () => {
           "constructor_name": "BigInt",
           "instanceof_error": false,
           "typeof": "bigint",
-          "v": "corj/v0.13",
+          "v": "corj/v0.14",
         }
       `);
       expect(errors).toEqual([]);
@@ -167,7 +167,7 @@ describe('CorjMaker', () => {
           "as_string": "1234,string,1234,[object Object]",
           "constructor_name": "Array",
           "instanceof_error": false,
-          "v": "corj/v0.13",
+          "v": "corj/v0.14",
         }
       `);
       expect(errors).toEqual([]);
@@ -204,9 +204,9 @@ describe('CorjMaker', () => {
         children_sources: ['cause', 'errors'],
         as_string_format: 'String',
         as_json_format: 'safe-stable-stringify-with-length-limit',
-        v: 'corj/v0.13-full',
+        v: 'corj/v0.14-full',
         $schema:
-          'https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.13-full/report-object.json',
+          'https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.14-full/report-object.json',
       });
     });
   });
@@ -221,16 +221,16 @@ describe('CorjMaker', () => {
       delete report.stack;
       expect(report).toMatchInlineSnapshot(`
         Object {
-          "$schema": "https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.13/report-object.json",
-          "v": "corj/v0.13",
+          "$schema": "https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.14/report-object.json",
+          "v": "corj/v0.14",
         }
       `);
     });
 
     test('metadata: true and false', () => {
       const both = makeCorj(new Error('x'), { ...LEGACY, metadata: true });
-      expect(both.v).toBe('corj/v0.13');
-      expect(both.$schema).toContain('corj/v0.13/report-object.json');
+      expect(both.v).toBe('corj/v0.14');
+      expect(both.$schema).toContain('corj/v0.14/report-object.json');
       const none = makeCorj(new Error('x'), { ...LEGACY, metadata: false });
       delete none.stack;
       expect(none).toEqual({});
@@ -397,7 +397,7 @@ describe('CorjMaker', () => {
               "stage": "as_string",
             },
           ],
-          "v": "corj/v0.13",
+          "v": "corj/v0.14",
         }
       `);
       expect(calls).toEqual([
@@ -427,7 +427,7 @@ describe('CorjMaker', () => {
               "stage": "as_string",
             },
           ],
-          "v": "corj/v0.13",
+          "v": "corj/v0.14",
         }
       `);
       expect(calls).toEqual([
@@ -465,7 +465,7 @@ describe('CorjMaker', () => {
               "stage": "as_json",
             },
           ],
-          "v": "corj/v0.13",
+          "v": "corj/v0.14",
         }
       `);
       expect(calls).toEqual([
@@ -506,7 +506,7 @@ describe('CorjMaker', () => {
               "stage": "as_json",
             },
           ],
-          "v": "corj/v0.13",
+          "v": "corj/v0.14",
         }
       `);
       expect(calls).toEqual([
@@ -546,7 +546,7 @@ describe('CorjMaker', () => {
               "stage": "as_json",
             },
           ],
-          "v": "corj/v0.13",
+          "v": "corj/v0.14",
         }
       `);
       expect(calls).toEqual([
@@ -587,7 +587,7 @@ describe('CorjMaker', () => {
             },
           ],
           "stack": null,
-          "v": "corj/v0.13",
+          "v": "corj/v0.14",
         }
       `);
       expect(calls).toEqual([
@@ -726,7 +726,7 @@ describe('CorjMaker', () => {
               "path": "$.cause",
             },
           ],
-          "v": "corj/v0.13",
+          "v": "corj/v0.14",
         }
       `);
     });
@@ -757,7 +757,7 @@ describe('CorjMaker', () => {
               "path": "$.cause[1]",
             },
           ],
-          "v": "corj/v0.13",
+          "v": "corj/v0.14",
         }
       `);
     });
@@ -856,7 +856,7 @@ describe('CorjMaker', () => {
               "path": "$.cause[0].cause[1].cause[1]",
             },
           ],
-          "v": "corj/v0.13",
+          "v": "corj/v0.14",
         }
       `);
 
@@ -882,7 +882,7 @@ describe('CorjMaker', () => {
               "path": "$.cause[1]",
             },
           ],
-          "v": "corj/v0.13",
+          "v": "corj/v0.14",
         }
       `);
     });
@@ -891,7 +891,7 @@ describe('CorjMaker', () => {
       const caught = errorWithCause('lvl 0', new Error('lvl 1'));
       const report = makeCorj(caught, { ...LEGACY, metadata: true });
       expect(getReportObjectReportValidator()(report)).toBe(true);
-      expect(report.v).toBe('corj/v0.13');
+      expect(report.v).toBe('corj/v0.14');
       expect(report.$schema).toContain('/report-object.json');
       expect(report.children![0]).not.toHaveProperty('v');
       expect(report.children![0]).not.toHaveProperty('$schema');
@@ -1075,7 +1075,7 @@ describe('CorjMaker', () => {
         as_json: null,
         stack: null,
         reporting_errors: errors.slice(0, 8).map((e) => e.context),
-        v: 'corj/v0.13',
+        v: 'corj/v0.14',
       });
       expect(report.children).toBeUndefined();
       expect(errors.map((e) => e.context)).toContainEqual({
@@ -1508,7 +1508,7 @@ describe('CorjMaker', () => {
           "id": "root",
           "level": 0,
           "path": "$",
-          "v": "corj/v0.13",
+          "v": "corj/v0.14",
         },
       ]
     `);
@@ -1533,7 +1533,7 @@ describe('CorjMaker', () => {
       'v',
       '$schema',
     ]);
-    expect(array[0]!.$schema).toContain('corj/v0.13/report-array.json');
+    expect(array[0]!.$schema).toContain('corj/v0.14/report-array.json');
     expect(Object.keys(array[1]!)).toEqual(['id', 'path', 'level', 'stack']);
   });
 

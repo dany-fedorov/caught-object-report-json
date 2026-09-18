@@ -1,5 +1,7 @@
 import {
   CORJ_EXPECTED_VALUES,
+  CORJ_VERSION,
+  CORJ_VERSION_FULL,
   CorjErrorContext,
   CorjMaker,
   makeCorj,
@@ -55,7 +57,7 @@ describe('omitting expected values', () => {
     expect(getReportObjectReportValidator()(report)).toBe(true);
     expect(Object.keys(report).sort()).toEqual(['stack', 'v']);
     expect((report.stack as string[])[0]).toBe('Error: boom');
-    expect(report.v).toBe('corj/v0.13');
+    expect(report.v).toBe(CORJ_VERSION);
   });
 
   test.each([false, true])(
@@ -416,7 +418,7 @@ describe('omitting expected values', () => {
           truncated: true,
           as_string: '[truncated]',
           as_json: null,
-          v: 'corj/v0.13',
+          v: CORJ_VERSION,
         },
       ]);
       expect(restoreExpectedValues(report)[0]).toMatchObject({
@@ -454,8 +456,10 @@ describe('omitting expected values', () => {
       typeof: 'object',
       as_json: {},
       as_string: 'Error: boom',
-      v: 'corj/v0.13-full',
-      $schema: expect.stringContaining('/corj/v0.13-full/report-object.json'),
+      v: CORJ_VERSION_FULL,
+      $schema: expect.stringContaining(
+        `/${CORJ_VERSION_FULL}/report-object.json`,
+      ),
     });
     // Omission would run before and after the size limiter, but a failure
     // is reported once and the second pass is skipped so the report stays

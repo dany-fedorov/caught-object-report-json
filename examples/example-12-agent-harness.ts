@@ -60,8 +60,8 @@ async function main() {
   assert.equal(full.message, 'Model request failed');
   assert.equal(full.children?.[0]?.path, '$.cause');
   assert.deepEqual(full.children?.[0]?.as_json, { code: 'MODEL_UNAVAILABLE' });
-  assert.equal(failed.error.v, 'corj/v0.13');
-  assert.ok(failed.error.$schema?.endsWith('/corj/v0.13/report-object.json'));
+  assert.equal(failed.error.v, 'corj/v0.14');
+  assert.ok(failed.error.$schema?.endsWith('/corj/v0.14/report-object.json'));
   assert.ok(Buffer.byteLength(JSON.stringify(failed.error), 'utf8') <= 4096);
 
   const oversized = await runNode('answer', async () => {

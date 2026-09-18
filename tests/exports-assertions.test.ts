@@ -39,13 +39,13 @@ describe('Assertions about package exports', function () {
           "instanceof_error": true,
           "typeof": "object",
         },
-        "CORJ_FULL_REPORT_ARRAY_JSON_SCHEMA_LINK": "https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.13-full/report-array.json",
-        "CORJ_FULL_REPORT_OBJECT_JSON_SCHEMA_LINK": "https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.13-full/report-object.json",
-        "CORJ_REPORT_ARRAY_JSON_SCHEMA_LINK": "https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.13/report-array.json",
-        "CORJ_REPORT_OBJECT_JSON_SCHEMA_LINK": "https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.13/report-object.json",
+        "CORJ_FULL_REPORT_ARRAY_JSON_SCHEMA_LINK": "https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.14-full/report-array.json",
+        "CORJ_FULL_REPORT_OBJECT_JSON_SCHEMA_LINK": "https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.14-full/report-object.json",
+        "CORJ_REPORT_ARRAY_JSON_SCHEMA_LINK": "https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.14/report-array.json",
+        "CORJ_REPORT_OBJECT_JSON_SCHEMA_LINK": "https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.14/report-object.json",
         "CORJ_TRUNCATED_MARKER": "[truncated]",
-        "CORJ_VERSION": "corj/v0.13",
-        "CORJ_VERSION_FULL": "corj/v0.13-full",
+        "CORJ_VERSION": "corj/v0.14",
+        "CORJ_VERSION_FULL": "corj/v0.14-full",
       }
     `);
   });

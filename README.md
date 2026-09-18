@@ -435,6 +435,11 @@ The value is resolved in this order, and the first valid one wins:
 A valid id is 1 to 128 printable ASCII characters without spaces (`/^[\x21-\x7e]{1,128}$/`). A source that yields anything
 else is passed over in silence: a missing id is not a reporting failure.
 
+The call's own `occurrenceId` is checked the same way. It is per-occurrence runtime data — a request id off the wire — so a
+value that is not a valid id does **not** throw: it is recorded as a reporting error (`stage: 'other'`,
+`key: 'occurrence_id'`, never quoting the value) and resolution continues with the sources. Only the *shape* of a call
+input is your own configuration and still throws: something that is not an object, or an unknown key.
+
 `occurrenceIdSources` takes four kinds of entry:
 
 ```typescript
@@ -450,8 +455,10 @@ const maker = new CorjMaker({
 
 - The default is `[{ auto: 'random' }]`. `null` or `[]` turns the field off.
 - `{ field }` and `{ path }` read the **root** caught value only, through the same access the report uses, so `redact` skip
-  rules apply and [`inspection`](#reporting-without-running-the-caught-object) decides whether a getter runs. An entry may
-  carry its own `inspection`; `inspection: 'default'` on an entry under a global `no-invoke` runs caught code for that read.
+  rules apply and [`inspection`](#reporting-without-running-the-caught-object) decides whether a getter runs — at **every**
+  segment of a path, not only the last. An entry may carry its own `inspection`; `inspection: 'default'` on an entry under a
+  global `no-invoke` runs caught code for that read. An element of an array is addressed as `$.ids[0]` whether you write the
+  segment as `0` or as `'0'`, so one `paths` rule covers both spellings.
 - A function entry that throws is recorded as a reporting error (`stage: 'other'`, `key: 'occurrence_id'`) and resolution
   continues with the next entry.
 - `{ auto: 'random' }` yields `CORJ_` plus 26 Crockford base32 characters, from `globalThis.crypto.getRandomValues` when it
@@ -484,6 +491,9 @@ them.
 | `{ field }`, `{ path }` | a value read from the node, with an optional per-entry `inspection` |
 | a function | `(context: { index, level, path, caught }) => unknown`, called once per node |
 
+`{ path: ['a'] }` is the one-segment case of `{ field: 'a' }`: the same read, the same label, the same hash — and listing
+both is rejected as a repeated part.
+
 `as_json` is deliberately not a part: it carries timestamps and per-occurrence ids, which would make every occurrence a new
 kind of failure. Name a stable property with `{ field }` instead. A whole-report hash was rejected for the same reason, and
 because every format bump would then change every fingerprint.
@@ -505,7 +515,11 @@ Values are taken **after redaction and before omission and size limiting**:
 | a new build, because stacks carry line numbers | the report format version, and `metadata` |
 
 A nested value — an object or an array — goes through a key-sorted JSON view with a fixed 16,384-byte cap, so property
-assignment order and the report budget cannot move the hash.
+assignment order and the report budget cannot move the hash. Every **string** value is likewise cut to 16,384 UTF-16 code
+units, after redaction, so the hash input stays bounded whatever the caught object carries: two strings that differ only
+past the cap share a fingerprint by design. A `bigint` contributes `<digits>n` and a non-finite number its `String()` form
+(`NaN`, `Infinity`, `-Infinity`); a function, a symbol, a missing property or a value the policy dropped contributes
+nothing.
 
 A root without a string `stack` (a thrown primitive or a plain object), or whose part values are all empty, also hashes its
 `typeof` and `as_string`, so thrown primitives do not all share one fingerprint: a thrown string has
@@ -518,7 +532,12 @@ can tell.
 
 `maker.makeFingerprint(caught)` computes the value alone — discovery and node fields, without `as_json`, the context or the
 limiter. It returns `undefined` when `fingerprintParts` is `null` or `[]`. A call argument outranks the parts:
-`makeCorj(caught, options, { fingerprint: 'checkout-timeout' })`, 1 to 64 printable ASCII characters without spaces.
+`makeCorj(caught, options, { fingerprint: 'checkout-timeout' })`, 1 to 64 printable ASCII characters without spaces. Like
+`occurrenceId`, a call `fingerprint` that is not such a token is recorded (`stage: 'other'`, `key: 'fingerprint'`) rather
+than thrown, and the parts are hashed instead.
+
+Hashing cannot fail a report: a failure while computing the fingerprint is recorded the same way and the report simply has
+no `fingerprint` field.
 
 > **Showing a fingerprint to an untrusted audience.** Anyone who can guess the hashed values can compute the hash and
 > confirm the guess. With the default parts the hash input contains stack text with absolute paths and line numbers, which
@@ -654,8 +673,11 @@ just failed is not consulted again.
 Failures in the finishing pass — `stage: 'limit'`, and `stage: 'other'` from the omission pass — happen after the report
 body is assembled and the budget is spent, so they reach the **handler only** and never appear in `reporting_errors`.
 
-Only your own configuration throws: unknown option names, invalid option values and an invalid call input raise `TypeError`
-or `RangeError` from the `CorjMaker` constructor, `makeCorj`, `makeCorjArray` and the maker's own methods.
+Only your own configuration throws: unknown option names, invalid option values and a call input of the wrong shape — not an
+object, or an unknown key — raise `TypeError` or `RangeError` from the `CorjMaker` constructor, `makeCorj`, `makeCorjArray`
+and the maker's own methods. The call's `occurrenceId` and `fingerprint` are runtime data rather than configuration: a value
+that fails its token pattern is recorded as a reporting error and passed over, so reporting one error never throws a second
+one inside the catch block that was reporting the first.
 
 # Options
 
@@ -739,7 +761,9 @@ not at all.)
 - the call's `context`, as a document of its own rooted at `$context`, and every value a `makeJson` view produces under its
   own named root;
 - every value a `fingerprintParts` entry reads, whatever its type: a number or a boolean is as identifying as a string, and
-  the fingerprint is meant to be published;
+  the fingerprint is meant to be published. Each value is offered under **its own path** — `$.details` for
+  `{ field: 'details' }`, `$.details.token` for what is inside it, `$.cause.details` on a child — so a `paths` rule or a
+  path-keyed `transform` that rewrites it in `as_json` rewrites the same value in the hash input;
 - the line the default `onError` prints about a failure, which is otherwise built from the caught object's own text. A
   **custom** `onError` receives the caught object unchanged and must apply its own policy.
 
@@ -1718,7 +1742,7 @@ overrides applied on top.
 #### `maker.makeFingerprint(caught): string | undefined`
 
 The [fingerprint](#fingerprint) alone, without building `as_json`, a context or running the limiter. `undefined` when
-`fingerprintParts` is `null` or `[]`.
+`fingerprintParts` is `null` or `[]`, or when hashing failed.
 
 #### `maker.makeJson(value, { root?, maxSize? }): CorjJsonView`
 

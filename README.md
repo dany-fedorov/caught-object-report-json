@@ -467,9 +467,11 @@ value without a JSON form) falls back silently. The formats used are recorded in
 
 # Redacting what the report emits
 
-A diagnostic representation can carry credentials: in enumerable properties, in a message, in a stack, in `as_string`, in a
-nested cause, and in the text of a secondary inspection failure. The package supplies the traversal and the transformation;
-which content is sensitive stays your decision.
+A report can carry credentials: in a property, a message, a stack, `as_string`, a nested cause, or the text of an inspection
+failure. CORJ supplies the mechanism; which content is sensitive stays your decision.
+
+A policy has two kinds of rule. **Skip** rules (`keys`, `paths`) name properties CORJ never reads, so an excluded getter never
+runs. **Scrub** rules (`patterns`, `transform`) rewrite text wherever the report emits it.
 
 ```typescript
 const maker = new CorjMaker({
@@ -483,39 +485,36 @@ const maker = new CorjMaker({
 });
 ```
 
-| Part | Meaning |
-| --- | --- |
-| `keys` | Property names CORJ never reads. A string matches exactly and is case-sensitive; use a `RegExp` for anything else. |
-| `paths` | JSONPaths CORJ never reads, e.g. `'$.cause.config.headers'`. A string matches exactly. |
-| `patterns` | `RegExp`s replaced in every string the report emits. Each must carry the `g` flag, or the policy is rejected. |
-| `replacement` | What an excluded value and a pattern match become, used literally (`$&` and `$1` are not expanded). Defaults to `CORJ_REDACTED_MARKER` (`'[redacted]'`). |
-| `transform` | `(value, context) => unknown`, the last word on every emitted value. Returning `undefined` leaves the field out. |
+| Rule | Kind | Meaning |
+| --- | --- | --- |
+| `keys` | skip | Property names never read, wherever they appear. A string matches exactly and is case-sensitive; use a `RegExp` for anything else. |
+| `paths` | skip | JSONPaths never read, e.g. `'$.cause.config.headers'`. A string matches exactly. |
+| `patterns` | scrub | `RegExp`s replaced in every string the report emits. Each must carry the `g` flag, or the policy is rejected. |
+| `transform` | scrub | `(value, context) => unknown`, run last on every emitted value. Returning `undefined` leaves the field out. |
+| `replacement` | — | What skipped and scrubbed content becomes, inserted literally (`$&` and `$1` are not expanded). Defaults to `CORJ_REDACTED_MARKER` (`'[redacted]'`). |
 
-`keys` and `paths` are consulted **before** the property is read, so CORJ never invokes an excluded getter. They select
-*properties*, not content — and error text is duplicated across `message`, `stack` and `as_string`, so excluding one read does
-not remove the text from the others:
+**To remove a secret's text, use `patterns`.** Skip rules select *properties*, not content, and error text is duplicated
+across `message`, `stack` and `as_string`, so skipping one read does not remove the text from the others:
 
 ```typescript
 makeCorj(new Error('boom SECRET'), { redact: { keys: ['message'] } });
 // message: '[redacted]'   stack[0]: 'Error: boom SECRET'
 ```
 
-Under the default inspection the caught object's own `toString`, and V8's stack formatting, read `message` themselves; no
-policy can stop code CORJ did not call. **To remove content, use `patterns` or `transform`**; combine them with
-`inspection: 'no-invoke'` if you also need the getter never to run. `patterns` and `transform`
-act on values that were already produced. The `transform` context is `{ stage, path, key, prop }`, where `stage` is
-`'prop-access'`, `'as_string'`, `'as_json'` or `'warning'`. (`'children'` reaches only the `keys`/`paths` matchers, never
-`transform`, because a children source is excluded before it is read or not at all.)
+The caught object's own `toString`, and V8's stack formatting, read `message` themselves; no policy can stop code CORJ did not
+call. Add `inspection: 'no-invoke'` if the getter must also never run.
+
+The `transform` context is `{ stage, path, key, prop }`, where `stage` is `'prop-access'`, `'as_string'`, `'as_json'` or
+`'warning'`. (`'children'` reaches only the skip rules, never `transform`: a children source is excluded before it is read or
+not at all.)
 
 ## What the policy reaches
 
 - every report field: `message`, `stack`, `constructor_name`, `as_string`, and every value **and property name** inside
   `as_json`, at any depth;
-- `id`, but only when you supply `makeReportId`, because such an id may be built from the caught object. A **default**
-  id — `"root"` and the discovery index — is structural, carries nothing from the caught object and is never
-  rewritten, so `child_ids` keeps linking children to their reports. Two custom ids that scrub to the same text
-  collide, and `child_ids` can then no longer tell those children apart — an inherent limit of scrubbing an
-  identifier;
+- `id`, only when you supply `makeReportId`, since such an id may be built from the caught object. Default ids are
+  structural and never rewritten, so `child_ids` keeps linking children to their reports. Two custom ids that scrub to
+  the same text collide;
 - the output of a caught object's own `toCorjAsString()` and `toCorjAsJson()`;
 - every child report, not only the root;
 - the line the default `onError` prints about a failure, which is otherwise built from the caught object's own text. A
@@ -530,13 +529,16 @@ Because `keys` matches a property *name* wherever it appears, a broad name has a
 
 ## Applying the policy to your own text
 
-A **custom** `onError` gets the caught object unchanged, and anything else you log next to a report is text CORJ never sees.
-`resolveCorjRedactPolicy` and `CorjRedactor` are the same mechanism the maker uses, exported so one policy covers both.
-Resolve the policy once — the resolver validates it, returns `null` for `null` and `undefined`, and accepts an
-already-resolved policy — then hand it to a `CorjRedactor` and call `#text` on every string you emit yourself. `#text` always
-returns a string: a `transform` that drops the value, returns a non-string or throws yields the `replacement`. Use `#apply`
-only for a value that may legitimately stop being a string; it returns the `CORJ_REDACT_DROP` symbol for a dropped field,
-which the caller must map. `#text` never returns it.
+A **custom** `onError` receives the caught object unchanged, and anything you log next to a report is text CORJ never sees.
+Apply the same policy to that text with the two exports the maker itself uses:
+
+- `resolveCorjRedactPolicy(input)` validates a policy once. It returns `null` for `null` and `undefined`, and accepts an
+  already-resolved policy.
+- `new CorjRedactor(policy, onFailure).text(value, context)` scrubs one string and always returns a string: a `transform`
+  that drops the value, returns a non-string or throws yields the `replacement`.
+
+`#apply` is for a value that may stop being a string; it returns the `CORJ_REDACT_DROP` symbol for a dropped field, which the
+caller must map. `#text` never returns it.
 
 ```typescript
 import {
@@ -563,9 +565,9 @@ const maker = new CorjMaker({
 
 ## When the policy itself fails
 
-A throwing matcher or `transform` fails closed. The value it was asked about becomes the replacement rather than passing
-through, and the failure is reported once through `onError` with `stage: 'redact'`. Reporting that failure does not consult the
-same policy again, so a policy that always throws cannot recurse.
+A throwing matcher or `transform` fails closed: the value it was asked about becomes the replacement rather than passing
+through. The failure is reported through `onError` with `stage: 'redact'`, once per value, so a `transform` that always throws
+reports several. Reporting a failure does not consult the same policy again, so such a policy cannot recurse.
 
 ## What a policy cannot do
 

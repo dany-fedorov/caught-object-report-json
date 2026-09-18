@@ -9,11 +9,9 @@ import {
   CORJ_TRUNCATED_MARKER,
   CORJ_VERSION,
   CORJ_VERSION_FULL,
-  CaughtObjectReportJson,
-  CaughtObjectReportJsonChild,
   CorjErrorContext,
   CorjMaker,
-  CorjMakerOptions,
+  CorjOptions,
   CorjOptionsInput,
   CorjReport,
   CorjReportChild,
@@ -154,12 +152,10 @@ describe('constants', () => {
     ).toBe('7');
   });
 
-  test('deprecated type aliases still name the new types', () => {
-    const report: CaughtObjectReportJson = makeCorj(new ErrorWithCause('x'));
-    const rows: CaughtObjectReportJsonChild[] = makeCorjArray(
-      new ErrorWithCause('x'),
-    );
-    const options: CorjMakerOptions = new CorjMaker().options;
+  test('the report and options type names name the produced values', () => {
+    const report: CorjReport = makeCorj(new ErrorWithCause('x'));
+    const rows: CorjReportChild[] = makeCorjArray(new ErrorWithCause('x'));
+    const options: CorjOptions = new CorjMaker().options;
     expect(report.v).toBe(CORJ_VERSION);
     expect(rows[0]!.id).toBe('root');
     expect(options.maxDepth).toBe(5);

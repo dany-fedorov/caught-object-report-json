@@ -1411,12 +1411,11 @@ describe('CorjMaker', () => {
     expect(Object.keys(array[1]!)).toEqual(['id', 'path', 'level', 'stack']);
   });
 
-  test('deprecated type aliases still resolve', () => {
+  test('the report and options type names resolve', () => {
     // Type-level check: assignment compiles.
-    const report: import('../src').CaughtObjectReportJson = makeCorj(1);
-    const child: import('../src').CaughtObjectReportJsonChild =
-      makeCorjArray(1)[0]!;
-    const options: import('../src').CorjMakerOptions = CORJ_DEFAULT_OPTIONS;
+    const report: import('../src').CorjReport = makeCorj(1);
+    const child: import('../src').CorjReportChild = makeCorjArray(1)[0]!;
+    const options: import('../src').CorjOptions = CORJ_DEFAULT_OPTIONS;
     expect([report, child, options]).toBeTruthy();
   });
 });

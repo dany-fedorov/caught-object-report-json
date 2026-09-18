@@ -12,6 +12,7 @@ import {
   restoreExpectedValues,
 } from 'caught-object-report-json';
 import type {
+  CorjContext,
   CorjInspection,
   CorjOptionsInput,
   CorjRedactPolicyInput,
@@ -29,14 +30,13 @@ const redact: CorjRedactPolicyInput = {
 };
 const options: CorjOptionsInput = { inspection, redact, maxDepth: 2 };
 
+const warning: CorjContext = { stage: 'warning', path: '$', key: 'message' };
+
 const resolved = resolveCorjRedactPolicy(redact);
 const scrubbed: string =
   resolved === null
     ? 'no policy'
-    : new CorjRedactor(resolved, () => undefined).text('sk-live-AAA', {
-        stage: 'warning',
-        path: '$',
-      });
+    : new CorjRedactor(resolved, () => undefined).text('sk-live-AAA', warning);
 
 const report: CorjReport = makeCorj(new Error('typed'), options);
 const rows: CorjReportChild[] = makeCorjArray(new Error('typed'), options);

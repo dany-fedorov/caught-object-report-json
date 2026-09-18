@@ -869,7 +869,7 @@ describe('redact: the exported redactor and policy resolver', () => {
   const context: CorjRedactContext = {
     stage: 'warning',
     path: '$',
-    key: 'error',
+    key: 'message',
   };
 
   test('CorjRedactor#text replaces a match with a literal $& replacement', () => {

@@ -18,11 +18,14 @@ import {
 } from './expected-values';
 import { CORJ_REDACT_DROP, Redactor, resolveRedactPolicy } from './redaction';
 import type {
+  CorjContext,
   CorjRedactContext,
   CorjRedactPolicy,
   CorjRedactPolicyInput,
   CorjRedactStage,
   CorjRedactTransform,
+  CorjReportKey,
+  CorjStage,
 } from './redaction';
 import {
   CORJ_FULL_REPORT_ARRAY_JSON_SCHEMA_LINK,
@@ -41,11 +44,14 @@ export { resolveRedactPolicy as resolveCorjRedactPolicy } from './redaction';
 /** Applies a resolved policy to text a consumer emits itself, such as a custom `onError` line. */
 export { Redactor as CorjRedactor } from './redaction';
 export type {
+  CorjContext,
   CorjRedactContext,
   CorjRedactPolicy,
   CorjRedactPolicyInput,
   CorjRedactStage,
   CorjRedactTransform,
+  CorjReportKey,
+  CorjStage,
 };
 export { CORJ_CIRCULAR_MARKER, CORJ_OMITTED_MARKER, CORJ_TRUNCATED_MARKER };
 export {
@@ -158,11 +164,6 @@ export type CorjReportChild = CorjReportBase & {
   child_ids?: string[];
 };
 
-/** @deprecated Use {@link CorjReport}. */
-export type CaughtObjectReportJson = CorjReport;
-/** @deprecated Use {@link CorjReportChild}. */
-export type CaughtObjectReportJsonChild = CorjReportChild;
-
 export type CorjReportSizeUnit = JsonSizeUnit;
 /**
  * How much of the caught object CORJ is willing to run to describe it.
@@ -189,30 +190,12 @@ export type CorjReportIdContext = {
   caught: unknown;
 };
 
-/** Where in the report process an error was caught. */
-export type CorjErrorStage =
-  | 'prop-access'
-  | 'as_string'
-  | 'as_json'
-  | 'children'
-  | 'limit'
-  | 'redact'
-  | 'other';
+/** @deprecated Use {@link CorjStage}. */
+export type CorjErrorStage = CorjStage;
+/** @deprecated Use {@link CorjContext}. */
+export type CorjErrorContext = CorjContext;
 
-export type CorjErrorContext = {
-  stage: CorjErrorStage;
-  /** JSONPath of the node being processed, `$` for the root. */
-  path: string;
-  /** Report field being produced, when known. */
-  key?: keyof CorjReport | keyof CorjReportChild | undefined;
-  /** Property of the caught object being accessed, when known. */
-  prop?: string | undefined;
-};
-
-export type CorjErrorHandler = (
-  caught: unknown,
-  context: CorjErrorContext,
-) => void;
+export type CorjErrorHandler = (caught: unknown, context: CorjContext) => void;
 
 export type CorjOptions = {
   /** Size limit of the compact JSON of the whole report, children included. Defaults to `100000`; `null` disables it. */
@@ -241,9 +224,6 @@ export type CorjOptions = {
   onError: CorjErrorHandler;
 };
 
-/** @deprecated Use {@link CorjOptions}. */
-export type CorjMakerOptions = CorjOptions;
-
 /** Options accepted by {@link CorjMaker}, {@link makeCorj} and {@link makeCorjArray}. Missing ones keep their defaults. */
 export type CorjOptionsInput = {
   [K in Exclude<keyof CorjOptions, 'metadata' | 'redact'>]?: CorjOptions[K];
@@ -271,7 +251,7 @@ function describeValue(value: unknown): string {
 
 function defaultOnError(
   caught: unknown,
-  context: CorjErrorContext,
+  context: CorjContext,
   redactor?: Redactor,
 ): void {
   const where = [
@@ -456,11 +436,7 @@ type Node = {
   childrenOmitted?: CorjChildrenOmitted;
 };
 
-function reportError(
-  ctx: Ctx,
-  caught: unknown,
-  context: CorjErrorContext,
-): void {
+function reportError(ctx: Ctx, caught: unknown, context: CorjContext): void {
   try {
     if (ctx.options.onError === defaultOnError && ctx.redactor !== null) {
       defaultOnError(caught, context, ctx.redactor);
@@ -481,7 +457,7 @@ function reportError(
 function redactText(
   ctx: Ctx,
   value: string,
-  context: CorjRedactContext,
+  context: CorjContext,
 ): string | undefined {
   if (ctx.redactor === null) return value;
   const out = ctx.redactor.apply(value, context);
@@ -497,7 +473,7 @@ function redactText(
 function redactRequiredText(
   ctx: Ctx,
   value: string,
-  context: CorjRedactContext,
+  context: CorjContext,
 ): string {
   if (ctx.redactor === null) return value;
   const out = ctx.redactor.apply(value, context);
@@ -609,7 +585,7 @@ function accessNoInvoke(host: unknown, prop: PropertyKey): Access {
  */
 function access(
   ctx: Ctx,
-  context: CorjErrorContext,
+  context: CorjContext,
   host: unknown,
   prop: string,
   redactPath?: string,
@@ -698,7 +674,7 @@ function childSources(
   if (!isObjectLike(host)) return [];
   const out: { obj: unknown; path: string; omitted?: CorjChildrenOmitted }[] =
     [];
-  const context: CorjErrorContext = {
+  const context: CorjContext = {
     stage: 'children',
     path: node.path,
     key: node.index === -1 ? 'children' : 'child_ids',
@@ -866,7 +842,7 @@ function stringProp(
 }
 
 function makeConstructorName(ctx: Ctx, node: Node): string | null | undefined {
-  const context: CorjErrorContext = {
+  const context: CorjContext = {
     stage: 'prop-access',
     path: node.path,
     key: 'constructor_name',
@@ -915,7 +891,7 @@ function makeAsStringNoInvoke(
   node: Node,
 ): { value: string | null; format: CorjAsStringFormat } {
   const { obj, path } = node;
-  const context: CorjErrorContext = {
+  const context: CorjContext = {
     stage: 'as_string',
     path,
     key: 'as_string',
@@ -976,7 +952,7 @@ function makeAsString(
     return makeAsStringNoInvoke(ctx, node);
   }
   const { obj, path } = node;
-  const context: CorjErrorContext = {
+  const context: CorjContext = {
     stage: 'as_string',
     path,
     key: 'as_string',
@@ -1030,7 +1006,7 @@ function jsonRedact(
     ) {
       return undefined;
     }
-    const context: CorjRedactContext = {
+    const context: CorjContext = {
       stage: 'as_json',
       path,
       key: 'as_json',
@@ -1080,7 +1056,7 @@ function makeAsJson(
   truncated: boolean;
 } {
   const { obj, path } = node;
-  const context: CorjErrorContext = { stage: 'as_json', path, key: 'as_json' };
+  const context: CorjContext = { stage: 'as_json', path, key: 'as_json' };
   // `no-invoke` never consults the caught object's own JSON hook; the
   // serializer it runs under also skips `toJSON` and accessor properties.
   const method =
@@ -1292,7 +1268,7 @@ export class CorjMaker {
         reportError(this.ctx, caught, {
           stage: 'redact',
           path: context.path,
-          key: context.key as keyof CorjReport | undefined,
+          key: context.key,
           prop: context.prop,
         }),
       );

@@ -271,16 +271,94 @@ describe('fingerprint', () => {
     );
   });
 
-  test('a policy that drops a value leaves the part empty', () => {
+  test('a policy that drops a value leaves the part as empty as a missing one', () => {
     const maker = withParts([{ field: 'code' }], {
       redact: {
         transform: (value, { key }) =>
           key === 'fingerprint' ? undefined : value,
       },
     });
+    const dropped = maker.makeFingerprint(
+      Object.assign(new Error('x'), { code: 'A' }),
+    );
+    expect(dropped).toBe(
+      maker.makeFingerprint(Object.assign(new Error('x'), { code: 'B' })),
+    );
+    expect(dropped).toBe(maker.makeFingerprint(new Error('x')));
+  });
+
+  test('a number or a boolean meets the policy too', () => {
+    // The fingerprint is published, so a value a policy scrubs must not be
+    // confirmable from the hash whatever its type.
+    const parts = [{ field: 'code' }] as const;
+    const of = (maker: CorjMaker, code: unknown) =>
+      maker.makeFingerprint(Object.assign(new Error('x'), { code }));
+    const scrubbing = withParts(parts, {
+      redact: { transform: (value) => (typeof value === 'number' ? 0 : value) },
+    });
+    expect(of(scrubbing, 12345)).toBe(of(scrubbing, 67890));
+    const plain = withParts(parts);
+    expect(of(plain, 12345)).not.toBe(of(plain, 67890));
+    const flattening = withParts(parts, {
+      redact: {
+        transform: (value) => (typeof value === 'boolean' ? false : value),
+      },
+    });
+    expect(of(flattening, true)).toBe(of(flattening, false));
+  });
+
+  test('a policy that throws over a part fails closed, once, without throwing', () => {
+    const maker = withParts([{ field: 'code' }], {
+      redact: {
+        transform: (value, { key }) => {
+          if (key === 'fingerprint') throw new Error('policy failed');
+          return value;
+        },
+      },
+    });
+    const report = maker.makeReportObject(
+      Object.assign(new Error('x'), { code: 'A' }),
+    );
+    expect(report.fingerprint).toBe(
+      maker.makeFingerprint(Object.assign(new Error('x'), { code: 'B' })),
+    );
     expect(
-      maker.makeFingerprint(Object.assign(new Error('x'), { code: 'A' })),
-    ).toBe(maker.makeFingerprint(Object.assign(new Error('x'), { code: 'B' })));
+      report.reporting_errors!.filter((r) => r.key === 'fingerprint'),
+    ).toEqual([
+      {
+        stage: 'redact',
+        path: '[redacted]',
+        key: 'fingerprint',
+        prop: '[redacted]',
+        error: '[redacted]',
+      },
+    ]);
+  });
+
+  test('a policy keyed on the fingerprint reaches inside a nested value', () => {
+    const maker = withParts([{ field: 'details' }], {
+      redact: {
+        transform: (value, { key }) =>
+          key === 'fingerprint' && typeof value === 'number' ? 0 : value,
+      },
+    });
+    const of = (retries: number) =>
+      maker.makeFingerprint(
+        Object.assign(new Error('x'), { details: { tool: 'search', retries } }),
+      );
+    expect(of(1)).toBe(of(2));
+  });
+
+  test('a cyclic nested value hashes without throwing', () => {
+    const maker = withParts([{ field: 'details' }]);
+    const of = (tool: string) => {
+      const details: Record<string, unknown> = { tool };
+      details['self'] = details;
+      return maker.makeFingerprint(Object.assign(new Error('x'), { details }));
+    };
+    expect(of('search')).toMatch(/^fp1_/);
+    expect(of('search')).toBe(of('search'));
+    expect(of('search')).not.toBe(of('fetch'));
   });
 
   test('a policy reaches inside a nested value', () => {

@@ -1255,6 +1255,8 @@ function jsonRedact(
   /** Only the caught object itself hides its children sources from `as_json`; a
    * `.toCorjAsJson()` return value is the object's own text and is left alone. */
   skipChildrenSources: boolean,
+  /** The report field these values are destined for; a fingerprint part is not `as_json`. */
+  reportKey: CorjReportKey = 'as_json',
 ): ((key: string, path: string, read: () => unknown) => unknown) | undefined {
   const redactor = ctx.redactor;
   if (redactor === null) return undefined;
@@ -1269,7 +1271,7 @@ function jsonRedact(
     const context: CorjContext = {
       stage: 'as_json',
       path,
-      key: 'as_json',
+      key: reportKey,
       prop: key,
     };
     if (redactor.excludes(context)) return redactor.policy.replacement;
@@ -1281,11 +1283,12 @@ function jsonRedact(
 /** A property name is emitted text too, so the policy's patterns reach it. */
 function jsonKeyRedact(
   ctx: Ctx,
+  reportKey: CorjReportKey = 'as_json',
 ): ((key: string, path: string) => string) | undefined {
   const redactor = ctx.redactor;
   if (redactor === null) return undefined;
   return (key, path) =>
-    redactor.text(key, { stage: 'as_json', path, key: 'as_json', prop: key });
+    redactor.text(key, { stage: 'as_json', path, key: reportKey, prop: key });
 }
 
 /**
@@ -1528,34 +1531,47 @@ function fingerprintValue(
       });
       return null;
     }
-  } else {
+  }
+  let prop: string | undefined;
+  if (typeof part !== 'function') {
     const read = readEntry(ctx, node, part, 'fingerprint');
     if (read.redacted !== undefined) return read.redacted;
     if (read.omitted === true) return CORJ_OMITTED_MARKER;
     if (!read.found) return null;
     raw = read.value;
     mode = part.inspection ?? mode;
+    prop =
+      'field' in part ? part.field : String(part.path[part.path.length - 1]);
   }
-  if (typeof raw === 'string') {
-    return (
-      redactText(ctx, raw, {
-        stage: 'prop-access',
-        path: node.path,
-        key: 'fingerprint',
-      }) ?? null
-    );
+  // Every emitted value meets the policy, whatever its type: a number or a
+  // boolean is as identifying as a string, and the fingerprint is published.
+  if (ctx.redactor !== null) {
+    const out = ctx.redactor.apply(raw, {
+      stage: 'prop-access',
+      path: node.path,
+      key: 'fingerprint',
+      prop,
+    });
+    raw = out === CORJ_REDACT_DROP ? null : out;
   }
+  // The policy already scrubbed the string above; scrubbing it again here
+  // could turn a replacement into a second match.
+  if (typeof raw === 'string') return raw;
   if (typeof raw === 'boolean') return raw;
   if (typeof raw === 'number') return Number.isFinite(raw) ? raw : null;
   if (typeof raw !== 'object' || raw === null) return null;
   try {
     // Skip rules inside a nested value are keyed from the node's own path,
     // which `keys` rules - the common case - do not depend on.
-    const redact = jsonRedact(ctx, node, false);
+    const redact = jsonRedact(ctx, node, false, 'fingerprint');
     const json = sortedStringify(ctx, mode)(raw, null, {
       ...(redact === undefined
         ? {}
-        : { redact, mapKey: jsonKeyRedact(ctx), basePath: node.path }),
+        : {
+            redact,
+            mapKey: jsonKeyRedact(ctx, 'fingerprint'),
+            basePath: node.path,
+          }),
     });
     return json === undefined ? null : (JSON.parse(json) as CorjJsonValue);
   } catch (failure: unknown) {
@@ -1863,7 +1879,12 @@ export class CorjMaker {
     );
   }
 
-  /** The fingerprint alone: discovery and node fields, without `as_json`, the context or the limiter. */
+  /**
+   * The fingerprint alone: discovery and node fields, without `as_json`, the
+   * context or the limiter. Building no `as_json` means a caught object whose
+   * `.toCorjAsJson()` or getters change it as they run can fingerprint
+   * differently here than it does inside a report.
+   */
   makeFingerprint(caught: unknown): string | undefined {
     if (this.ctx.parts === null) return undefined;
     return this.collecting(() => {

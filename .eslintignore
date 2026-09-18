@@ -1,0 +1,8 @@
+node_modules
+dist
+docs
+coverage
+npm-module-build
+# Consumer fixtures are compiled inside an isolated consumer project against the
+# packed artifact, not against the workspace tsconfig.
+tests/consumers/fixtures

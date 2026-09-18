@@ -13,5 +13,11 @@
     "examples",
     "tests",
     "webpack.config.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "npm-module-build",
+    "tests/consumers/fixtures"
   ]
 }

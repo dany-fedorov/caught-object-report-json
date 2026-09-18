@@ -80,19 +80,19 @@ afterEach(() => {
 
 describe('constants', () => {
   test('versions, links and markers', () => {
-    expect(CORJ_VERSION).toBe('corj/v0.12');
-    expect(CORJ_VERSION_FULL).toBe('corj/v0.12-full');
+    expect(CORJ_VERSION).toBe('corj/v0.13');
+    expect(CORJ_VERSION_FULL).toBe('corj/v0.13-full');
     expect(CORJ_REPORT_OBJECT_JSON_SCHEMA_LINK).toMatch(
-      /corj\/v0\.12\/report-object\.json$/,
+      /corj\/v0\.13\/report-object\.json$/,
     );
     expect(CORJ_REPORT_ARRAY_JSON_SCHEMA_LINK).toMatch(
-      /corj\/v0\.12\/report-array\.json$/,
+      /corj\/v0\.13\/report-array\.json$/,
     );
     expect(CORJ_FULL_REPORT_OBJECT_JSON_SCHEMA_LINK).toMatch(
-      /corj\/v0\.12-full\/report-object\.json$/,
+      /corj\/v0\.13-full\/report-object\.json$/,
     );
     expect(CORJ_FULL_REPORT_ARRAY_JSON_SCHEMA_LINK).toMatch(
-      /corj\/v0\.12-full\/report-array\.json$/,
+      /corj\/v0\.13-full\/report-array\.json$/,
     );
     expect(CORJ_TRUNCATED_MARKER).toBe('[truncated]');
     expect(CORJ_TRUNCATED_MARKER).toBe(TRUNCATED_MARKER);
@@ -119,6 +119,7 @@ describe('constants', () => {
           "cause",
           "errors",
         ],
+        "inspection": "default",
         "makeReportId": [Function],
         "maxChildren": 100,
         "maxDepth": 5,
@@ -129,6 +130,7 @@ describe('constants', () => {
         },
         "omitExpectedValues": true,
         "onError": [Function],
+        "redact": null,
         "reportSizeUnit": "utf8-bytes",
         "stackFormat": "lines",
       }
@@ -195,7 +197,7 @@ describe('options', () => {
     ]) {
       expect(() => new CorjMaker({ [name]: 1 } as CorjOptionsInput)).toThrow(
         new TypeError(
-          `Unknown option "${name}". Known options: maxReportSize, reportSizeUnit, omitExpectedValues, stackFormat, metadata, maxDepth, maxChildren, childrenSources, makeReportId, onError`,
+          `Unknown option "${name}". Known options: maxReportSize, reportSizeUnit, omitExpectedValues, stackFormat, inspection, redact, metadata, maxDepth, maxChildren, childrenSources, makeReportId, onError`,
         ),
       );
     }

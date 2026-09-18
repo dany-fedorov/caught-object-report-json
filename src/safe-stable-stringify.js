@@ -94,6 +94,15 @@ const typedArrayPrototypeGetSymbolToStringTag = Object.getOwnPropertyDescriptor(
   Symbol.toStringTag,
 ).get;
 
+/**
+ * An array's length read off its own descriptor, so no Proxy `get` trap fires.
+ * Every array has `length` as a non-configurable own data property, which a
+ * Proxy cannot hide, so the descriptor is always there.
+ */
+function arrayLength(value) {
+  return Object.getOwnPropertyDescriptor(value, 'length').value;
+}
+
 function isTypedArrayWithEntries(value) {
   return (
     typedArrayPrototypeGetSymbolToStringTag.call(value) !== undefined &&
@@ -165,6 +174,18 @@ function getPositiveIntegerOption(options, key) {
   return value === undefined ? Infinity : value;
 }
 
+function getSkipAccessorsOption(options) {
+  if (!hasOwnProperty.call(options, 'skipAccessors')) return undefined;
+  const value = options.skipAccessors;
+  if (value === undefined) return undefined;
+  if (typeof value !== 'string') {
+    throw new TypeError(
+      'The "skipAccessors" argument must be of type string or undefined',
+    );
+  }
+  return value;
+}
+
 function getLengthUnitOption(options) {
   if (!hasOwnProperty.call(options, 'lengthUnit')) return 'utf16-code-units';
   if (
@@ -221,6 +242,10 @@ function configure(options) {
   const maximumBreadth = getPositiveIntegerOption(options, 'maximumBreadth');
   const lengthLimit = getPositiveIntegerOption(options, 'lengthLimit');
   const lengthUnit = getLengthUnitOption(options);
+  // When set, own values are read from property descriptors and `toJSON` is
+  // never consulted, so no accessor or user hook runs during serialization.
+  // Accessor properties serialize as this marker string instead.
+  const skipAccessors = getSkipAccessorsOption(options);
   const onTruncate = options.onTruncate;
   if (onTruncate !== undefined && typeof onTruncate !== 'function') {
     throw new TypeError('The "onTruncate" argument must be of type function');
@@ -247,6 +272,15 @@ function configure(options) {
     }
     let callLengthLimit = lengthLimit;
     let callOnTruncate = onTruncate;
+    // `redact(key, path, read)` decides a property's fate; it may return a
+    // replacement without ever calling `read`, which is what keeps an excluded
+    // getter from running.
+    let redact;
+    // `mapKey(key, path)` rewrites an object key on its way into the output. A
+    // property name can itself be sensitive, and it is emitted text like any
+    // other. It never affects the path a policy is asked about.
+    let mapKey;
+    let basePath = '$';
     if (perCall !== undefined) {
       if (perCall.lengthLimit !== undefined) {
         callLengthLimit = getPositiveIntegerOption(perCall, 'lengthLimit');
@@ -261,6 +295,24 @@ function configure(options) {
           );
         }
         callOnTruncate = perCall.onTruncate;
+      }
+      if (perCall.redact !== undefined) {
+        if (typeof perCall.redact !== 'function') {
+          throw new TypeError('The "redact" argument must be of type function');
+        }
+        redact = perCall.redact;
+      }
+      if (perCall.mapKey !== undefined) {
+        if (typeof perCall.mapKey !== 'function') {
+          throw new TypeError('The "mapKey" argument must be of type function');
+        }
+        mapKey = perCall.mapKey;
+      }
+      if (perCall.basePath !== undefined) {
+        if (typeof perCall.basePath !== 'string') {
+          throw new TypeError('The "basePath" argument must be of type string');
+        }
+        basePath = perCall.basePath;
       }
     }
     // State belongs to this call so a replacer can safely invoke stringify again.
@@ -313,19 +365,40 @@ function configure(options) {
       return strEscape(value.slice(0, completePrefixLength(low)) + marker);
     }
 
-    function read(key, parent) {
-      let value = parent[key];
-      if (
-        typeof value === 'object' &&
-        value !== null &&
-        typeof value.toJSON === 'function'
-      ) {
-        value = value.toJSON(key);
-      }
+    function read(key, parent, path) {
+      const rawRead = () => readRaw(key, parent);
+      const value =
+        redact === undefined ? rawRead() : redact(key, path, rawRead);
       return replacer ? replacer.call(parent, key, value) : value;
     }
 
-    function serialize(value, budget) {
+    function readRaw(key, parent) {
+      let value;
+      if (skipAccessors !== undefined) {
+        // Own descriptor only: `keys` came from `Object.keys(parent)`, so an
+        // inherited property is never read here. A getter is not invoked.
+        const descriptor = Object.getOwnPropertyDescriptor(parent, key);
+        if (descriptor === undefined) {
+          value = undefined;
+        } else if (hasOwnProperty.call(descriptor, 'value')) {
+          value = descriptor.value;
+        } else {
+          value = skipAccessors;
+        }
+      } else {
+        value = parent[key];
+        if (
+          typeof value === 'object' &&
+          value !== null &&
+          typeof value.toJSON === 'function'
+        ) {
+          value = value.toJSON(key);
+        }
+      }
+      return value;
+    }
+
+    function serialize(value, budget, path) {
       switch (typeof value) {
         case 'string': {
           if (value.length + 2 <= budget) {
@@ -372,7 +445,13 @@ function configure(options) {
       const close = isArray ? ']' : '}';
       if (budget < 2) return fit(open + close, budget);
       let keys = isArray ? null : Object.keys(value);
-      const count = isArray ? value.length : keys.length;
+      // `value.length` is a [[Get]], which a Proxy turns into a `get` trap. When
+      // accessors are being skipped the length comes off its descriptor instead.
+      const count = isArray
+        ? skipAccessors === undefined
+          ? value.length
+          : arrayLength(value)
+        : keys.length;
       if (count === 0) return open + close;
       if (maximumDepth < stack.length + 1) {
         return fit(isArray ? '"[Array]"' : '"[Object]"', budget);
@@ -421,24 +500,28 @@ function configure(options) {
           const key = isArray ? String(i) : keys[i];
           const available = budget - length - (entries.length ? 1 : 0);
           if (isArray && available < 1) return finishTruncated();
-          const child = read(key, value);
+          const childPath = isArray ? `${path}[${key}]` : `${path}.${key}`;
+          const child = read(key, value, childPath);
+          const emitted =
+            isArray || mapKey === undefined ? key : mapKey(key, childPath);
           // An overlong key need not be escaped, but its value must still pass
           // through the replacer: omitted properties consume no output space.
           const prefix = isArray
             ? ''
-            : key.length + 3 > available
+            : emitted.length + 3 > available
             ? null
-            : strEscape(key) + ':';
+            : strEscape(emitted) + ':';
           let json = serialize(
             child,
             prefix === null ? 0 : available - measure(prefix),
+            childPath,
           );
           if (json === undefined) {
             if (!isArray) continue;
             json = fit('null', available);
           }
           if (json === overflow || prefix === null) return finishTruncated();
-          append(key, prefix + json);
+          append(emitted, prefix + json);
           if (truncated) break;
         }
         if (!truncated && count > maximumBreadth) {
@@ -457,7 +540,11 @@ function configure(options) {
       }
     }
 
-    const result = serialize(read('', { '': value }), callLengthLimit);
+    const result = serialize(
+      read('', { '': value }, basePath),
+      callLengthLimit,
+      basePath,
+    );
     if (truncated && callOnTruncate) callOnTruncate();
     // Strings and containers already return the marker whenever it fits.
     // Root overflow therefore means a tiny budget; null always fits that budget.

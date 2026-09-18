@@ -54,7 +54,7 @@ describe('omitting expected values', () => {
     expect(getReportObjectReportValidator()(report)).toBe(true);
     expect(Object.keys(report).sort()).toEqual(['stack', 'v']);
     expect((report.stack as string[])[0]).toBe('Error: boom');
-    expect(report.v).toBe('corj/v0.12');
+    expect(report.v).toBe('corj/v0.13');
   });
 
   test.each([false, true])(
@@ -441,8 +441,8 @@ describe('omitting expected values', () => {
       typeof: 'object',
       as_json: {},
       as_string: 'Error: boom',
-      v: 'corj/v0.12-full',
-      $schema: expect.stringContaining('/corj/v0.12-full/report-object.json'),
+      v: 'corj/v0.13-full',
+      $schema: expect.stringContaining('/corj/v0.13-full/report-object.json'),
     });
     // Omission would run before and after the size limiter, but a failure
     // is reported once and the second pass is skipped so the report stays

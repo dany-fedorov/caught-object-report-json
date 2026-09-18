@@ -2,6 +2,7 @@ import { configure as configureStringify } from './safe-stable-stringify';
 import type { JsonSizeUnit } from './json-size';
 import {
   CORJ_CIRCULAR_MARKER,
+  CORJ_OMITTED_MARKER,
   CORJ_TRUNCATED_MARKER,
   DEFAULT_MAX_REPORT_SIZE,
   DEFAULT_REPORT_SIZE_UNIT,
@@ -15,6 +16,14 @@ import {
   markFullVersion,
   omitExpectedValues,
 } from './expected-values';
+import { CORJ_REDACT_DROP, Redactor, resolveRedactPolicy } from './redaction';
+import type {
+  CorjRedactContext,
+  CorjRedactPolicy,
+  CorjRedactPolicyInput,
+  CorjRedactStage,
+  CorjRedactTransform,
+} from './redaction';
 import {
   CORJ_FULL_REPORT_ARRAY_JSON_SCHEMA_LINK,
   CORJ_FULL_REPORT_OBJECT_JSON_SCHEMA_LINK,
@@ -26,7 +35,19 @@ import {
 import type { CorjSchemaLink, CorjVersion } from './version';
 
 export { CORJ_EXPECTED_VALUES, restoreExpectedValues } from './expected-values';
-export { CORJ_CIRCULAR_MARKER, CORJ_TRUNCATED_MARKER };
+export { CORJ_REDACTED_MARKER } from './redaction';
+/** Validates and freezes a redaction policy; `undefined` and `null` both mean "no policy". */
+export { resolveRedactPolicy as resolveCorjRedactPolicy } from './redaction';
+/** Applies a resolved policy to text a consumer emits itself, such as a custom `onError` line. */
+export { Redactor as CorjRedactor } from './redaction';
+export type {
+  CorjRedactContext,
+  CorjRedactPolicy,
+  CorjRedactPolicyInput,
+  CorjRedactStage,
+  CorjRedactTransform,
+};
+export { CORJ_CIRCULAR_MARKER, CORJ_OMITTED_MARKER, CORJ_TRUNCATED_MARKER };
 export {
   CORJ_FULL_REPORT_ARRAY_JSON_SCHEMA_LINK,
   CORJ_FULL_REPORT_OBJECT_JSON_SCHEMA_LINK,
@@ -59,14 +80,23 @@ export type CorjJsonObject = { [x: string]: CorjJsonValue };
 export type CorjJsonArray = CorjJsonValue[];
 export type CorjJsonValue = CorjJsonPrimitive | CorjJsonObject | CorjJsonArray;
 
-/** How `as_string` was produced: `String(caught)` or the caught object's own `.toCorjAsString()`. */
-export type CorjAsStringFormat = 'String' | '.toCorjAsString';
+/**
+ * How `as_string` was produced: `String(caught)`, the caught object's own
+ * `.toCorjAsString()`, or, under `inspection: "no-invoke"`, `derived` — built
+ * from values read off property descriptors without calling any method.
+ */
+export type CorjAsStringFormat = 'String' | '.toCorjAsString' | 'derived';
 /** How `as_json` was produced: the bundled length-limited serializer or the caught object's own `.toCorjAsJson()`. */
 export type CorjAsJsonFormat =
   | 'safe-stable-stringify-with-length-limit'
   | '.toCorjAsJson';
-/** Why child reports of a node are missing: the `maxDepth` limit, the `maxChildren` limit, or the `maxReportSize` limit. */
-export type CorjChildrenOmitted = 'max_depth' | 'max_children' | 'max_size';
+/** Why child reports of a node are missing: the `maxDepth` limit, the `maxChildren` limit, the `maxReportSize` limit, a children source that `inspection: "no-invoke"` would not read, or one the `redact` policy excluded. */
+export type CorjChildrenOmitted =
+  | 'max_depth'
+  | 'max_children'
+  | 'max_size'
+  | 'not_inspected'
+  | 'redacted';
 
 /**
  * Fields shared by the root report and every child report.
@@ -134,6 +164,20 @@ export type CaughtObjectReportJson = CorjReport;
 export type CaughtObjectReportJsonChild = CorjReportChild;
 
 export type CorjReportSizeUnit = JsonSizeUnit;
+/**
+ * How much of the caught object CORJ is willing to run to describe it.
+ *
+ * - `default` — read properties normally and use `.toCorjAsString()`,
+ *   `.toCorjAsJson()`, `toString` and `toJSON` when present. Getters, proxy
+ *   traps and formatting hooks can execute.
+ * - `no-invoke` — read values off property descriptors only and call none of
+ *   those hooks. Content that could only be obtained by running code is
+ *   replaced with {@link CORJ_OMITTED_MARKER}. This is not a sandbox: reading a
+ *   descriptor off a `Proxy` still runs its `getOwnPropertyDescriptor` and
+ *   `ownKeys` traps, and a trap that never returns still hangs the caller. For
+ *   hard CPU isolation, produce the report behind a worker or process boundary.
+ */
+export type CorjInspection = 'default' | 'no-invoke';
 export type CorjStackFormat = 'lines' | 'string';
 export type CorjMetadata = { v: boolean; $schema: boolean };
 
@@ -152,6 +196,7 @@ export type CorjErrorStage =
   | 'as_json'
   | 'children'
   | 'limit'
+  | 'redact'
   | 'other';
 
 export type CorjErrorContext = {
@@ -159,9 +204,9 @@ export type CorjErrorContext = {
   /** JSONPath of the node being processed, `$` for the root. */
   path: string;
   /** Report field being produced, when known. */
-  key?: keyof CorjReport | keyof CorjReportChild;
+  key?: keyof CorjReport | keyof CorjReportChild | undefined;
   /** Property of the caught object being accessed, when known. */
-  prop?: string;
+  prop?: string | undefined;
 };
 
 export type CorjErrorHandler = (
@@ -178,6 +223,10 @@ export type CorjOptions = {
   omitExpectedValues: boolean;
   /** Store `stack` as `stack.split('\n')` (`lines`, the default) or as the raw string. */
   stackFormat: CorjStackFormat;
+  /** How much of the caught object may be executed while reporting it. Defaults to `"default"`. */
+  inspection: CorjInspection;
+  /** Field selection and redaction applied to everything the report emits. `null` (the default) applies none. */
+  redact: CorjRedactPolicy | null;
   /** Which of `v` and `$schema` to add to the root. Defaults to `v` only. */
   metadata: CorjMetadata;
   /** Deepest level of nested errors to report; `1` reports `caught.cause` but not `caught.cause.cause`. Defaults to `5`. */
@@ -197,10 +246,12 @@ export type CorjMakerOptions = CorjOptions;
 
 /** Options accepted by {@link CorjMaker}, {@link makeCorj} and {@link makeCorjArray}. Missing ones keep their defaults. */
 export type CorjOptionsInput = {
-  [K in Exclude<keyof CorjOptions, 'metadata'>]?: CorjOptions[K];
+  [K in Exclude<keyof CorjOptions, 'metadata' | 'redact'>]?: CorjOptions[K];
 } & {
   /** `true` adds both `v` and `$schema`, `false` neither; an object sets them individually. */
   metadata?: boolean | Partial<CorjMetadata>;
+  /** A redaction policy, or `null` for none. See {@link CorjRedactPolicyInput}. */
+  redact?: CorjRedactPolicyInput | null;
 };
 
 //  ██████╗ ██████╗ ███╗   ██╗███████╗████████╗ █████╗ ███╗   ██╗████████╗███████╗
@@ -218,7 +269,11 @@ function describeValue(value: unknown): string {
   }
 }
 
-function defaultOnError(caught: unknown, context: CorjErrorContext): void {
+function defaultOnError(
+  caught: unknown,
+  context: CorjErrorContext,
+  redactor?: Redactor,
+): void {
   const where = [
     `stage=${context.stage}`,
     `path=${context.path}`,
@@ -227,9 +282,19 @@ function defaultOnError(caught: unknown, context: CorjErrorContext): void {
   ]
     .filter(Boolean)
     .join(' ');
-  console.warn(
-    `[caught-object-report-json] ${where}: ${describeValue(caught)}`,
-  );
+  const described = describeValue(caught);
+  // A failure is described with the caught object's own text, so the warning
+  // line goes through the same policy the report content does.
+  const text =
+    redactor === undefined
+      ? described
+      : redactor.text(described, {
+          stage: 'warning',
+          path: context.path,
+          key: context.key,
+          prop: context.prop,
+        });
+  console.warn(`[caught-object-report-json] ${where}: ${text}`);
 }
 
 export const CORJ_DEFAULT_OPTIONS: CorjOptions = Object.freeze({
@@ -237,6 +302,8 @@ export const CORJ_DEFAULT_OPTIONS: CorjOptions = Object.freeze({
   reportSizeUnit: DEFAULT_REPORT_SIZE_UNIT,
   omitExpectedValues: true,
   stackFormat: 'lines',
+  inspection: 'default',
+  redact: null,
   metadata: Object.freeze({ v: true, $schema: false }),
   maxDepth: 5,
   maxChildren: 100,
@@ -251,6 +318,8 @@ const OPTION_KEYS: readonly (keyof CorjOptions)[] = Object.freeze([
   'reportSizeUnit',
   'omitExpectedValues',
   'stackFormat',
+  'inspection',
+  'redact',
   'metadata',
   'maxDepth',
   'maxChildren',
@@ -274,10 +343,15 @@ function resolveOptions(
       );
     }
   }
-  const pick = <K extends Exclude<keyof CorjOptions, 'metadata'>>(
+  const pick = <K extends Exclude<keyof CorjOptions, 'metadata' | 'redact'>>(
     key: K,
   ): CorjOptions[K] =>
     (input[key] === undefined ? base[key] : input[key]) as CorjOptions[K];
+  // A resolved policy is itself a valid policy input, so `with()` can layer one
+  // maker's options onto another.
+  const redact = resolveRedactPolicy(
+    input.redact === undefined ? base.redact : input.redact,
+  );
   const metadataInput = input.metadata;
   let metadata: CorjMetadata;
   if (metadataInput === undefined) {
@@ -306,6 +380,8 @@ function resolveOptions(
     reportSizeUnit: pick('reportSizeUnit'),
     omitExpectedValues: pick('omitExpectedValues'),
     stackFormat: pick('stackFormat'),
+    inspection: pick('inspection'),
+    redact,
     metadata: Object.freeze(metadata),
     maxDepth: pick('maxDepth'),
     maxChildren: pick('maxChildren'),
@@ -319,6 +395,9 @@ function resolveOptions(
   }
   if (options.stackFormat !== 'lines' && options.stackFormat !== 'string') {
     throw new TypeError('stackFormat must be "lines" or "string"');
+  }
+  if (options.inspection !== 'default' && options.inspection !== 'no-invoke') {
+    throw new TypeError('inspection must be "default" or "no-invoke"');
   }
   for (const key of ['maxDepth', 'maxChildren'] as const) {
     if (!Number.isInteger(options[key]) || options[key] < 0) {
@@ -348,7 +427,12 @@ function resolveOptions(
 // ██║  ██║███████╗███████╗██║     ███████╗██║  ██║███████║
 // ╚═╝  ╚═╝╚══════╝╚══════╝╚═╝     ╚══════╝╚═╝  ╚═╝╚══════╝
 
-type Ctx = { options: CorjOptions; stringify: Stringify };
+type Ctx = {
+  options: CorjOptions;
+  stringify: Stringify;
+  /** `null` when no redaction policy is configured, which is the default. */
+  redactor: Redactor | null;
+};
 type Entry = [string, unknown];
 type Report = CorjReport | CorjReportChild[];
 
@@ -368,12 +452,48 @@ function reportError(
   context: CorjErrorContext,
 ): void {
   try {
-    ctx.options.onError(caught, context);
+    if (ctx.options.onError === defaultOnError && ctx.redactor !== null) {
+      defaultOnError(caught, context, ctx.redactor);
+    } else {
+      ctx.options.onError(caught, context);
+    }
   } catch (failure: unknown) {
     console.warn(
       `[caught-object-report-json] onError threw: ${describeValue(failure)}`,
     );
   }
+}
+
+/**
+ * One emitted string through the policy. `undefined` means the policy dropped
+ * the field, which leaves it out of the report the way an absent property does.
+ */
+function redactText(
+  ctx: Ctx,
+  value: string,
+  context: CorjRedactContext,
+): string | undefined {
+  if (ctx.redactor === null) return value;
+  const out = ctx.redactor.apply(value, context);
+  if (out === CORJ_REDACT_DROP) return undefined;
+  return typeof out === 'string' ? out : ctx.redactor.policy.replacement;
+}
+
+/**
+ * {@link redactText} for a field the report schema requires. A policy may
+ * rewrite `as_string`, but dropping it would emit a report that fails the
+ * `-full` schema, so a drop yields the replacement instead.
+ */
+function redactRequiredText(
+  ctx: Ctx,
+  value: string,
+  context: CorjRedactContext,
+): string {
+  if (ctx.redactor === null) return value;
+  const out = ctx.redactor.apply(value, context);
+  return out === CORJ_REDACT_DROP || typeof out !== 'string'
+    ? ctx.redactor.policy.replacement
+    : out;
 }
 
 function isObjectLike(value: unknown): value is object {
@@ -382,19 +502,131 @@ function isObjectLike(value: unknown): value is object {
   );
 }
 
-type Access = { found: boolean; threw: boolean; value?: unknown };
+/**
+ * `omitted` marks a property that exists but whose value `no-invoke` inspection
+ * refused to read because doing so would have called an accessor.
+ */
+type Access = {
+  found: boolean;
+  threw: boolean;
+  omitted?: boolean;
+  /** Set to the replacement text when the policy excluded this property, which was then never read. */
+  redacted?: string;
+  value?: unknown;
+};
 
-/** Read `host[prop]` without letting a getter, proxy trap or primitive host throw out. */
+/**
+ * V8 installs `stack` on every error as an own accessor property. It is engine
+ * code rather than anything the caught object supplied, so `no-invoke`
+ * inspection calls this exact function and nothing else that it finds behind an
+ * accessor. Engines that expose `stack` as a data property never reach this.
+ *
+ * Calling it is only safe when `name` and `message` are data properties: V8
+ * formats the stack string lazily, and formatting performs a `[[Get]]` on both,
+ * which would run exactly the accessors this mode refuses to run.
+ */
+const NATIVE_ERROR_STACK_GETTER: (() => unknown) | undefined = (() => {
+  try {
+    const descriptor = Object.getOwnPropertyDescriptor(
+      new Error('caught-object-report-json probe'),
+      'stack',
+    );
+    return descriptor !== undefined && typeof descriptor.get === 'function'
+      ? (descriptor.get as () => unknown)
+      : undefined;
+  } catch {
+    return undefined;
+  }
+})();
+
+/** Whether `prop` resolves to a data property, so reading it runs nothing. */
+function isDataProperty(host: unknown, prop: PropertyKey): boolean {
+  let current: unknown = host;
+  while (current !== undefined && current !== null) {
+    const descriptor = Object.getOwnPropertyDescriptor(current as object, prop);
+    if (descriptor !== undefined) return 'value' in descriptor;
+    current = Object.getPrototypeOf(current as object);
+  }
+  // Absent is safe: formatting reads `undefined` and runs nothing.
+  return true;
+}
+
+/**
+ * Whether materializing `host.stack` would run code the caught object supplied.
+ *
+ * V8 builds the stack string on first read, reading `name` and `message` to do
+ * it, so an accessor on either turns the engine's own getter into a call into
+ * the caught object. `Error.prepareStackTrace` is a global application hook
+ * rather than anything this object owns, and is out of reach either way.
+ */
+function lazyStackFormattingIsSafe(host: unknown): boolean {
+  return isDataProperty(host, 'name') && isDataProperty(host, 'message');
+}
+
+/** Walk the prototype chain for `prop` reading descriptors only; never calls a getter. */
+function accessNoInvoke(host: unknown, prop: PropertyKey): Access {
+  let current: unknown = host;
+  while (current !== undefined && current !== null) {
+    const descriptor = Object.getOwnPropertyDescriptor(current as object, prop);
+    if (descriptor !== undefined) {
+      if ('value' in descriptor) {
+        return descriptor.value === undefined
+          ? { found: false, threw: false }
+          : { found: true, threw: false, value: descriptor.value };
+      }
+      if (
+        NATIVE_ERROR_STACK_GETTER !== undefined &&
+        descriptor.get === NATIVE_ERROR_STACK_GETTER &&
+        lazyStackFormattingIsSafe(host)
+      ) {
+        return {
+          found: true,
+          threw: false,
+          value: NATIVE_ERROR_STACK_GETTER.call(host),
+        };
+      }
+      return { found: true, threw: false, omitted: true };
+    }
+    current = Object.getPrototypeOf(current as object);
+  }
+  return { found: false, threw: false };
+}
+
+/**
+ * Read `host[prop]` without letting a getter, proxy trap or primitive host throw
+ * out. `redactPath` overrides the JSONPath the policy is asked about, for reads
+ * whose path is not `<node path>.<prop>`.
+ */
 function access(
   ctx: Ctx,
   context: CorjErrorContext,
   host: unknown,
   prop: string,
+  redactPath?: string,
 ): Access {
   if (host === undefined || host === null) {
     return { found: false, threw: false };
   }
+  // The policy is consulted before the read, so an excluded getter never runs.
+  if (
+    ctx.redactor !== null &&
+    ctx.redactor.excludes({
+      stage: context.stage === 'children' ? 'children' : 'prop-access',
+      path: redactPath ?? `${context.path}.${prop}`,
+      key: context.key,
+      prop,
+    })
+  ) {
+    return {
+      found: true,
+      threw: false,
+      redacted: ctx.redactor.policy.replacement,
+    };
+  }
   try {
+    if (ctx.options.inspection === 'no-invoke') {
+      return accessNoInvoke(host, prop);
+    }
     if (!isObjectLike(host)) {
       const value = (host as Record<string, unknown>)[prop];
       return value === undefined
@@ -423,7 +655,15 @@ function makeId(ctx: Ctx, context: CorjReportIdContext): string {
         `makeReportId must return a string, got ${describeValue(id)}`,
       );
     }
-    return id;
+    // `makeReportId` is handed the caught object, so an id built from it can
+    // carry the same content every other field is scrubbed for.
+    return ctx.redactor === null
+      ? id
+      : ctx.redactor.text(id, {
+          stage: 'prop-access',
+          path: context.path,
+          key: 'id',
+        });
   } catch (caught: unknown) {
     reportError(ctx, caught, {
       stage: 'other',
@@ -438,10 +678,11 @@ function childSources(
   ctx: Ctx,
   node: Node,
   isNew: (value: unknown) => boolean,
-): { obj: unknown; path: string }[] {
+): { obj: unknown; path: string; omitted?: CorjChildrenOmitted }[] {
   const host = node.obj;
   if (!isObjectLike(host)) return [];
-  const out: { obj: unknown; path: string }[] = [];
+  const out: { obj: unknown; path: string; omitted?: CorjChildrenOmitted }[] =
+    [];
   const context: CorjErrorContext = {
     stage: 'children',
     path: node.path,
@@ -464,6 +705,16 @@ function childSources(
   for (const prop of ctx.options.childrenSources) {
     if (fresh >= enough) break;
     const source = access(ctx, context, host, prop);
+    // A children source behind an accessor is left unread rather than reported
+    // as the marker string, which would invent a child that does not exist.
+    if (source.redacted !== undefined || source.omitted) {
+      out.push({
+        obj: undefined,
+        path: `${node.path}.${prop}`,
+        omitted: source.redacted !== undefined ? 'redacted' : 'not_inspected',
+      });
+      continue;
+    }
     if (!source.found || source.value === undefined) continue;
     if (!Array.isArray(source.value)) {
       push(source.value, `${node.path}.${prop}`);
@@ -481,7 +732,22 @@ function childSources(
     for (const key of keys) {
       if (fresh >= enough) break;
       if (!/^(0|[1-9][0-9]*)$/.test(key)) continue;
-      const element = access(ctx, context, array, key);
+      const element = access(
+        ctx,
+        context,
+        array,
+        key,
+        `${node.path}.${prop}[${key}]`,
+      );
+      if (element.redacted !== undefined || element.omitted) {
+        out.push({
+          obj: undefined,
+          path: `${node.path}.${prop}[${key}]`,
+          omitted:
+            element.redacted !== undefined ? 'redacted' : 'not_inspected',
+        });
+        continue;
+      }
       if (!element.found || element.value === undefined) continue;
       push(element.value, `${node.path}.${prop}[${key}]`);
     }
@@ -515,6 +781,10 @@ function discover(ctx: Ctx, caught: unknown): { root: Node; nodes: Node[] } {
       continue;
     }
     for (const source of sources) {
+      if (source.omitted !== undefined) {
+        current.childrenOmitted ??= source.omitted;
+        continue;
+      }
       const seenId = isObjectLike(source.obj)
         ? seen.get(source.obj)
         : undefined;
@@ -569,7 +839,15 @@ function stringProp(
     prop,
   );
   if (r.threw) return null;
-  return typeof r.value === 'string' ? r.value : undefined;
+  if (r.redacted !== undefined) return r.redacted;
+  if (r.omitted) return CORJ_OMITTED_MARKER;
+  if (typeof r.value !== 'string') return undefined;
+  return redactText(ctx, r.value, {
+    stage: 'prop-access',
+    path: `${node.path}.${prop}`,
+    key,
+    prop,
+  });
 }
 
 function makeConstructorName(ctx: Ctx, node: Node): string | null | undefined {
@@ -580,16 +858,108 @@ function makeConstructorName(ctx: Ctx, node: Node): string | null | undefined {
   };
   const ctor = access(ctx, context, node.obj, 'constructor');
   if (ctor.threw) return null;
+  if (ctor.redacted !== undefined) return ctor.redacted;
+  if (ctor.omitted) return CORJ_OMITTED_MARKER;
   if (!ctor.found) return undefined;
-  const name = access(ctx, context, ctor.value, 'name');
+  const name = access(
+    ctx,
+    context,
+    ctor.value,
+    'name',
+    `${node.path}.constructor.name`,
+  );
   if (name.threw) return null;
-  return typeof name.value === 'string' ? name.value : undefined;
+  if (name.redacted !== undefined) return name.redacted;
+  if (name.omitted) return CORJ_OMITTED_MARKER;
+  if (typeof name.value !== 'string') return undefined;
+  return redactText(ctx, name.value, {
+    stage: 'prop-access',
+    path: `${node.path}.constructor.name`,
+    key: 'constructor_name',
+    prop: 'name',
+  });
+}
+
+/** The string a resolved property holds, or a marker when it was withheld. */
+function stringOrMarker(r: Access): string | undefined {
+  if (r.redacted !== undefined) return r.redacted;
+  if (r.omitted) return CORJ_OMITTED_MARKER;
+  return typeof r.value === 'string' ? r.value : undefined;
+}
+
+/**
+ * `as_string` for `no-invoke` inspection. Primitives stringify without running
+ * anything. For objects, only two built-in `toString` implementations are
+ * reproduced: `Error.prototype.toString`, rebuilt here from `name` and
+ * `message` read off descriptors, and `Object.prototype.toString`, which is
+ * called directly when no `Symbol.toStringTag` accessor could intercept it.
+ * Any other `toString` belongs to the caught object and is not run.
+ */
+function makeAsStringNoInvoke(
+  ctx: Ctx,
+  node: Node,
+): { value: string | null; format: CorjAsStringFormat } {
+  const { obj, path } = node;
+  const context: CorjErrorContext = {
+    stage: 'as_string',
+    path,
+    key: 'as_string',
+  };
+  try {
+    if (!isObjectLike(obj)) {
+      return { value: String(obj), format: 'derived' };
+    }
+    const toString = accessNoInvoke(obj, 'toString');
+    if (toString.omitted || typeof toString.value !== 'function') {
+      return { value: CORJ_OMITTED_MARKER, format: 'derived' };
+    }
+    if (toString.value === Error.prototype.toString) {
+      // Routed through `access` so a policy that excludes `name` or `message`
+      // reaches the derived string too, not just the field of the same name.
+      const name =
+        stringOrMarker(
+          access(ctx, { ...context, stage: 'prop-access' }, obj, 'name'),
+        ) ?? 'Error';
+      const message =
+        stringOrMarker(
+          access(ctx, { ...context, stage: 'prop-access' }, obj, 'message'),
+        ) ?? '';
+      const value =
+        name === '' ? message : message === '' ? name : `${name}: ${message}`;
+      return { value, format: 'derived' };
+    }
+    if (toString.value === Object.prototype.toString) {
+      // `Object.prototype.toString` performs a [[Get]] of `Symbol.toStringTag`,
+      // which a Proxy turns into a `get` trap, so the tag is resolved off
+      // descriptors and the result assembled here instead of calling it.
+      const tag = accessNoInvoke(obj, Symbol.toStringTag);
+      if (tag.omitted) {
+        return { value: CORJ_OMITTED_MARKER, format: 'derived' };
+      }
+      const label =
+        typeof tag.value === 'string'
+          ? tag.value
+          : Array.isArray(obj)
+          ? 'Array'
+          : typeof obj === 'function'
+          ? 'Function'
+          : 'Object';
+      return { value: `[object ${label}]`, format: 'derived' };
+    }
+    return { value: CORJ_OMITTED_MARKER, format: 'derived' };
+  } catch (caught: unknown) {
+    reportError(ctx, caught, context);
+    return { value: null, format: 'derived' };
+  }
 }
 
 function makeAsString(
   ctx: Ctx,
   node: Node,
 ): { value: string | null; format: CorjAsStringFormat } {
+  if (ctx.options.inspection === 'no-invoke') {
+    return makeAsStringNoInvoke(ctx, node);
+  }
   const { obj, path } = node;
   const context: CorjErrorContext = {
     stage: 'as_string',
@@ -623,16 +993,65 @@ function makeAsString(
   }
 }
 
+/**
+ * The policy applied to every value the JSON form reaches, keyed by the
+ * JSONPath the serializer reports. An excluded property is replaced without
+ * being read, so a getter behind it never runs.
+ */
+function jsonRedact(
+  ctx: Ctx,
+  node: Node,
+  /** Only the caught object itself hides its children sources from `as_json`; a
+   * `.toCorjAsJson()` return value is the object's own text and is left alone. */
+  skipChildrenSources: boolean,
+): ((key: string, path: string, read: () => unknown) => unknown) | undefined {
+  const redactor = ctx.redactor;
+  if (redactor === null) return undefined;
+  const sources = ctx.options.childrenSources;
+  return (key, path, read) => {
+    if (
+      skipChildrenSources &&
+      sources.some((source) => path === `${node.path}.${source}`)
+    ) {
+      return undefined;
+    }
+    const context: CorjRedactContext = {
+      stage: 'as_json',
+      path,
+      key: 'as_json',
+      prop: key,
+    };
+    if (redactor.excludes(context)) return redactor.policy.replacement;
+    const out = redactor.apply(read(), context);
+    return out === CORJ_REDACT_DROP ? undefined : out;
+  };
+}
+
+/** A property name is emitted text too, so the policy's patterns reach it. */
+function jsonKeyRedact(
+  ctx: Ctx,
+): ((key: string, path: string) => string) | undefined {
+  const redactor = ctx.redactor;
+  if (redactor === null) return undefined;
+  return (key, path) =>
+    redactor.text(key, { stage: 'as_json', path, key: 'as_json', prop: key });
+}
+
 function serialize(
   ctx: Ctx,
   value: unknown,
   replacer: ((this: object, key: string, value: unknown) => unknown) | null,
+  node: Node,
+  skipChildrenSources: boolean,
 ): { json: string | undefined; truncated: boolean } {
   let truncated = false;
+  const redact = jsonRedact(ctx, node, skipChildrenSources);
+  const mapKey = jsonKeyRedact(ctx);
   const json = ctx.stringify(value, replacer, {
     onTruncate: () => {
       truncated = true;
     },
+    ...(redact === undefined ? {} : { redact, mapKey, basePath: node.path }),
   });
   return { json, truncated };
 }
@@ -647,19 +1066,19 @@ function makeAsJson(
 } {
   const { obj, path } = node;
   const context: CorjErrorContext = { stage: 'as_json', path, key: 'as_json' };
-  const method = access(
-    ctx,
-    { ...context, stage: 'prop-access' },
-    obj,
-    'toCorjAsJson',
-  );
+  // `no-invoke` never consults the caught object's own JSON hook; the
+  // serializer it runs under also skips `toJSON` and accessor properties.
+  const method =
+    ctx.options.inspection === 'no-invoke'
+      ? { found: false, threw: false, value: undefined }
+      : access(ctx, { ...context, stage: 'prop-access' }, obj, 'toCorjAsJson');
   if (method.found && typeof method.value === 'function') {
     try {
       const raw: unknown = method.value.call(obj, {
         path,
         options: ctx.options,
       });
-      const { json, truncated } = serialize(ctx, raw, null);
+      const { json, truncated } = serialize(ctx, raw, null, node, false);
       if (json !== undefined) {
         return { value: JSON.parse(json), format: '.toCorjAsJson', truncated };
       }
@@ -670,9 +1089,15 @@ function makeAsJson(
   const format = CORJ_EXPECTED_VALUES.as_json_format;
   try {
     const sources = ctx.options.childrenSources;
-    const { json, truncated } = serialize(ctx, obj, function (key, value) {
-      return this === obj && sources.includes(key) ? undefined : value;
-    });
+    const { json, truncated } = serialize(
+      ctx,
+      obj,
+      function (key, value) {
+        return this === obj && sources.includes(key) ? undefined : value;
+      },
+      node,
+      true,
+    );
     if (json === undefined) {
       // Functions, symbols and undefined have no JSON form.
       return { value: null, format, truncated: false };
@@ -706,6 +1131,14 @@ function makeNodeFields(ctx: Ctx, node: Node): NodeFields {
       ? rawStack.split('\n')
       : rawStack;
   const asString = makeAsString(ctx, node);
+  const asStringValue =
+    typeof asString.value === 'string'
+      ? redactRequiredText(ctx, asString.value, {
+          stage: 'as_string',
+          path,
+          key: 'as_string',
+        })
+      : asString.value;
   const asJson = makeAsJson(ctx, node);
   return {
     entries: [
@@ -713,7 +1146,7 @@ function makeNodeFields(ctx: Ctx, node: Node): NodeFields {
       ['typeof', typeof obj],
       ['constructor_name', constructorName],
       ['message', message],
-      ['as_string', asString.value],
+      ['as_string', asStringValue],
       ['as_json', asJson.value],
       ['stack', stack],
     ],
@@ -827,13 +1260,28 @@ export class CorjMaker {
     const { maxReportSize, reportSizeUnit } = this.options;
     this.ctx = {
       options: this.options,
+      redactor: null,
       stringify: configureStringify({
         circularValue: CORJ_CIRCULAR_MARKER,
         deterministic: false,
         lengthUnit: reportSizeUnit,
+        ...(this.options.inspection === 'no-invoke'
+          ? { skipAccessors: CORJ_OMITTED_MARKER }
+          : {}),
         ...(maxReportSize === null ? {} : { lengthLimit: maxReportSize }),
       }) as Stringify,
     };
+    const policy = this.options.redact;
+    if (policy !== null) {
+      this.ctx.redactor = new Redactor(policy, (caught, context) =>
+        reportError(this.ctx, caught, {
+          stage: 'redact',
+          path: context.path,
+          key: context.key as keyof CorjReport | undefined,
+          prop: context.prop,
+        }),
+      );
+    }
   }
 
   /** A new maker with these options applied on top of this maker's options. */

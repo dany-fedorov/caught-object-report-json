@@ -341,3 +341,116 @@ describe('serializer truncation boundaries', () => {
     ).toBe('null');
   });
 });
+
+describe('skipAccessors', () => {
+  test.each([1, true, {}, () => undefined])(
+    'rejects a non-string marker: %j',
+    (skipAccessors) => {
+      expect(() => configure({ skipAccessors })).toThrow(
+        /The "skipAccessors" argument must be of type string or undefined/,
+      );
+    },
+  );
+
+  test('an explicit undefined marker keeps the default reading path', () => {
+    const stringify = configure({ skipAccessors: undefined });
+    expect(
+      stringify({
+        get computed() {
+          return 'invoked';
+        },
+      }),
+    ).toBe('{"computed":"invoked"}');
+  });
+
+  test('accessors become the marker and toJSON is not consulted', () => {
+    const stringify = configure({ skipAccessors: '[skipped]' });
+    const value = {
+      plain: 1,
+      get computed() {
+        throw new Error('never read');
+      },
+      nested: {
+        toJSON() {
+          throw new Error('never called');
+        },
+        kept: 2,
+      },
+    };
+    expect(stringify(value)).toBe(
+      '{"computed":"[skipped]","nested":{"kept":2},"plain":1}',
+    );
+  });
+
+  test('a top-level toJSON is not consulted either', () => {
+    const stringify = configure({ skipAccessors: '[skipped]' });
+    expect(
+      stringify({
+        kept: 1,
+        toJSON() {
+          throw new Error('never called');
+        },
+      }),
+    ).toBe('{"kept":1}');
+  });
+
+  test('array holes serialize as null, as they do without the option', () => {
+    const stringify = configure({ skipAccessors: '[skipped]' });
+    // eslint-disable-next-line no-sparse-arrays
+    expect(stringify([1, , 3])).toBe('[1,null,3]');
+  });
+
+  test('an accessor element of an array becomes the marker', () => {
+    const stringify = configure({ skipAccessors: '[skipped]' });
+    const value: unknown[] = [1];
+    Object.defineProperty(value, '1', {
+      enumerable: true,
+      configurable: true,
+      get: () => 'never read',
+    });
+    expect(stringify(value)).toBe('[1,"[skipped]"]');
+  });
+});
+
+describe('per-call redaction hooks', () => {
+  test('rejects a non-function redact hook', () => {
+    expect(() =>
+      configure({})({ a: 1 }, null, { redact: 'all' } as never),
+    ).toThrow(/The "redact" argument must be of type function/);
+  });
+
+  test('rejects a non-string base path', () => {
+    expect(() =>
+      configure({})({ a: 1 }, null, { basePath: 1 } as never),
+    ).toThrow(/The "basePath" argument must be of type string/);
+  });
+
+  test('the hook sees the JSONPath of every value it is offered', () => {
+    const paths: string[] = [];
+    configure({})({ a: { b: [1] } }, null, {
+      basePath: '$',
+      redact: (_key: string, path: string, read: () => unknown) => {
+        paths.push(path);
+        return read();
+      },
+    } as never);
+    expect(paths).toEqual(['$', '$.a', '$.a.b', '$.a.b[0]']);
+  });
+});
+
+describe('per-call key mapping', () => {
+  test('rejects a non-function key mapper', () => {
+    expect(() =>
+      configure({})({ a: 1 }, null, { mapKey: 'all' } as never),
+    ).toThrow(/The "mapKey" argument must be of type function/);
+  });
+
+  test('rewrites object keys but leaves array indices alone', () => {
+    const json = configure({})({ secret: 1, list: [2] }, null, {
+      basePath: '$',
+      mapKey: (key: string) => (key === 'secret' ? 'hidden' : key),
+    } as never);
+    // `configure({})` sorts keys deterministically.
+    expect(json).toBe('{"list":[2],"hidden":1}');
+  });
+});

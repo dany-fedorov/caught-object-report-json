@@ -43,8 +43,21 @@ try {
     * [Size limit](#size-limit)
     * [Errors while reporting](#errors-while-reporting)
 * [Options](#options)
+* [Redacting what the report emits](#redacting-what-the-report-emits)
+    * [What the policy reaches](#what-the-policy-reaches)
+    * [Applying the policy to your own text](#applying-the-policy-to-your-own-text)
+    * [When the policy itself fails](#when-the-policy-itself-fails)
+    * [What a policy cannot do](#what-a-policy-cannot-do)
+* [Reporting without running the caught object](#reporting-without-running-the-caught-object)
+    * [What the mode does](#what-the-mode-does)
+    * [What the mode is not](#what-the-mode-is-not)
 * [Examples](#examples)
 * [API](#api)
+* [Supported runtimes](#supported-runtimes)
+    * [Imports](#imports)
+    * [Tested versions](#tested-versions)
+* [Report schema history](#report-schema-history)
+* [Upgrading from v9](#upgrading-from-v9)
 * [Upgrading from v8](#upgrading-from-v8)
 * [Links](#links)
 
@@ -135,7 +148,7 @@ For a plain `Error` the default report is just the stack and the version:
     "    at Object.<anonymous> (/home/user/work-dir/app.ts:2:9)",
     "    at Module._compile (node:internal/modules/cjs/loader:1120:14)"
   ],
-  "v": "corj/v0.12"
+  "v": "corj/v0.13"
 }
 ```
 
@@ -239,8 +252,8 @@ async function main() {
   assert.equal(full.message, 'Model request failed');
   assert.equal(full.children?.[0]?.path, '$.cause');
   assert.deepEqual(full.children?.[0]?.as_json, { code: 'MODEL_UNAVAILABLE' });
-  assert.equal(failed.error.v, 'corj/v0.12');
-  assert.ok(failed.error.$schema?.endsWith('/corj/v0.12/report-object.json'));
+  assert.equal(failed.error.v, 'corj/v0.13');
+  assert.ok(failed.error.$schema?.endsWith('/corj/v0.13/report-object.json'));
   assert.ok(Buffer.byteLength(JSON.stringify(failed.error), 'utf8') <= 4096);
 
   const oversized = await runNode('answer', async () => {
@@ -294,13 +307,13 @@ listed in [Omitted expected values](#omitted-expected-values), `null` means that
 | `as_string` | `string \| null` | `String(caught)`, or the result of the object's own `toCorjAsString()`. Omitted when it equals the first stack line. |
 | `as_json` | JSON `\| null` | `caught` serialized with a circular-safe, BigInt-safe, length-limited serializer, without the `children_sources` properties; or the result of the object's own `toCorjAsJson()`. `null` when the value has no JSON form (`undefined`, functions, symbols) or serializing threw. Omitted when `{}`. |
 | `stack` | `string[] \| string \| null` | `caught.stack` when it is a string, as an array of lines by default. |
-| `children_omitted` | `"max_depth" \| "max_children" \| "max_size"` | This node has nested errors that were not reported, and which limit stopped them. |
+| `children_omitted` | `"max_depth" \| "max_children" \| "max_size" \| "not_inspected" \| "redacted"` | This node has nested errors that were not reported, and what stopped them: a limit, the `inspection` mode, or the `redact` policy. |
 | `children` | `object[]` | Root of an object report only. Every nested error, flattened breadth-first. |
 | `child_ids` | `string[]` | Nodes of the flattened tree only. IDs of this node's direct children. |
 | `children_sources` | `string[]` | Root only. The properties children were collected from. Omitted when `["cause", "errors"]`. |
-| `as_string_format` | `"String" \| ".toCorjAsString"` | How `as_string` was produced. Omitted when `"String"`. |
+| `as_string_format` | `"String" \| ".toCorjAsString" \| "derived"` | How `as_string` was produced. `"derived"` means it was rebuilt from property descriptors, see [`inspection`](#reporting-without-running-the-caught-object). Omitted when `"String"`. |
 | `as_json_format` | `"safe-stable-stringify-with-length-limit" \| ".toCorjAsJson"` | How `as_json` was produced. Omitted when the default. |
-| `v` | `"corj/v0.12" \| "corj/v0.12-full"` | Root only. Report version, on by default (`metadata` option). |
+| `v` | `"corj/v0.13" \| "corj/v0.13-full"` | Root only. Report version, on by default (`metadata` option). |
 | `$schema` | URL | Root only. JSON Schema of this report, off by default (`metadata` option). |
 
 An object report is the root fields plus `children`. An array report (`makeCorjArray`) is a list whose first element is the
@@ -348,8 +361,8 @@ would have produced. It does not add `v` or `$schema`, since a missing one means
 
 | `v` | Produced by | Base fields |
 | --- | --- | --- |
-| `corj/v0.12` | the default, `omitExpectedValues: true` | omitted when they hold the expected value |
-| `corj/v0.12-full` | `omitExpectedValues: false`, or `restoreExpectedValues` | always present |
+| `corj/v0.13` | the default, `omitExpectedValues: true` | omitted when they hold the expected value |
+| `corj/v0.13-full` | `omitExpectedValues: false`, or `restoreExpectedValues` | always present |
 
 Each version has its own JSON Schema (see [Links](#links)); `$schema` points to the matching one.
 
@@ -417,7 +430,7 @@ context:
 
 ```typescript
 type CorjErrorContext = {
-  stage: 'prop-access' | 'as_string' | 'as_json' | 'children' | 'limit' | 'other';
+  stage: 'prop-access' | 'as_string' | 'as_json' | 'children' | 'limit' | 'redact' | 'other';
   path: string; // JSONPath of the node being processed, '$' for the root
   key?: string; // report field being produced, when known
   prop?: string; // property of the caught object being accessed, when known
@@ -438,6 +451,8 @@ Every option is optional; missing ones keep their defaults. `CORJ_DEFAULT_OPTION
 | `reportSizeUnit` | `'utf8-bytes'` | Unit of `maxReportSize`; also `'utf16-code-units'`. |
 | `omitExpectedValues` | `true` | Leave out fields holding their expected value. |
 | `stackFormat` | `'lines'` | `'lines'` stores `stack.split('\n')`, `'string'` the raw string. |
+| `inspection` | `'default'` | How much of the caught object may run while it is reported. `'no-invoke'` reads property descriptors only, see [Reporting without running the caught object](#reporting-without-running-the-caught-object). |
+| `redact` | `null` | Field selection and redaction applied to everything the report emits, see [Redacting what the report emits](#redacting-what-the-report-emits). |
 | `metadata` | `{ v: true, $schema: false }` | Which of `v` and `$schema` to add to the root. `true` adds both, `false` neither, an object sets them individually. |
 | `maxDepth` | `5` | Deepest level of nested errors to report. `1` reports `caught.cause` but not `caught.cause.cause`. |
 | `maxChildren` | `100` | Most child reports in one report. |
@@ -449,6 +464,199 @@ A caught object can take over its own representation by implementing `toCorjAsSt
 `toCorjAsJson(): unknown`. Both are called with `this` bound to the object and one argument `{ path, options }`. A method that
 throws is reported through `onError` and the default format is used; a method that returns an unusable value (a non-string, or a
 value without a JSON form) falls back silently. The formats used are recorded in `as_string_format` and `as_json_format`.
+
+# Redacting what the report emits
+
+A diagnostic representation can carry credentials: in enumerable properties, in a message, in a stack, in `as_string`, in a
+nested cause, and in the text of a secondary inspection failure. The package supplies the traversal and the transformation;
+which content is sensitive stays your decision.
+
+```typescript
+const maker = new CorjMaker({
+  redact: {
+    keys: ['password', /^authorization$/i],
+    paths: ['$.cause.config.headers'],
+    patterns: [/sk-live-[A-Za-z0-9]+/g],
+    replacement: '[redacted]',
+    transform: (value, { prop }) => (prop === 'url' ? '[url]' : value),
+  },
+});
+```
+
+| Part | Meaning |
+| --- | --- |
+| `keys` | Property names CORJ never reads. A string matches exactly and is case-sensitive; use a `RegExp` for anything else. |
+| `paths` | JSONPaths CORJ never reads, e.g. `'$.cause.config.headers'`. A string matches exactly. |
+| `patterns` | `RegExp`s replaced in every string the report emits. Each must carry the `g` flag, or the policy is rejected. |
+| `replacement` | What an excluded value and a pattern match become, used literally (`$&` and `$1` are not expanded). Defaults to `CORJ_REDACTED_MARKER` (`'[redacted]'`). |
+| `transform` | `(value, context) => unknown`, the last word on every emitted value. Returning `undefined` leaves the field out. |
+
+`keys` and `paths` are consulted **before** the property is read, so CORJ never invokes an excluded getter. They select
+*properties*, not content — and error text is duplicated across `message`, `stack` and `as_string`, so excluding one read does
+not remove the text from the others:
+
+```typescript
+makeCorj(new Error('boom SECRET'), { redact: { keys: ['message'] } });
+// message: '[redacted]'   stack[0]: 'Error: boom SECRET'
+```
+
+Under the default inspection the caught object's own `toString`, and V8's stack formatting, read `message` themselves; no
+policy can stop code CORJ did not call. **To remove content, use `patterns` or `transform`**; combine them with
+`inspection: 'no-invoke'` if you also need the getter never to run. `patterns` and `transform`
+act on values that were already produced. The `transform` context is `{ stage, path, key, prop }`, where `stage` is
+`'prop-access'`, `'as_string'`, `'as_json'` or `'warning'`. (`'children'` reaches only the `keys`/`paths` matchers, never
+`transform`, because a children source is excluded before it is read or not at all.)
+
+## What the policy reaches
+
+- every report field: `message`, `stack`, `constructor_name`, `as_string`, and every value **and property name** inside
+  `as_json`, at any depth;
+- `id`, which `makeReportId` may have built from the caught object;
+- the output of a caught object's own `toCorjAsString()` and `toCorjAsJson()`;
+- every child report, not only the root;
+- the line the default `onError` prints about a failure, which is otherwise built from the caught object's own text. A
+  **custom** `onError` receives the caught object unchanged and must apply its own policy.
+
+A children source the policy excludes is not followed: the node gets `children_omitted: "redacted"` instead of a child report.
+Report schema, cycle handling and the `maxReportSize` budget are unaffected — redaction runs before the size limit is applied.
+Two property names that scrub to the same text collapse into one key in `as_json`.
+
+Because `keys` matches a property *name* wherever it appears, a broad name has a broad reach: `keys: ['name']` also blanks
+`constructor_name`, which is read as `constructor.name`.
+
+## Applying the policy to your own text
+
+A **custom** `onError` gets the caught object unchanged, and anything else you log next to a report is text CORJ never sees.
+`resolveCorjRedactPolicy` and `CorjRedactor` are the same mechanism the maker uses, exported so one policy covers both.
+Resolve the policy once — the resolver validates it, returns `null` for `null` and `undefined`, and accepts an
+already-resolved policy — then hand it to a `CorjRedactor` and call `#text` on every string you emit yourself. `#text` always
+returns a string: a `transform` that drops the value, returns a non-string or throws yields the `replacement`. Use `#apply`
+only for a value that may legitimately stop being a string; it returns the `CORJ_REDACT_DROP` symbol for a dropped field,
+which the caller must map. `#text` never returns it.
+
+```typescript
+import {
+  CorjMaker,
+  CorjRedactor,
+  resolveCorjRedactPolicy,
+} from 'caught-object-report-json';
+
+const redact = { patterns: [/sk-live-[A-Za-z0-9]+/g] };
+const policy = resolveCorjRedactPolicy(redact);
+const redactor = policy && new CorjRedactor(policy, () => undefined);
+
+const maker = new CorjMaker({
+  redact,
+  onError: (caught, { stage, path }) => {
+    const line = `corj ${stage} failed at ${path}: ${String(caught)}`;
+    // `stage: 'warning'` is the redaction stage for text a handler prints.
+    logger.warn(
+      redactor ? redactor.text(line, { stage: 'warning', path }) : line,
+    );
+  },
+});
+```
+
+## When the policy itself fails
+
+A throwing matcher or `transform` fails closed. The value it was asked about becomes the replacement rather than passing
+through, and the failure is reported once through `onError` with `stage: 'redact'`. Reporting that failure does not consult the
+same policy again, so a policy that always throws cannot recurse.
+
+## What a policy cannot do
+
+- It cannot discover a secret it was not told about. `keys`, `paths` and `patterns` are your configuration, not detection.
+- It does not make error text trustworthy. A redacted message is still text a caught object controlled: it is diagnostic
+  material to read, never instructions to follow.
+- Disclosure policy stays application-owned. This package supplies the traversal; it ships no default list of sensitive names.
+
+# Reporting without running the caught object
+
+By default, describing a caught object runs some of its code: reading `message` calls a getter if one is defined, `as_string`
+calls `toString`, `as_json` calls `toJSON`, and both `toCorjAsString` and `toCorjAsJson` are used when present. `maxReportSize`
+bounds how much output that produces; it cannot interrupt a synchronous hook that never returns.
+
+`inspection: 'no-invoke'` reads values off property descriptors and calls none of those hooks.
+
+```typescript
+let inspected = 0;
+const caught = {
+  get message() {
+    inspected++;
+    return 'failure';
+  },
+  plain: 'kept',
+};
+
+makeCorj(caught, { inspection: 'no-invoke' });
+console.log(inspected); // 0
+```
+
+produces
+
+```json
+{
+  "instanceof_error": false,
+  "constructor_name": "Object",
+  "message": "[not-inspected]",
+  "as_string": "[object Object]",
+  "as_json": { "message": "[not-inspected]", "plain": "kept" },
+  "as_string_format": "derived",
+  "v": "corj/v0.13"
+}
+```
+
+## What the mode does
+
+| | `'default'` | `'no-invoke'` |
+| --- | --- | --- |
+| a getter on `message`, `stack`, `constructor`, `cause`, `errors` | invoked | replaced with `CORJ_OMITTED_MARKER` |
+| a getter reached while building `as_json` | invoked | replaced with `CORJ_OMITTED_MARKER` |
+| `toJSON`, `toCorjAsJson` | used | never called |
+| `toString`, `toCorjAsString` | used | never called; `as_string` is derived instead |
+| a children source behind a getter | followed | left unread, the node gets `children_omitted: "not_inspected"` |
+
+`inspection` and `redact` compose: `redact` decides what may be reported, `inspection` decides how much may run to report it.
+
+`CORJ_OMITTED_MARKER` (`"[not-inspected]"`) marks content that exists but was not read. It is distinct from an absent field,
+which means the caught object never had that property, and from `null`, which still means that producing the value threw.
+
+`as_string` is rebuilt rather than obtained, and `as_string_format` records this as `"derived"`:
+
+- a caught object whose `toString` is `Error.prototype.toString` — every ordinary error — is rendered as `name: message` from
+  values read off descriptors. This matches the built-in whenever `name` and `message` are strings or absent; the built-in
+  coerces other types (`name: 404` gives `404: …`) and this mode treats them as absent instead;
+- a caught object whose `toString` is `Object.prototype.toString` is rendered as `[object Tag]`, where the tag comes from a
+  `Symbol.toStringTag` data property or falls back to `Object`, `Array` or `Function`. The built-in is not called, because it
+  performs a `[[Get]]` that a `Proxy` would turn into a `get` trap;
+- any other `toString` belongs to the caught object, so `as_string` becomes the marker;
+- primitives are stringified normally.
+
+Native errors keep their `stack` on V8 (Node, Chromium, Bun), which exposes `stack` as an own accessor property; `no-invoke`
+calls that one engine-provided getter, identified by reference, and no other accessor. Two cases withhold it instead:
+
+- V8 formats the stack string on first read, and formatting reads `name` and `message`. If either is an accessor, calling the
+  engine's getter would run the caught object's code, so `stack` becomes the marker rather than the mode breaking its promise.
+- The getter is identified by reference, so an error from another realm (a `vm` context, an iframe) is not recognized and its
+  `stack` and `as_string` are both the marker. On an engine that exposes `stack` as a data property, it is read normally.
+
+`Error.prepareStackTrace` is a global application hook rather than anything the caught object owns; if your process installs
+one it still runs during formatting, and no in-process option can prevent that.
+
+Cause chains, `errors` arrays, cycle handling and the report size limit behave as they do by default.
+
+## What the mode is not
+
+It is not a sandbox, and `maxReportSize` is not a timeout.
+
+- Reading a descriptor off a `Proxy` runs its `getOwnPropertyDescriptor` trap, walking the prototype chain runs its
+  `getPrototypeOf` trap, and listing properties for `as_json` runs its `ownKeys` trap. A trap that never returns still hangs
+  the caller, and a trap can fabricate the descriptors it returns.
+- For hard CPU isolation, produce the report behind a worker or process boundary. No synchronous option can provide it.
+- The mode reduces fidelity on purpose. A `Date`, `RegExp`, `URL` or typed array thrown directly carries its own `toString`,
+  so its `as_string` is the marker; a `Map`, `Set` or `Promise` inherits `Object.prototype.toString` and a
+  `Symbol.toStringTag` data property, so it reads `[object Map]`. Lazily computed properties are reported as the marker
+  rather than as their values.
 
 # Examples
 
@@ -488,7 +696,7 @@ prints
     "    at wrapModuleLoad (node:internal/modules/cjs/loader:261:19)",
     "    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)"
   ],
-  "v": "corj/v0.12"
+  "v": "corj/v0.13"
 }
 ```
 
@@ -597,7 +805,7 @@ prints
     "    at /home/user/work-dir/caught-object-report-json/examples/example-2-axios-error.ts:35:27",
     "    at processTicksAndRejections (node:internal/process/task_queues:95:5)"
   ],
-  "v": "corj/v0.12"
+  "v": "corj/v0.13"
 }
 ```
 
@@ -644,7 +852,7 @@ and then prints from the catch block
   "constructor_name": "Hostile",
   "message": null,
   "as_string": "[object Object]",
-  "v": "corj/v0.12"
+  "v": "corj/v0.13"
 }
 ```
 
@@ -680,7 +888,7 @@ prints
     "    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)",
     "    at phase4 (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/bin.ts:649:14)"
   ],
-  "$schema": "https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.12/report-object.json"
+  "$schema": "https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.13/report-object.json"
 }
 ```
 
@@ -1117,7 +1325,7 @@ prints an inline version of a JSON log entry whose `message` is the report:
         "as_json": null
       }
     ],
-    "v": "corj/v0.12"
+    "v": "corj/v0.13"
   },
   "os": { "loadavg": [1.04, 1.3, 1.16], "uptime": 262285.15 },
   "process": { "pid": 88513, "version": "v20.1.0" }
@@ -1214,25 +1422,116 @@ and `makeReportArray(caught)`. `maker.with(options)` returns a new maker with th
 
 #### `restoreExpectedValues(report)`
 
-Fills omitted expected values back in, turning a `corj/v0.12` report into its `corj/v0.12-full` form.
+Fills omitted expected values back in, turning a `corj/v0.13` report into its `corj/v0.13-full` form.
+
+#### `resolveCorjRedactPolicy(input)`
+
+Validates a redaction policy and returns it frozen, `null` for `null` and `undefined`, and throws a `TypeError` for anything
+invalid. An already-resolved policy is accepted and returned resolved.
+
+#### `new CorjRedactor(policy, onFailure)`
+
+Applies one resolved policy. `#text(value, context)` scrubs a string you emit yourself and always returns a string; `#apply`
+may return the `CORJ_REDACT_DROP` symbol. See
+[Applying the policy to your own text](#applying-the-policy-to-your-own-text).
 
 #### Types
 
 `CorjReport`, `CorjReportChild`, `CorjReportBase`, `CorjOptions`, `CorjOptionsInput`, `CorjErrorContext`,
 `CorjErrorHandler`, `CorjChildrenOmitted`, `CorjJsonValue`, `CorjVersion`, `CorjSchemaLink`, `CorjReportSizeUnit`,
-`CorjStackFormat`, `CorjMetadata`, `CorjReportIdContext`, `CorjAsStringFormat`, `CorjAsJsonFormat`, `CorjTypeof`.
+`CorjStackFormat`, `CorjMetadata`, `CorjReportIdContext`, `CorjAsStringFormat`, `CorjAsJsonFormat`, `CorjTypeof`,
+`CorjInspection`, `CorjRedactPolicy`, `CorjRedactPolicyInput`, `CorjRedactContext`, `CorjRedactTransform`,
+`CorjRedactStage`.
 `CaughtObjectReportJson`, `CaughtObjectReportJsonChild` and `CorjMakerOptions` remain as deprecated aliases.
 
 #### Constants
 
-`CORJ_DEFAULT_OPTIONS`, `CORJ_EXPECTED_VALUES`, `CORJ_TRUNCATED_MARKER`, `CORJ_CIRCULAR_MARKER`, `CORJ_VERSION`,
-`CORJ_VERSION_FULL`, and the four `CORJ_*_JSON_SCHEMA_LINK` constants.
+`CORJ_DEFAULT_OPTIONS`, `CORJ_EXPECTED_VALUES`, `CORJ_TRUNCATED_MARKER`, `CORJ_CIRCULAR_MARKER`, `CORJ_OMITTED_MARKER`,
+`CORJ_REDACTED_MARKER`, `CORJ_VERSION`, `CORJ_VERSION_FULL`, and the four `CORJ_*_JSON_SCHEMA_LINK` constants.
+
+# Supported runtimes
+
+The package publishes a CommonJS build with TypeScript declarations. Every claim below is verified in CI by
+`npm run test-consumers`, which builds the package, packs it with `npm pack`, installs the tarball into isolated consumer
+projects and runs the same ten scenarios — ordinary errors, cause chains, `errors` arrays, primitive throws, bounded reports,
+throwing inspection hooks, `inspection: 'no-invoke'`, a redaction policy, cycles and the array report shape — in each one.
+No check imports workspace source.
+
+| Consumer | Verified |
+| --- | --- |
+| Node, `require('caught-object-report-json')` | yes |
+| Node, `import` of the CommonJS build through Node's ESM interop | yes |
+| Bun, `import` | yes |
+| Browser, bundled by Vite and executed in Chromium | yes |
+
+The browser check builds with a bare Vite config — no `define`, no aliases, no polyfill plugin — and fails if `process`,
+`Buffer`, `global`, `require` or `__dirname` is present in the page, so nothing may depend on a Node global reaching the
+browser by accident.
+
+## Imports
+
+Named imports work everywhere:
+
+```typescript
+import { makeCorj, CorjMaker } from 'caught-object-report-json';
+```
+
+A default import gives you the module namespace at runtime in Node ESM, in Bun and through any bundler. For types it depends on
+the resolution mode, because the package exports named bindings and no `default`:
+
+| `moduleResolution` | named imports | `import corj from '...'` |
+| --- | --- | --- |
+| `node` | yes | needs `esModuleInterop` |
+| `node16` | yes | yes |
+| `nodenext` | yes | yes |
+| `bundler` | yes | yes |
+
+All four are checked under `--strict`, with no path mapping, against the installed artifact.
+
+## Tested versions
+
+CI runs the checks on Node 20 and Node 24, with the Bun, TypeScript, Vite and Playwright versions pinned in
+`tests/consumers/run.mjs`; the driver prints the exact versions it used at the top of every run.
+
+The published build targets CommonJS. There is no ESM build and no `exports` map, because the tests above show the current
+layout resolves correctly in every environment listed — not because the layout was judged ideal. One consequence is that every
+internal module is reachable as a deep import (`caught-object-report-json/report-size` and so on); treat those as private, as
+adding an `exports` map in a future major will close them.
+
+Not covered by these tests, and therefore not supported: Deno, Cloudflare Workers and other edge runtimes, and React Native.
+
+# Report schema history
+
+| Version | Change |
+| --- | --- |
+| `corj/v0.13` | Shipped with 10.0.0: `as_string_format` gained `"derived"`; `children_omitted` gained `"not_inspected"` and `"redacted"`. Both appear only when `inspection` or `redact` is configured. |
+| `corj/v0.12` | Shipped with 9.0.0: shorter API, bounded child discovery, omitted expected values. |
+
+Each schema pins its own `v`, so a reader that validates against a schema URL moves with the format; a reader that ignores `v`
+does not have to.
+
+# Upgrading from v9
+
+10.0.0 is a major only because the report format moved to `corj/v0.13` (`corj/v0.13-full` for the full form). **Nothing
+changes for a caller that configures neither `redact` nor `inspection`:** no option was renamed or removed, and the output of
+every 9.x call is identical apart from `v`.
+
+- A reader that validates against the `corj/v0.12` schema URL must move to the `corj/v0.13` URL. One that ignores `v` needs no
+  change.
+- `children_omitted` gained `"not_inspected"` (from `inspection: 'no-invoke'`) and `"redacted"` (from a `redact` policy that
+  excludes a children source); `as_string_format` gained `"derived"`. All three appear only when the option that produces them
+  is configured.
+- In TypeScript, `CorjErrorStage` gained `'redact'` and `CorjChildrenOmitted` gained those two values, so an exhaustive
+  `switch` over either needs a new arm.
+- New in 10.0.0: the `redact` and `inspection` options, and the `resolveCorjRedactPolicy` and `CorjRedactor` exports that let a
+  custom `onError` apply the same policy.
 
 # Upgrading from v8
 
-Reports use schema `corj/v0.12`. The runtime rejects the old option names with a `TypeError` that lists the valid ones.
+9.0.0 renamed the API and 10.0.0 kept those names, so a v8 codebase moves to 10.0.0 in one step. Reports use schema
+`corj/v0.13`. The runtime rejects the old option names with a `TypeError` that lists the valid ones.
 
-| v8 | v9 |
+| v8 | 10.0.0 |
 | --- | --- |
 | `makeCaughtObjectReportJson`, `bakeCorj` | `makeCorj` |
 | `makeCaughtObjectReportJsonArray`, `bakeCorjArray` | `makeCorjArray` |
@@ -1264,16 +1563,17 @@ https://www.npmjs.com/package/caught-object-report-json
 
 ##### Deno Land
 
-https://deno.land/x/caught_object_report_json
+https://deno.land/x/caught_object_report_json (mirrored, not covered by the
+[consumption tests](#supported-runtimes))
 
-##### CORJ JSON Schema - corj/v0.12
+##### CORJ JSON Schema - corj/v0.13
 
-- Definitions - https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.12/definitions.json
-- Report Object - https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.12/report-object.json
-- Report Array - https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.12/report-array.json
+- Definitions - https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.13/definitions.json
+- Report Object - https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.13/report-object.json
+- Report Array - https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.13/report-array.json
 
-##### CORJ JSON Schema - corj/v0.12-full
+##### CORJ JSON Schema - corj/v0.13-full
 
-- Definitions - https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.12-full/definitions.json
-- Report Object - https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.12-full/report-object.json
-- Report Array - https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.12-full/report-array.json
+- Definitions - https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.13-full/definitions.json
+- Report Object - https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.13-full/report-object.json
+- Report Array - https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.13-full/report-array.json

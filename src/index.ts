@@ -1653,7 +1653,10 @@ function readFingerprintValue(
   // could turn a replacement into a second match.
   if (typeof raw === 'string') return raw;
   if (typeof raw === 'boolean') return raw;
-  if (typeof raw === 'number') return Number.isFinite(raw) ? raw : null;
+  // JSON has no `NaN` and no bigint, so both take the form the nested view
+  // gives them: a value the policy saw is never dropped for want of a slot.
+  if (typeof raw === 'number') return Number.isFinite(raw) ? raw : String(raw);
+  if (typeof raw === 'bigint') return `${String(raw)}n`;
   if (typeof raw !== 'object' || raw === null) return null;
   try {
     // Rooted at the value's own path, so a `paths` rule that redacts something

@@ -172,7 +172,7 @@ describe('fingerprint', () => {
     );
   });
 
-  test('numbers and booleans count; functions, symbols, bigints and undefined are null', () => {
+  test('numbers, booleans, bigints and non-finite numbers count; functions, symbols and undefined are null', () => {
     const maker = withParts([{ field: 'v' }]);
     const of = (v: unknown) =>
       maker.makeFingerprint(Object.assign(new Error('x'), { v }));
@@ -180,8 +180,28 @@ describe('fingerprint', () => {
     expect(of(true)).not.toBe(of(false));
     expect(of(() => 1)).toBe(of(undefined));
     expect(of(Symbol('s'))).toBe(of(undefined));
-    expect(of(BigInt(1))).toBe(of(undefined));
-    expect(of(Number.NaN)).toBe(of(undefined));
+    // A bigint is `<digits>n`, so it is neither the number nor the field missing.
+    expect(of(BigInt(1))).not.toBe(of(BigInt(2)));
+    expect(of(BigInt(1))).not.toBe(of(1));
+    expect(of(BigInt(1))).not.toBe(of(undefined));
+    // A non-finite number is its `String()` form, as the nested view writes it.
+    expect(of(Number.NaN)).not.toBe(of(undefined));
+    expect(of(Number.NaN)).not.toBe(of(Number.POSITIVE_INFINITY));
+    expect(of(Number.POSITIVE_INFINITY)).not.toBe(of(Number.NEGATIVE_INFINITY));
+  });
+
+  test('a one-segment path entry is the same recipe as the field entry', () => {
+    const error = Object.assign(new Error('x'), { a: 'v' });
+    expect(withParts([{ field: 'a' }]).makeFingerprint(error)).toBe(
+      withParts([{ path: ['a'] }]).makeFingerprint(error),
+    );
+    expect(() => withParts([{ field: 'a' }, { path: ['a'] }])).toThrow(
+      'fingerprintParts[1] repeats "field:a"',
+    );
+    // An index segment is not a field name, so it keeps its own label.
+    expect(withParts([{ path: [0] }]).makeFingerprint(error)).not.toBe(
+      withParts([{ path: ['0'] }]).makeFingerprint(error),
+    );
   });
 
   test('thrown primitives do not all share one fingerprint', () => {

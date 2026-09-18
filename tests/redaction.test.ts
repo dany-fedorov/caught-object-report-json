@@ -1,4 +1,4 @@
-import type { CorjRedactContext } from '../src';
+import type { CorjRedactContext, CorjRedactPolicyInput } from '../src';
 import {
   CORJ_OMITTED_MARKER,
   CORJ_REDACTED_MARKER,
@@ -40,6 +40,11 @@ function makeMarkedFixture() {
     },
   });
   return caught;
+}
+
+/** `new Error(message, { cause })` without relying on the lib target's typing. */
+function withCause(error: Error, cause: unknown): Error {
+  return Object.assign(error, { cause });
 }
 
 /** Every string anywhere in a value, so a leak cannot hide in a nested field. */
@@ -768,6 +773,94 @@ describe('redact: leaks found in review', () => {
     }).makeReportArray(new Error(SECRET));
     expect(rows.map((row) => row.id)).toEqual([CORJ_REDACTED_MARKER]);
     expect(allText(rows)).not.toContain(SECRET);
+  });
+
+  test('a scrubbed custom id is the same text in the parent child_ids', () => {
+    const rows = new CorjMaker({
+      redact: { patterns: [new RegExp(SECRET, 'g')] },
+      makeReportId: ({ caught }) => String((caught as Error).message),
+    }).makeReportArray(
+      withCause(new Error(`outer ${SECRET}`), new Error(`inner ${SECRET}`)),
+    );
+    expect(rows).toHaveLength(2);
+    expect(rows[0]?.id).toBe(`outer ${CORJ_REDACTED_MARKER}`);
+    expect(rows[1]?.id).toBe(`inner ${CORJ_REDACTED_MARKER}`);
+    // The link is the scrubbed text itself, identical on both sides.
+    expect(rows[0]?.child_ids).toEqual([rows[1]?.id]);
+    expect(allText(rows)).not.toContain(SECRET);
+  });
+});
+
+/** Each digit replaced by the marker, the way `patterns: [/\d/g]` rewrites text. */
+function redactDigits(text: string): string {
+  return text.replace(/\d/g, CORJ_REDACTED_MARKER);
+}
+
+/**
+ * A default id is corj's own counter - "0", "1", ... - so an ordinary policy
+ * such as `patterns: [/\d/g]` (account or card numbers) would rewrite every one
+ * of them to the same marker and destroy the `child_ids` <-> `id` linkage.
+ * A default id carries nothing from the caught object, so the policy never sees
+ * it, while the rest of the report is scrubbed as usual.
+ */
+describe('redact: default report ids are structural', () => {
+  /** Three levels, each message holding digits the policy has to scrub. */
+  function makeChain(): Error {
+    return withCause(
+      new Error('outer 111'),
+      withCause(new Error('mid 222'), new Error('inner 333')),
+    );
+  }
+
+  const policies: [string, CorjRedactPolicyInput][] = [
+    ['patterns', { patterns: [/\d/g] }],
+    ['transform', { transform: () => 'CONSTANT' }],
+  ];
+
+  test.each(policies)(
+    'the object report keeps its default ids under a %s policy',
+    (_name, redact) => {
+      const report = new CorjMaker({ redact }).makeReportObject(makeChain());
+      const children = report.children ?? [];
+      expect(children.map((child) => child.id)).toEqual(['0', '1']);
+      expect(children[0]?.child_ids).toEqual(['1']);
+      expect(children[1]?.child_ids).toBeUndefined();
+      // The policy is live in this very report.
+      for (const digits of ['111', '222', '333']) {
+        expect(allText(report)).not.toContain(digits);
+      }
+    },
+  );
+
+  test.each(policies)(
+    'the array report keeps its default ids under a %s policy',
+    (_name, redact) => {
+      const rows = new CorjMaker({ redact }).makeReportArray(makeChain());
+      expect(rows.map((row) => row.id)).toEqual(['root', '0', '1']);
+      expect(rows[0]?.child_ids).toEqual(['0']);
+      expect(rows[1]?.child_ids).toEqual(['1']);
+      expect(rows[2]?.child_ids).toBeUndefined();
+      for (const digits of ['111', '222', '333']) {
+        expect(allText(rows)).not.toContain(digits);
+      }
+    },
+  );
+
+  test('a digits policy still scrubs message, stack and as_json content', () => {
+    const caught = withCause(
+      new Error('card 4111111111111111'),
+      new Error('inner 999'),
+    );
+    Object.assign(caught, { account: '12345' });
+    const report = new CorjMaker({
+      omitExpectedValues: false,
+      redact: { patterns: [/\d/g] },
+    }).makeReportObject(caught);
+    expect(report.message).toBe(redactDigits('card 4111111111111111'));
+    expect(report.as_json).toEqual({ account: redactDigits('12345') });
+    expect(allText(report.stack)).not.toMatch(/\d/);
+    expect(report.children?.[0]?.message).toBe(redactDigits('inner 999'));
+    expect(report.children?.[0]?.id).toBe('0');
   });
 });
 

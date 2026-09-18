@@ -121,7 +121,12 @@ async function makeConsumer(tarball) {
     ),
   );
   cpSync(path.join(fixtures, 'scenarios.mjs'), path.join(dir, 'scenarios.mjs'));
-  for (const file of ['node-cjs.cjs', 'node-esm.mjs', 'bun-esm.mjs']) {
+  for (const file of [
+    'node-cjs.cjs',
+    'node-esm.mjs',
+    'bun-esm.mjs',
+    'encapsulation.mjs',
+  ]) {
     cpSync(path.join(fixtures, file), path.join(dir, file));
   }
   await mkdir(path.join(dir, 'types'), { recursive: true });
@@ -145,6 +150,19 @@ async function makeConsumer(tarball) {
 const SCENARIO_COUNT = (
   await import(pathToFileURL(path.join(fixtures, 'scenarios.mjs')).href)
 ).scenarios.length;
+
+/** An outcome from a fixture that reports its own named checks, not scenarios. */
+function parseChecks(stdout) {
+  const line = stdout.trim().split('\n').pop();
+  try {
+    return JSON.parse(line);
+  } catch {
+    return {
+      ok: false,
+      results: [{ name: 'output', ok: false, error: stdout.trim() }],
+    };
+  }
+}
 
 function parseOutcome(stdout) {
   const line = stdout.trim().split('\n').pop();
@@ -198,6 +216,13 @@ const checks = {
       }
       return parseOutcome(runFixture('bun', ['bun-esm.mjs'], { cwd: dir }));
     },
+  },
+  encapsulation: {
+    title: 'Node, only the exported entry points resolve',
+    run: (dir) =>
+      parseChecks(
+        runFixture(process.execPath, ['encapsulation.mjs'], { cwd: dir }),
+      ),
   },
   types: {
     title: 'TypeScript declaration resolution',
@@ -281,6 +306,21 @@ const checks = {
           error: withInterop ?? undefined,
         });
       }
+
+      // The exports map hides internal modules from the declaration resolver
+      // too, but only in the modes that read it; `node` and `bundler` still
+      // walk the file system, so only `node16` is asserted here.
+      const deep = check('probe-deep.ts', 'node16', 'node16', false);
+      results.push({
+        name: 'node16: a deep import is a type error',
+        ok: deep !== null && /error TS2307:/.test(deep),
+        error:
+          deep === null
+            ? 'the deep import type-checked, so it is still reachable'
+            : /error TS2307:/.test(deep)
+            ? undefined
+            : `expected a module-not-found diagnostic, got: ${deep}`,
+      });
       return { ok: results.every((r) => r.ok), results };
     },
   },

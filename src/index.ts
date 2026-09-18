@@ -297,6 +297,17 @@ function defaultOnError(
   console.warn(`[caught-object-report-json] ${where}: ${text}`);
 }
 
+/**
+ * The default report id: `"root"` for the root, the discovery index otherwise.
+ *
+ * It is derived from the report's shape alone and carries nothing from the
+ * caught object, so a redaction policy is never applied to it - see
+ * {@link makeId}.
+ */
+function defaultMakeReportId({ index }: CorjReportIdContext): string {
+  return index === -1 ? 'root' : String(index);
+}
+
 export const CORJ_DEFAULT_OPTIONS: CorjOptions = Object.freeze({
   maxReportSize: DEFAULT_MAX_REPORT_SIZE,
   reportSizeUnit: DEFAULT_REPORT_SIZE_UNIT,
@@ -308,8 +319,7 @@ export const CORJ_DEFAULT_OPTIONS: CorjOptions = Object.freeze({
   maxDepth: 5,
   maxChildren: 100,
   childrenSources: CORJ_EXPECTED_VALUES.children_sources,
-  makeReportId: ({ index }: CorjReportIdContext) =>
-    index === -1 ? 'root' : String(index),
+  makeReportId: defaultMakeReportId,
   onError: defaultOnError,
 });
 
@@ -655,9 +665,14 @@ function makeId(ctx: Ctx, context: CorjReportIdContext): string {
         `makeReportId must return a string, got ${describeValue(id)}`,
       );
     }
-    // `makeReportId` is handed the caught object, so an id built from it can
-    // carry the same content every other field is scrubbed for.
-    return ctx.redactor === null
+    // A default id is structural - it carries nothing from the caught object -
+    // so the policy never sees it. Rewriting it would collapse distinct ids
+    // onto one string and break the `child_ids` <-> `id` linkage.
+    // A caller-supplied `makeReportId` is handed the caught object, so an id
+    // built from it can carry the same content every other field is scrubbed
+    // for, and it keeps going through the policy.
+    return ctx.redactor === null ||
+      ctx.options.makeReportId === defaultMakeReportId
       ? id
       : ctx.redactor.text(id, {
           stage: 'prop-access',

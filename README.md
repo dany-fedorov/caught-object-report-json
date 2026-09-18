@@ -1497,10 +1497,14 @@ All four are checked under `--strict`, with no path mapping, against the install
 CI runs the checks on Node 20 and Node 24, with the Bun, TypeScript, Vite and Playwright versions pinned in
 `tests/consumers/run.mjs`; the driver prints the exact versions it used at the top of every run.
 
-The published build targets CommonJS. There is no ESM build and no `exports` map, because the tests above show the current
-layout resolves correctly in every environment listed — not because the layout was judged ideal. One consequence is that every
-internal module is reachable as a deep import (`caught-object-report-json/report-size` and so on); treat those as private, as
-adding an `exports` map in a future major will close them.
+The published build targets CommonJS, and there is no ESM build: one file is served to every condition, so `import` and
+`require` always reach the same module instance and `instanceof` holds across import styles.
+
+As of 10.0.0 the package has an `exports` map, and only two entry points resolve: the package root and
+`caught-object-report-json/package.json`. Deep imports of internal modules — `caught-object-report-json/report-size`,
+`/redaction` and the rest — were never public and now throw `ERR_PACKAGE_PATH_NOT_EXPORTED`; in TypeScript under `node16` or
+`nodenext` they no longer type-check. Everything supported is exported from the root. The consumer checks assert both the
+closed paths and the single module instance against the packed artifact.
 
 Not covered by these tests, and therefore not supported: Deno, Cloudflare Workers and other edge runtimes, and React Native.
 
@@ -1527,6 +1531,11 @@ every 9.x call is identical apart from `v`.
   is configured.
 - In TypeScript, `CorjErrorStage` gained `'redact'` and `CorjChildrenOmitted` gained those two values, so an exhaustive
   `switch` over either needs a new arm.
+- Deep imports such as `caught-object-report-json/report-size` no longer resolve; import from the package root. The package
+  now has an `exports` map, and only the root and `./package.json` are exported.
+- A default report id (`"root"` and the discovery index) is no longer rewritten by a `redact` policy, so `child_ids` keeps
+  linking children to their reports under a policy such as `patterns: [/\d/g]`. An id from a custom `makeReportId` is still
+  scrubbed.
 - New in 10.0.0: the `redact` and `inspection` options, and the `resolveCorjRedactPolicy` and `CorjRedactor` exports that let a
   custom `onError` apply the same policy.
 

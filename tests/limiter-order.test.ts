@@ -1,6 +1,16 @@
-import { CorjMaker, makeCorj, CORJ_VERSION_FULL } from '../src/index';
+import {
+  CorjMaker,
+  makeCorj,
+  makeCorjArray,
+  CORJ_VERSION_FULL,
+} from '../src/index';
 import type { CorjReport, CorjReportChild } from '../src/index';
 import { makeMinimalReport } from '../src/report-size';
+
+const ErrorWithCause = Error as unknown as new (
+  message?: string,
+  options?: { cause?: unknown },
+) => Error;
 
 const silent = () => undefined;
 const bytes = (value: unknown) =>
@@ -45,6 +55,30 @@ describe('limiter drop order', () => {
     expect(tight.truncated).toBe(true);
     expect(tight.reporting_errors).toBeDefined(); // errors survive when dropping context was enough
     expect(bytes(tight)).toBeLessThanOrEqual(2500);
+
+    const caught = new ErrorWithCause('outer', { cause: noisy() });
+    caught.stack = 'Error: outer\n    at fixed (file.js:1:1)';
+    const rows = makeCorjArray(
+      caught,
+      { onError: silent, maxReportSize: 2500 },
+      { context: big },
+    );
+    const [rootRow, ...tailRows] = rows;
+    expect(tailRows).toHaveLength(1);
+    expect(rootRow).toMatchObject({
+      id: 'root',
+      path: '$',
+      level: 0,
+      context_omitted: 'max_size',
+      truncated: true,
+    });
+    expect(rootRow).not.toHaveProperty('context');
+    expect(tailRows).toEqual(
+      makeCorjArray(caught, { onError: silent, maxReportSize: 100_000 }).slice(
+        1,
+      ),
+    );
+    expect(bytes(rows)).toBeLessThanOrEqual(2500);
   });
 
   test('reporting_errors go second, and the report says so', () => {

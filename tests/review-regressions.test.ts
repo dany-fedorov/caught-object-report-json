@@ -173,26 +173,54 @@ describe('review regressions', () => {
     expect(report.truncated).toBe(true);
   });
 
-  test.each([512, 600])(
-    'preserves diagnostic content at the smallest budgets (%i bytes)',
+  // A pinned stack: a real one would make the sizes below depend on how deep
+  // jest happens to call the test.
+  const overBudget = () => ({
+    message: 'critical failure: ' + 'x'.repeat(10_000),
+    stack: [
+      'Error: critical failure',
+      ...Array.from(
+        { length: 20 },
+        (_, i) => `    at frame${i} (/app/src/module-${i}.ts:${i + 1}:1)`,
+      ),
+    ].join('\n'),
+  });
+  // Nothing is left out as expected, so the fixed fields crowd the budget and
+  // the optional metadata has to compete with the content for what is left.
+  const crowded = { metadata: true, omitExpectedValues: false } as const;
+
+  test.each([512, 560])(
+    'preserves diagnostic content before optional metadata at %i bytes',
     (maxReportSize) => {
       const report = new CorjMaker({
+        ...crowded,
         maxReportSize,
-        metadata: true,
-      }).makeReportObject({
-        message: 'critical failure: ' + 'x'.repeat(10_000),
-      });
+      }).makeReportObject(overBudget());
       expect(report.message).toMatch(/^critical failure: /);
       expect(report.as_json).toHaveProperty('message');
-      // At the 512 floor there is room for both: content is capped to fit and
-      // the optional metadata still rides along.
-      expect(report).toHaveProperty('$schema');
+      expect(report).not.toHaveProperty('$schema');
+      // The room the schema link gave up went to content, far past the
+      // 64-unit reserve the limiter starts from.
+      expect((report.message as string).length).toBeGreaterThan(100);
       expect(
         Buffer.byteLength(JSON.stringify(report), 'utf8'),
       ).toBeLessThanOrEqual(maxReportSize);
-      expect(getReportObjectReportValidator()(report)).toBe(true);
+      expect(getReportObjectReportValidator('full')(report)).toBe(true);
     },
   );
+
+  test('the same report keeps the optional metadata once the budget allows it', () => {
+    const report = new CorjMaker({
+      ...crowded,
+      maxReportSize: 700,
+    }).makeReportObject(overBudget());
+    expect(report).toHaveProperty('$schema');
+    expect(report.message).toMatch(/^critical failure: /);
+    expect(
+      Buffer.byteLength(JSON.stringify(report), 'utf8'),
+    ).toBeLessThanOrEqual(700);
+    expect(getReportObjectReportValidator('full')(report)).toBe(true);
+  });
 
   test.each([false, true])(
     'contains very deep ordinary JSON data (array=%s)',

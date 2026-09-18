@@ -33,7 +33,7 @@ describe('review regressions', () => {
 
   test('the minimal fallback uses the max_size code and the root id', () => {
     const report = new CorjMaker({
-      maxReportSize: 256,
+      maxReportSize: 512,
       makeReportId: () => 'id'.repeat(1_000),
     }).makeReportArray({ cause: 'child' });
     expect(report).toEqual([
@@ -46,6 +46,7 @@ describe('review regressions', () => {
         as_string: '[truncated]',
         as_json: null,
         children_omitted: 'max_size',
+        v: 'corj/v0.13',
       },
     ]);
   });
@@ -59,7 +60,7 @@ describe('review regressions', () => {
       });
       const errors: [unknown, CorjErrorContext][] = [];
       const maker = new CorjMaker({
-        maxReportSize: 256,
+        maxReportSize: 512,
         onError: (error, context) => errors.push([error, context]),
       });
       const caught = { cause: { message: 'child' } };
@@ -72,7 +73,7 @@ describe('review regressions', () => {
       expect(validate(report)).toBe(true);
       expect(
         Buffer.byteLength(JSON.stringify(report), 'utf8'),
-      ).toBeLessThanOrEqual(256);
+      ).toBeLessThanOrEqual(512);
       const root = Array.isArray(report) ? report[0]! : report;
       expect(root).toEqual({
         ...(array ? { id: 'root', path: '$', level: 0 } : {}),
@@ -81,6 +82,7 @@ describe('review regressions', () => {
         as_string: '[truncated]',
         as_json: null,
         children_omitted: 'max_size',
+        v: 'corj/v0.13',
       });
       expect(Array.isArray(report) ? report.length : 1).toBe(1);
       expect(errors).toEqual([
@@ -107,6 +109,7 @@ describe('review regressions', () => {
       typeof: 'object',
       as_string: '[truncated]',
       as_json: null,
+      v: 'corj/v0.13-full',
     });
   });
 
@@ -170,8 +173,8 @@ describe('review regressions', () => {
     expect(report.truncated).toBe(true);
   });
 
-  test.each([350, 400])(
-    'preserves diagnostic content before optional metadata at %i bytes',
+  test.each([512, 600])(
+    'preserves diagnostic content at the smallest budgets (%i bytes)',
     (maxReportSize) => {
       const report = new CorjMaker({
         maxReportSize,
@@ -181,7 +184,9 @@ describe('review regressions', () => {
       });
       expect(report.message).toMatch(/^critical failure: /);
       expect(report.as_json).toHaveProperty('message');
-      expect(report).not.toHaveProperty('$schema');
+      // At the 512 floor there is room for both: content is capped to fit and
+      // the optional metadata still rides along.
+      expect(report).toHaveProperty('$schema');
       expect(
         Buffer.byteLength(JSON.stringify(report), 'utf8'),
       ).toBeLessThanOrEqual(maxReportSize);

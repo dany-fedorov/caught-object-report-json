@@ -301,7 +301,7 @@ describe('CorjMaker', () => {
     });
 
     test.each([
-      [{ maxReportSize: 255 }, RangeError],
+      [{ maxReportSize: 511 }, RangeError],
       [{ maxReportSize: 1.5 }, RangeError],
       [{ reportSizeUnit: 'bytes' }, TypeError],
       [{ omitExpectedValues: 'yes' }, TypeError],

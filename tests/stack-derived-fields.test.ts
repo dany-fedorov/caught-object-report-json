@@ -556,7 +556,7 @@ describe('deriving constructor_name and message from the stack', () => {
         };
         let derivedSomewhere = 0;
         for (
-          let maxReportSize = 256;
+          let maxReportSize = 512;
           maxReportSize <= 1_200;
           maxReportSize += 5
         ) {
@@ -595,7 +595,7 @@ describe('deriving constructor_name and message from the stack', () => {
       });
       expect(compact).toEqual({ stack: caught.stack!.split('\n') });
       const tight = makeCorj(caught, {
-        maxReportSize: 256,
+        maxReportSize: 512,
         metadata: false,
       });
       expect(tight.truncated).toBe(true);

@@ -137,7 +137,7 @@ function graph(
 }
 
 function options(random: Random): CorjOptionsInput {
-  const maxReportSize = random.pick([null, 256, 300, 512, 1024, 4096, 100_000]);
+  const maxReportSize = random.pick([null, 512, 600, 512, 1024, 4096, 100_000]);
   return {
     onError: () => undefined,
     maxReportSize,

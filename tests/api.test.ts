@@ -213,7 +213,7 @@ describe('options', () => {
   });
 
   test.each<[CorjOptionsInput, ErrorConstructor, string]>([
-    [{ maxReportSize: 255 }, RangeError, 'maxReportSize'],
+    [{ maxReportSize: 511 }, RangeError, 'maxReportSize'],
     [{ maxReportSize: 1.5 }, RangeError, 'maxReportSize'],
     [{ reportSizeUnit: 'bytes' as never }, TypeError, 'reportSizeUnit'],
     [{ omitExpectedValues: 'yes' as never }, TypeError, 'omitExpectedValues'],
@@ -1212,6 +1212,7 @@ describe('error handling', () => {
       as_string: CORJ_TRUNCATED_MARKER,
       as_json: null,
       children_omitted: 'max_size',
+      v: CORJ_VERSION,
     });
     expectValidObject(report);
     const rows = makeCorjArray(caught, { onError: errors.onError });
@@ -1224,6 +1225,7 @@ describe('error handling', () => {
         as_string: CORJ_TRUNCATED_MARKER,
         as_json: null,
         children_omitted: 'max_size',
+        v: CORJ_VERSION,
       },
     ]);
     expectValidArray(rows);
@@ -1234,6 +1236,7 @@ describe('error handling', () => {
       typeof: 'string',
       as_string: CORJ_TRUNCATED_MARKER,
       as_json: null,
+      v: CORJ_VERSION,
     });
     expect(makeCorjArray('str', { onError: errors.onError })).toEqual([
       {
@@ -1245,6 +1248,7 @@ describe('error handling', () => {
         typeof: 'string',
         as_string: CORJ_TRUNCATED_MARKER,
         as_json: null,
+        v: CORJ_VERSION,
       },
     ]);
     expect(

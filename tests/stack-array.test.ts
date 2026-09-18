@@ -373,7 +373,7 @@ describe('stack as an array of lines', () => {
     test('a truncated stack never yields a wrong derived as_string', () => {
       const caught = new Error('x'.repeat(120));
       const complete = String(caught);
-      for (let maxReportSize = 256; maxReportSize <= 900; maxReportSize += 7) {
+      for (let maxReportSize = 512; maxReportSize <= 900; maxReportSize += 7) {
         const report = makeCorj(caught, {
           maxReportSize,
           metadata: false,

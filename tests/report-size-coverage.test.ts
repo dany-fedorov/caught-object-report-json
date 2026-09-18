@@ -81,14 +81,14 @@ describe('report size defaults and minimal fallback', () => {
 
       const result = limitReportSize(
         report,
-        { ...CORJ_DEFAULT_OPTIONS, maxReportSize: 256 },
+        { ...CORJ_DEFAULT_OPTIONS, maxReportSize: 512 },
         stringify,
       );
 
       expect(validate(result)).toBe(true);
       expect(
         Buffer.byteLength(JSON.stringify(result), 'utf8'),
-      ).toBeLessThanOrEqual(256);
+      ).toBeLessThanOrEqual(512);
       const expected = {
         truncated: true,
         instanceof_error: false,

@@ -141,7 +141,7 @@ describe('whole report size limit', () => {
 
   test('handles the smallest budget with large metadata and custom identifiers', () => {
     const maker = new CorjMaker({
-      maxReportSize: 256,
+      maxReportSize: 512,
       metadata: true,
       makeReportId: () => 'id'.repeat(1_000),
       childrenSources: ['cause', 'x'.repeat(1_000)],
@@ -149,13 +149,13 @@ describe('whole report size limit', () => {
     const caught = { message: 'x'.repeat(1_000), cause: { message: 'child' } };
     const object = maker.makeReportObject(caught);
     const array = maker.makeReportArray(caught);
-    expect(byteSize(object)).toBeLessThanOrEqual(256);
-    expect(byteSize(array)).toBeLessThanOrEqual(256);
+    expect(byteSize(object)).toBeLessThanOrEqual(512);
+    expect(byteSize(array)).toBeLessThanOrEqual(512);
     expect(getReportObjectReportValidator()(object)).toBe(true);
     expect(getReportArrayReportValidator()(array)).toBe(true);
   });
 
-  test.each([0, 255, -1, NaN, Infinity, 512.5])(
+  test.each([0, 511, -1, NaN, Infinity, 512.5])(
     'rejects invalid maximum report sizes (%s)',
     (maxReportSize) => {
       expect(() => new CorjMaker({ maxReportSize })).toThrow(RangeError);
@@ -179,12 +179,12 @@ describe('whole report size limit', () => {
         cause: { a: 1 },
       },
       {
-        maxReportSize: 256,
+        maxReportSize: 512,
         maxDepth: 0,
         metadata: true,
       },
     );
-    expect(byteSize(report)).toBeLessThanOrEqual(256);
+    expect(byteSize(report)).toBeLessThanOrEqual(512);
     expect(getReportObjectReportValidator()(report)).toBe(true);
     expect(report.truncated).toBe(true);
     expect(report.children_omitted).toBe('max_depth');

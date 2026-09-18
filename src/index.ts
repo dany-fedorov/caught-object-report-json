@@ -135,12 +135,18 @@ export type CorjReportBase = {
   as_string_format?: CorjAsStringFormat;
   /** Omitted when `"safe-stable-stringify-with-length-limit"`. */
   as_json_format?: CorjAsJsonFormat;
+  /** Root only. Identifies this occurrence; see occurrenceIdSources. */
+  occurrence_id?: string;
+  /** Root only. Equal for failures of the same kind from the same place; see fingerprintParts. */
+  fingerprint?: string;
   /** Root only. The JSON form of the call's `context`, rooted at `$context`. Absent when the call passed none. */
   context?: CorjJsonValue | null;
   /** Root only. Present when `context` was left out to meet `maxReportSize`. */
   context_omitted?: 'max_size';
   /** Root only. Failures met while this report was produced, at most 8. Absent when there were none. */
   reporting_errors?: CorjReportingError[];
+  /** Root only. Present when `reporting_errors` was left out to meet `maxReportSize`. */
+  reporting_errors_omitted?: 'max_size';
   /** Root only. Report version, controlled by the `metadata` option. */
   v?: CorjVersion;
   /** Root only. Link to the JSON Schema of this report, controlled by the `metadata` option. */

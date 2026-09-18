@@ -345,7 +345,7 @@ describe('omitting expected values', () => {
         let restoredFromTruncatedStack = 0;
         let kept = 0;
         for (
-          let maxReportSize = 256;
+          let maxReportSize = 512;
           maxReportSize <= 700;
           maxReportSize += 3
         ) {
@@ -394,7 +394,7 @@ describe('omitting expected values', () => {
 
     test('the minimal fallback omits expected values as well', () => {
       const report = makeCorjArray(new Error('boom'), {
-        maxReportSize: 256,
+        maxReportSize: 512,
         makeReportId: () => 'x'.repeat(1_000),
       });
       expect(getReportArrayReportValidator()(report)).toBe(true);
@@ -406,6 +406,7 @@ describe('omitting expected values', () => {
           truncated: true,
           as_string: '[truncated]',
           as_json: null,
+          v: 'corj/v0.13',
         },
       ]);
       expect(restoreExpectedValues(report)[0]).toMatchObject({
@@ -414,7 +415,7 @@ describe('omitting expected values', () => {
       });
 
       const kept = makeCorjArray(new Error('boom'), {
-        maxReportSize: 256,
+        maxReportSize: 512,
         omitExpectedValues: false,
         makeReportId: () => 'x'.repeat(1_000),
       });

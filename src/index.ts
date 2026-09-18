@@ -365,6 +365,13 @@ function defaultMakeReportId({ index }: CorjReportIdContext): string {
   return index === -1 ? 'root' : String(index);
 }
 
+const DEFAULT_OCCURRENCE_ID_SOURCES: readonly CorjOccurrenceIdSource[] =
+  Object.freeze([Object.freeze({ auto: 'random' as const })]);
+
+const DEFAULT_FINGERPRINT_PARTS: readonly CorjFingerprintPart[] = Object.freeze(
+  ['constructor_name', 'stack'],
+);
+
 export const CORJ_DEFAULT_OPTIONS: CorjOptions = Object.freeze({
   maxReportSize: DEFAULT_MAX_REPORT_SIZE,
   reportSizeUnit: DEFAULT_REPORT_SIZE_UNIT,
@@ -377,8 +384,8 @@ export const CORJ_DEFAULT_OPTIONS: CorjOptions = Object.freeze({
   maxDepth: 5,
   maxChildren: 100,
   childrenSources: CORJ_EXPECTED_VALUES.children_sources,
-  occurrenceIdSources: null,
-  fingerprintParts: null,
+  occurrenceIdSources: DEFAULT_OCCURRENCE_ID_SOURCES,
+  fingerprintParts: DEFAULT_FINGERPRINT_PARTS,
   makeReportId: defaultMakeReportId,
   onError: defaultOnError,
 });

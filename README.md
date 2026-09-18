@@ -685,6 +685,8 @@ prints
 
 ```json
 {
+  "occurrence_id": "CORJ_…",
+  "fingerprint": "fp1_…",
   "as_json": {
     "heh": 123,
     "heh_1": {}
@@ -764,6 +766,8 @@ prints
 
 ```json
 {
+  "occurrence_id": "CORJ_…",
+  "fingerprint": "fp1_…",
   "constructor_name": "AxiosErrorWrapper",
   "message": "Request failed with status code 404",
   "as_json": {
@@ -854,6 +858,8 @@ and then prints from the catch block
 
 ```json
 {
+  "occurrence_id": "CORJ_…",
+  "fingerprint": "fp1_…",
   "instanceof_error": false,
   "constructor_name": "Hostile",
   "message": null,
@@ -881,6 +887,8 @@ prints
 
 ```json
 {
+  "occurrence_id": "CORJ_…",
+  "fingerprint": "fp1_…",
   "stack": [
     "Error: Hi, I'm a regular Error object.",
     "    at Object.<anonymous> (/home/user/work-dir/caught-object-report-json/examples/example-4-metadata-fields.ts:4:9)",
@@ -922,6 +930,8 @@ prints
 
 ```json
 {
+  "occurrence_id": "CORJ_…",
+  "fingerprint": "fp1_…",
   "stack": [
     "AggregateError: AggregateError message",
     "    at Object.<anonymous> (/home/user/work-dir/caught-object-report-json/examples/example-5-nested-errors-1-basic.ts:5:16)",
@@ -1019,6 +1029,8 @@ prints
 
 ```json
 {
+  "occurrence_id": "CORJ_…",
+  "fingerprint": "fp1_…",
   "as_json": {
     "extraField": "error info"
   },
@@ -1133,6 +1145,8 @@ prints
 
 ```json
 {
+  "occurrence_id": "CORJ_…",
+  "fingerprint": "fp1_…",
   "stack": [
     "Error: Hi, I'm a regular Error object.",
     "    at Object.<anonymous> (/home/user/work-dir/caught-object-report-json/examples/example-7-using-corj-maker-instance.ts:6:9)",
@@ -1178,6 +1192,8 @@ prints
 ```json
 [
   {
+    "occurrence_id": "CORJ_…",
+    "fingerprint": "fp1_…",
     "id": "root",
     "path": "$",
     "level": 0,
@@ -1296,6 +1312,8 @@ prints an inline version of a JSON log entry whose `message` is the report:
   "level": "error",
   "exception": true,
   "message": {
+    "occurrence_id": "CORJ_…",
+    "fingerprint": "fp1_…",
     "stack": [
       "AggregateError",
       "    at Object.<anonymous> (/home/user/work-dir/caught-object-report-json/examples/example-9-winston-integration.ts:30:7)",
@@ -1346,20 +1364,22 @@ prints an inline version of a JSON log entry whose `message` is the report:
 const report = makeCorj(
   { code: 'FETCH_FAILED', attempts: Array(100).fill('timeout') },
   {
-    maxReportSize: 256,
+    maxReportSize: 512,
     reportSizeUnit: 'utf8-bytes',
     metadata: false,
   },
 );
 
 const json = JSON.stringify(report);
-console.log(Buffer.byteLength(json, 'utf8')); // 252
+console.log(Buffer.byteLength(json, 'utf8')); // 505
 ```
 
-The complete result, formatted for readability; its **compact serialization** is 252 bytes:
+The complete result, formatted for readability; its **compact serialization** is 505 bytes:
 
 ```json
 {
+  "occurrence_id": "CORJ_…",
+  "fingerprint": "fp1_…",
   "truncated": true,
   "instanceof_error": false,
   "constructor_name": "Object",
@@ -1367,6 +1387,21 @@ The complete result, formatted for readability; its **compact serialization** is
   "as_json": {
     "code": "FETCH_FAILED",
     "attempts": [
+      "timeout",
+      "timeout",
+      "timeout",
+      "timeout",
+      "timeout",
+      "timeout",
+      "timeout",
+      "timeout",
+      "timeout",
+      "timeout",
+      "timeout",
+      "timeout",
+      "timeout",
+      "timeout",
+      "timeout",
       "timeout",
       "timeout",
       "timeout",
@@ -1404,7 +1439,14 @@ prints (stacks removed for brevity)
 
 ```json
 [
-  { "id": "root", "path": "$", "level": 0, "child_ids": ["0", "1"] },
+  {
+    "occurrence_id": "CORJ_…",
+    "fingerprint": "fp1_…",
+    "id": "root",
+    "path": "$",
+    "level": 0,
+    "child_ids": ["0", "1"]
+  },
   { "id": "0", "path": "$.errors[0]", "level": 1, "child_ids": ["2"] },
   { "id": "1", "path": "$.errors[1]", "level": 1, "child_ids": ["2"] },
   { "id": "2", "path": "$.errors[0].cause", "level": 2, "child_ids": ["root"] }
@@ -1459,8 +1501,9 @@ may return the `CORJ_REDACT_DROP` symbol. See
 
 The package publishes a CommonJS build with TypeScript declarations. Every claim below is verified in CI by
 `npm run test-consumers`, which builds the package, packs it with `npm pack`, installs the tarball into isolated consumer
-projects and runs the same ten scenarios — ordinary errors, cause chains, `errors` arrays, primitive throws, bounded reports,
-throwing inspection hooks, `inspection: 'no-invoke'`, a redaction policy, cycles and the array report shape — in each one.
+projects and runs the same eleven scenarios — ordinary errors, cause chains, `errors` arrays, primitive throws, bounded
+reports, throwing inspection hooks, `inspection: 'no-invoke'`, a redaction policy, cycles, the default `occurrence_id` and
+`fingerprint`, and the array report shape — in each one.
 No check imports workspace source.
 
 | Consumer | Verified |

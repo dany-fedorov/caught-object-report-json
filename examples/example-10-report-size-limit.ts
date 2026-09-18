@@ -3,7 +3,7 @@ import { makeCorj } from '../src';
 const report = makeCorj(
   { code: 'FETCH_FAILED', attempts: Array(100).fill('timeout') },
   {
-    maxReportSize: 256,
+    maxReportSize: 512,
     reportSizeUnit: 'utf8-bytes',
     metadata: false,
   },

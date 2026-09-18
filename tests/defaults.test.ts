@@ -8,20 +8,33 @@ describe('defaults', () => {
   });
 
   test('the default lists are these, and frozen', () => {
-    expect(CORJ_DEFAULT_OPTIONS.occurrenceIdSources).toEqual([{ auto: 'random' }]);
-    expect(CORJ_DEFAULT_OPTIONS.fingerprintParts).toEqual(['constructor_name', 'stack']);
-    expect(Object.isFrozen(CORJ_DEFAULT_OPTIONS.occurrenceIdSources)).toBe(true);
+    expect(CORJ_DEFAULT_OPTIONS.occurrenceIdSources).toEqual([
+      { auto: 'random' },
+    ]);
+    expect(CORJ_DEFAULT_OPTIONS.fingerprintParts).toEqual([
+      'constructor_name',
+      'stack',
+    ]);
+    expect(Object.isFrozen(CORJ_DEFAULT_OPTIONS.occurrenceIdSources)).toBe(
+      true,
+    );
     expect(Object.isFrozen(CORJ_DEFAULT_OPTIONS.fingerprintParts)).toBe(true);
   });
 
   test('a test that needs a deterministic report turns both off, or pins them', () => {
     expect(
-      makeCorj(new Error('x'), { occurrenceIdSources: null, fingerprintParts: null }),
+      makeCorj(new Error('x'), {
+        occurrenceIdSources: null,
+        fingerprintParts: null,
+      }),
     ).not.toHaveProperty('occurrence_id');
     const pinned = makeCorj(new Error('x'), undefined, {
       occurrenceId: 'test-id',
       fingerprint: 'test-fp',
     });
-    expect([pinned.occurrence_id, pinned.fingerprint]).toEqual(['test-id', 'test-fp']);
+    expect([pinned.occurrence_id, pinned.fingerprint]).toEqual([
+      'test-id',
+      'test-fp',
+    ]);
   });
 });

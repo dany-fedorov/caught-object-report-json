@@ -1,4 +1,5 @@
 import {
+  CORJ_DEFAULT_OPTIONS,
   CORJ_TRUNCATED_MARKER,
   CorjMaker,
   CorjOptionsInput,
@@ -13,6 +14,7 @@ import {
   getReportArrayReportValidator,
   getReportObjectReportValidator,
 } from './utils/getReportObjectReportValidator';
+import { LEGACY } from './legacy-options';
 
 // Deterministic pseudo-random generator so a failure can be replayed by seed.
 function rng(seed: number) {
@@ -139,6 +141,9 @@ function graph(
 function options(random: Random): CorjOptionsInput {
   const maxReportSize = random.pick([null, 512, 600, 700, 1024, 4096, 100_000]);
   return {
+    // The seeded corpus below asserts the 10.x report shape; occurrence_id and
+    // fingerprint have their own suites, and the defaults get their own seeds.
+    ...LEGACY,
     onError: () => undefined,
     maxReportSize,
     reportSizeUnit: random.pick<CorjReportSizeUnit>([
@@ -304,6 +309,26 @@ describe('randomized invariants', () => {
         rows.some((row) => row.children_omitted === 'max_size')
       ) {
         expect(rows[0]!.truncated).toBe(true);
+      }
+    },
+  );
+
+  test.each([1, 2, 3, 5, 8])(
+    'seed %i with the real defaults: carries both fields, fits, and validates',
+    (seed) => {
+      const random = rng(seed);
+      const caught = graph(random, { nodes: 12 + random.int(40) }, []);
+      const maker = new CorjMaker({ onError: () => undefined });
+      const report = maker.makeReportObject(caught);
+      const rows = maker.makeReportArray(caught);
+      expect(getReportObjectReportValidator('compact')(report)).toBe(true);
+      expect(getReportArrayReportValidator('compact')(rows)).toBe(true);
+      const budget = CORJ_DEFAULT_OPTIONS.maxReportSize!;
+      expect(size(report, 'utf8-bytes')).toBeLessThanOrEqual(budget);
+      expect(size(rows, 'utf8-bytes')).toBeLessThanOrEqual(budget);
+      for (const root of [report, rows[0]!]) {
+        expect(root.occurrence_id).toMatch(/^CORJ_[0-9A-HJKMNP-TV-Z]{26}$/);
+        expect(root.fingerprint).toMatch(/^fp1_[0-9a-f]{32}$/);
       }
     },
   );

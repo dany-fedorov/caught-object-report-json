@@ -3,10 +3,11 @@ import {
   getReportArrayReportValidator,
   getReportObjectReportValidator,
 } from './utils/getReportObjectReportValidator';
+import { LEGACY } from './legacy-options';
 
 describe('makeCorj', function () {
   test('default', () => {
-    const report = makeCorj(new Error('I am an error!'));
+    const report = makeCorj(new Error('I am an error!'), LEGACY);
     expect(getReportObjectReportValidator()(report)).toBe(true);
     expect(Array.isArray(report.stack)).toBe(true);
     delete report.stack;
@@ -26,6 +27,7 @@ describe('makeCorj', function () {
         },
       },
       {
+        ...LEGACY,
         onError: (caught, context) => {
           onErrorArray.push({ caught, context });
         },
@@ -96,8 +98,8 @@ describe('makeCorj', function () {
 
   test('with options a fresh maker is used each time', () => {
     const spy = jest.spyOn(CorjMaker.prototype, 'makeReportObject');
-    makeCorj(1, { maxDepth: 1 });
-    makeCorj(2, { maxDepth: 1 });
+    makeCorj(1, { ...LEGACY, maxDepth: 1 });
+    makeCorj(2, { ...LEGACY, maxDepth: 1 });
     expect(spy.mock.instances[0]).not.toBe(spy.mock.instances[1]);
     expect(
       (spy.mock.instances[0] as unknown as CorjMaker).options.maxDepth,
@@ -107,8 +109,8 @@ describe('makeCorj', function () {
 
   test('makeCorjArray shares the same behaviour', () => {
     const spy = jest.spyOn(CorjMaker.prototype, 'makeReportArray');
-    const a = makeCorjArray(new Error('a'));
-    const b = makeCorjArray(new Error('b'), { metadata: false });
+    const a = makeCorjArray(new Error('a'), LEGACY);
+    const b = makeCorjArray(new Error('b'), { ...LEGACY, metadata: false });
     expect(getReportArrayReportValidator()(a)).toBe(true);
     expect(getReportArrayReportValidator()(b)).toBe(true);
     expect(a[0]!.v).toBe('corj/v0.13');
@@ -118,9 +120,11 @@ describe('makeCorj', function () {
   });
 
   test('invalid options throw before any report is made', () => {
-    expect(() => makeCorj(1, { maxReportSize: 1 })).toThrow(RangeError);
-    expect(() => makeCorjArray(1, { stackFormat: 'x' as never })).toThrow(
-      TypeError,
+    expect(() => makeCorj(1, { ...LEGACY, maxReportSize: 1 })).toThrow(
+      RangeError,
     );
+    expect(() =>
+      makeCorjArray(1, { ...LEGACY, stackFormat: 'x' as never }),
+    ).toThrow(TypeError);
   });
 });

@@ -10,6 +10,7 @@ import {
   getReportArrayReportValidator,
   getReportObjectReportValidator,
 } from './utils/getReportObjectReportValidator';
+import { LEGACY } from './legacy-options';
 
 describe('review regressions', () => {
   afterEach(() => {
@@ -21,6 +22,7 @@ describe('review regressions', () => {
     (unit) => {
       const reportSizeUnit = unit as CorjReportSizeUnit;
       const report = new CorjMaker({
+        ...LEGACY,
         maxReportSize: 512,
         reportSizeUnit,
       }).makeReportObject({
@@ -33,6 +35,7 @@ describe('review regressions', () => {
 
   test('the minimal fallback uses the max_size code and the root id', () => {
     const report = new CorjMaker({
+      ...LEGACY,
       maxReportSize: 512,
       makeReportId: () => 'id'.repeat(1_000),
     }).makeReportArray({ cause: 'child' });
@@ -60,6 +63,7 @@ describe('review regressions', () => {
       });
       const errors: [unknown, CorjErrorContext][] = [];
       const maker = new CorjMaker({
+        ...LEGACY,
         maxReportSize: 512,
         onError: (error, context) => errors.push([error, context]),
       });
@@ -99,6 +103,7 @@ describe('review regressions', () => {
       throw new Error('limiter failed');
     });
     const report = new CorjMaker({
+      ...LEGACY,
       omitExpectedValues: false,
       onError: () => undefined,
     }).makeReportObject(new Error('caught'));
@@ -116,7 +121,7 @@ describe('review regressions', () => {
   test.each([false, true])(
     'maker options are frozen, so a limit cannot become invalid later (array=%s)',
     (array) => {
-      const maker = new CorjMaker();
+      const maker = new CorjMaker(LEGACY);
       expect(Object.isFrozen(maker.options)).toBe(true);
       expect(() => {
         (maker.options as { maxReportSize: number | null }).maxReportSize = 10;
@@ -141,6 +146,7 @@ describe('review regressions', () => {
     'undefined clone options preserve the inherited size configuration (%s)',
     (maxReportSize) => {
       const maker = new CorjMaker({
+        ...LEGACY,
         maxReportSize,
         reportSizeUnit: 'utf16-code-units',
       });
@@ -164,8 +170,8 @@ describe('review regressions', () => {
   );
 
   test('an empty clone keeps the default budget', () => {
-    const maker = new CorjMaker().with({});
-    expect(maker.options).toEqual(new CorjMaker().options);
+    const maker = new CorjMaker(LEGACY).with({});
+    expect(maker.options).toEqual(new CorjMaker(LEGACY).options);
     const report = maker.makeReportObject('😀'.repeat(30_000));
     expect(
       Buffer.byteLength(JSON.stringify(report), 'utf8'),
@@ -193,6 +199,7 @@ describe('review regressions', () => {
     'preserves diagnostic content before optional metadata at %i bytes',
     (maxReportSize) => {
       const report = new CorjMaker({
+        ...LEGACY,
         ...crowded,
         maxReportSize,
       }).makeReportObject(overBudget());
@@ -211,6 +218,7 @@ describe('review regressions', () => {
 
   test('the same report keeps the optional metadata once the budget allows it', () => {
     const report = new CorjMaker({
+      ...LEGACY,
       ...crowded,
       maxReportSize: 700,
     }).makeReportObject(overBudget());
@@ -228,6 +236,7 @@ describe('review regressions', () => {
       let payload: unknown = 'leaf';
       for (let i = 0; i < 20_000; i++) payload = { nested: payload };
       const maker = new CorjMaker({
+        ...LEGACY,
         maxReportSize: 512,
         onError: () => undefined,
       });
@@ -262,6 +271,7 @@ describe('review regressions', () => {
       };
       const calls: Parameters<CorjOptions['makeReportId']>[0][] = [];
       const maker = new CorjMaker({
+        ...LEGACY,
         maxReportSize,
         metadata: false,
         makeReportId: (context) => {

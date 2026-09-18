@@ -143,6 +143,29 @@ export const scenarios = [
     },
   },
   {
+    name: 'the default report carries an occurrence id and a fingerprint',
+    run(corj) {
+      const report = corj.makeCorj(new Error('identified'));
+      assert(
+        /^CORJ_[0-9A-HJKMNP-TV-Z]{26}$/.test(report.occurrence_id),
+        `occurrence_id is not a random id: ${report.occurrence_id}`,
+      );
+      assert(
+        /^fp1_[0-9a-f]{32}$/.test(report.fingerprint),
+        `fingerprint is not a v1 fingerprint: ${report.fingerprint}`,
+      );
+      const off = corj.makeCorj(new Error('anonymous'), {
+        occurrenceIdSources: null,
+        fingerprintParts: null,
+      });
+      assert(
+        off.occurrence_id === undefined,
+        'occurrence_id was not turned off',
+      );
+      assert(off.fingerprint === undefined, 'fingerprint was not turned off');
+    },
+  },
+  {
     name: 'the array report shape',
     run(corj) {
       const outer = new Error('outer');

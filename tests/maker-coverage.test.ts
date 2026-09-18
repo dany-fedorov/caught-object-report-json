@@ -3,6 +3,7 @@ import {
   getReportArrayReportValidator,
   getReportObjectReportValidator,
 } from './utils/getReportObjectReportValidator';
+import { LEGACY } from './legacy-options';
 
 describe('maker option and failure boundaries', () => {
   afterEach(() => {
@@ -36,7 +37,7 @@ describe('maker option and failure boundaries', () => {
   });
 
   test('with() without changes keeps every option', () => {
-    const maker = new CorjMaker({ maxDepth: 0, metadata: false });
+    const maker = new CorjMaker({ ...LEGACY, maxDepth: 0, metadata: false });
     const report = maker.with({}).makeReportObject({ cause: 'child' });
     expect(report).toEqual({
       instanceof_error: false,
@@ -47,7 +48,7 @@ describe('maker option and failure boundaries', () => {
   });
 
   test('with() can lift a limit again', () => {
-    const maker = new CorjMaker({ maxDepth: 0 });
+    const maker = new CorjMaker({ ...LEGACY, maxDepth: 0 });
     const report = maker.with({ maxDepth: 5 }).makeReportObject({
       cause: 'child',
     });
@@ -83,7 +84,7 @@ describe('maker option and failure boundaries', () => {
       },
     );
 
-    const report = new CorjMaker().makeReportObject({
+    const report = new CorjMaker(LEGACY).makeReportObject({
       message: 'outer',
       cause: child,
     });
@@ -128,6 +129,7 @@ describe('maker option and failure boundaries', () => {
         },
       );
       const maker = new CorjMaker({
+        ...LEGACY,
         maxReportSize: 512,
         metadata: false,
         onError: (caught, context) => {

@@ -61,7 +61,10 @@ describe('Assertions about package exports', function () {
           "cause",
           "errors",
         ],
-        "fingerprintParts": null,
+        "fingerprintParts": Array [
+          "constructor_name",
+          "stack",
+        ],
         "inspection": "default",
         "makeReportId": [Function],
         "maxChildren": 100,
@@ -72,7 +75,11 @@ describe('Assertions about package exports', function () {
           "$schema": false,
           "v": true,
         },
-        "occurrenceIdSources": null,
+        "occurrenceIdSources": Array [
+          Object {
+            "auto": "random",
+          },
+        ],
         "omitExpectedValues": true,
         "onError": [Function],
         "redact": null,

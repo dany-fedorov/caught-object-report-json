@@ -61,6 +61,7 @@ describe('Assertions about package exports', function () {
           "cause",
           "errors",
         ],
+        "fingerprintParts": null,
         "inspection": "default",
         "makeReportId": [Function],
         "maxChildren": 100,

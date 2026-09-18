@@ -12,6 +12,11 @@ const ErrorWithCause = Error as unknown as new (
   options?: { cause?: unknown },
 ) => Error;
 
+// The compile target predates AggregateError; the runtime has it.
+const AggregateErrorCtor: new (errors: unknown[], message?: string) => Error = (
+  globalThis as never
+)['AggregateError'];
+
 const silent = () => undefined;
 const bytes = (value: unknown) =>
   new TextEncoder().encode(JSON.stringify(value)).length;
@@ -169,7 +174,42 @@ describe('limiter drop order', () => {
       expect(minimal).not.toHaveProperty('reporting_errors');
       expect(minimal).not.toHaveProperty('$schema');
     }
+    expect(Object.keys(asObject).slice(0, 2)).toEqual([
+      'occurrence_id',
+      'fingerprint',
+    ]);
+    expect(Object.keys(asArray[0]!).slice(0, 5)).toEqual([
+      'occurrence_id',
+      'fingerprint',
+      'id',
+      'path',
+      'level',
+    ]);
     expect(bytes(asObject)).toBeLessThanOrEqual(512);
     expect(bytes(asArray)).toBeLessThanOrEqual(512); // measured while planning: 487
+  });
+
+  test('the largest fixed fields survive the floor, in both shapes', () => {
+    const huge = new AggregateErrorCtor([new Error('child')], 'm'.repeat(5000));
+    const options = {
+      onError: silent,
+      maxReportSize: 512,
+      metadata: true,
+      omitExpectedValues: false,
+    } as const;
+    const call = {
+      context: { blob: 'c'.repeat(3000) },
+      occurrenceId: '!'.repeat(128),
+      fingerprint: '~'.repeat(64),
+    };
+    for (const make of [makeCorj, makeCorjArray] as const) {
+      const made = make(huge, options, call);
+      const root = (Array.isArray(made) ? made[0] : made) as CorjReport;
+      expect(root.truncated).toBe(true);
+      expect(root.occurrence_id).toBe(call.occurrenceId);
+      expect(root.fingerprint).toBe(call.fingerprint);
+      expect(root.v).toBeDefined();
+      expect(bytes(made)).toBeLessThanOrEqual(512);
+    }
   });
 });

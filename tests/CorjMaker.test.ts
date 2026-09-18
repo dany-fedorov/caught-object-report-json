@@ -293,7 +293,7 @@ describe('CorjMaker', () => {
 
     test('unknown option names are rejected', () => {
       expect(() => new CorjMaker({ maxChildrenLevel: 2 } as never)).toThrow(
-        /Unknown option "maxChildrenLevel"\. Known options: maxReportSize, reportSizeUnit, maxContextSize, omitExpectedValues, stackFormat, inspection, redact, metadata, maxDepth, maxChildren, childrenSources, occurrenceIdSources, makeReportId, onError/,
+        /Unknown option "maxChildrenLevel"\. Known options: maxReportSize, reportSizeUnit, maxContextSize, omitExpectedValues, stackFormat, inspection, redact, metadata, maxDepth, maxChildren, childrenSources, occurrenceIdSources, fingerprintParts, makeReportId, onError/,
       );
       expect(() =>
         makeCorj(1, { onCaughtMaking: () => undefined } as never),

@@ -108,13 +108,17 @@ export function makeMinimalReport<T extends Report>(report: T): T {
   const hasChildren = isArray
     ? report.length > 1
     : (root.children ?? []).length > 0;
-  const minimal: CorjReport = {
+  // The fixed fields head the root in both shapes, so a reader finds them in
+  // the same place; in the array form `id`, `path` and `level` follow them.
+  const fixed: CorjReport = {
     ...(root.occurrence_id === undefined
       ? {}
       : { occurrence_id: root.occurrence_id }),
     ...(root.fingerprint === undefined
       ? {}
       : { fingerprint: root.fingerprint }),
+  };
+  const rest: CorjReport = {
     truncated: true,
     ...(root.instanceof_error === undefined
       ? {}
@@ -133,7 +137,9 @@ export function makeMinimalReport<T extends Report>(report: T): T {
     ...(root.v === undefined ? {} : { v: root.v }),
   };
   return (
-    isArray ? [{ id: 'root', path: '$', level: 0, ...minimal }] : minimal
+    isArray
+      ? [{ ...fixed, id: 'root', path: '$', level: 0, ...rest }]
+      : { ...fixed, ...rest }
   ) as T;
 }
 

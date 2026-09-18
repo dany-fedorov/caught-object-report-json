@@ -28,7 +28,18 @@ import type {
   CorjReportKey,
   CorjStage,
 } from './redaction';
-import { isValidId, randomOccurrenceId, validateSourceEntry } from './tokens';
+import {
+  FINGERPRINT_PATTERN,
+  isValidId,
+  randomOccurrenceId,
+  validateSourceEntry,
+} from './tokens';
+import {
+  fingerprintOf,
+  resolveFingerprintParts,
+  stackWithoutHeader,
+} from './fingerprint';
+import type { FingerprintValue, ResolvedPart } from './fingerprint';
 import {
   CORJ_FULL_REPORT_ARRAY_JSON_SCHEMA_LINK,
   CORJ_FULL_REPORT_OBJECT_JSON_SCHEMA_LINK,
@@ -218,6 +229,20 @@ export type CorjOccurrenceIdSource =
   | CorjEntryFunction
   | { auto: 'random' };
 
+/**
+ * One contributor to the `fingerprint` of a report: a field of every node, a
+ * place on every node read through a {@link CorjSourceEntry}, or a function
+ * called once per node.
+ */
+export type CorjFingerprintPart =
+  | 'constructor_name'
+  | 'message'
+  | 'stack'
+  | 'as_string'
+  | 'typeof'
+  | CorjSourceEntry
+  | CorjEntryFunction;
+
 /** @deprecated Use {@link CorjStage}. */
 export type CorjErrorStage = CorjStage;
 /** @deprecated Use {@link CorjContext}. */
@@ -267,6 +292,8 @@ export type CorjOptions = {
   childrenSources: readonly string[];
   /** Where `occurrence_id` comes from: an ordered list, first valid id wins. `null` or `[]` omits the field. */
   occurrenceIdSources: readonly CorjOccurrenceIdSource[] | null;
+  /** What the fingerprint is hashed from; every part contributes. `null` or `[]` omits the field. */
+  fingerprintParts: readonly CorjFingerprintPart[] | null;
   /** Produces the `id` of a node. Called once per discovered node. */
   makeReportId: (context: CorjReportIdContext) => string;
   /** Called as `(caught, record)` when something throws while the report is produced. Defaults to `console.warn`. */
@@ -351,6 +378,7 @@ export const CORJ_DEFAULT_OPTIONS: CorjOptions = Object.freeze({
   maxChildren: 100,
   childrenSources: CORJ_EXPECTED_VALUES.children_sources,
   occurrenceIdSources: null,
+  fingerprintParts: null,
   makeReportId: defaultMakeReportId,
   onError: defaultOnError,
 });
@@ -368,6 +396,7 @@ const OPTION_KEYS: readonly (keyof CorjOptions)[] = Object.freeze([
   'maxChildren',
   'childrenSources',
   'occurrenceIdSources',
+  'fingerprintParts',
   'makeReportId',
   'onError',
 ]);
@@ -469,6 +498,7 @@ function resolveOptions(
     maxChildren: pick('maxChildren'),
     childrenSources: pick('childrenSources'),
     occurrenceIdSources: pick('occurrenceIdSources'),
+    fingerprintParts: pick('fingerprintParts'),
     makeReportId: pick('makeReportId'),
     onError: pick('onError'),
   };
@@ -498,6 +528,13 @@ function resolveOptions(
   options.occurrenceIdSources = resolveOccurrenceIdSources(
     options.occurrenceIdSources,
   );
+  // Validated here, resolved again on the maker: the option keeps the caller's
+  // own list, so `with()` layers one maker's parts onto another unchanged.
+  resolveFingerprintParts(options.fingerprintParts);
+  options.fingerprintParts =
+    options.fingerprintParts === null
+      ? null
+      : Object.freeze([...options.fingerprintParts]);
   if (typeof options.makeReportId !== 'function') {
     throw new TypeError('makeReportId must be a function');
   }
@@ -524,10 +561,18 @@ function resolveCall(call: unknown): CorjCallInput {
       );
     }
   }
-  const { occurrenceId } = call as CorjCallInput;
+  const { occurrenceId, fingerprint } = call as CorjCallInput;
   if (occurrenceId !== undefined && !isValidId(occurrenceId)) {
     throw new TypeError(
       'occurrenceId must be 1 to 128 printable ASCII characters without spaces',
+    );
+  }
+  if (
+    fingerprint !== undefined &&
+    (typeof fingerprint !== 'string' || !FINGERPRINT_PATTERN.test(fingerprint))
+  ) {
+    throw new TypeError(
+      'fingerprint must be 1 to 64 printable ASCII characters without spaces',
     );
   }
   return call as CorjCallInput;
@@ -555,6 +600,10 @@ type Ctx = {
   stringifyOptions: StringifyConfig;
   /** The same serializer with no length limit; built on first use by a view that asked for none. */
   unbounded: Stringify | null;
+  /** The same serializer with sorted keys and a fixed bound, one per inspection mode, built on first use. */
+  sorted: { default?: Stringify; 'no-invoke'?: Stringify };
+  /** The `fingerprintParts` option in canonical order; `null` when the field is off. */
+  parts: readonly ResolvedPart[] | null;
   /** `null` when no redaction policy is configured, which is the default. */
   redactor: Redactor | null;
   /** Records kept for the report being produced; `null` means sealed - the handler still sees every failure. */
@@ -1338,9 +1387,19 @@ type NodeFields = {
   entries: Entry[];
   formatEntries: Entry[];
   truncated: boolean;
+  /** `stack` as it was read, before `split('\n')` and after redaction. */
+  rawStack: string | null | undefined;
+  /** The fields a fingerprint part may name, already redacted, so it never reads the caught object again. */
+  values: {
+    constructor_name: string | null | undefined;
+    message: string | null | undefined;
+    as_string: string | null;
+    typeof: CorjTypeof;
+  };
 };
 
-function makeNodeFields(ctx: Ctx, node: Node): NodeFields {
+/** `withJson` is `false` for a fingerprint, which never needs the JSON form. */
+function makeNodeFields(ctx: Ctx, node: Node, withJson = true): NodeFields {
   const { obj, path } = node;
   let instanceofError = false;
   try {
@@ -1364,8 +1423,21 @@ function makeNodeFields(ctx: Ctx, node: Node): NodeFields {
           key: 'as_string',
         })
       : asString.value;
-  const asJson = makeAsJson(ctx, node);
+  const asJson = withJson
+    ? makeAsJson(ctx, node)
+    : {
+        value: undefined,
+        format: CORJ_EXPECTED_VALUES.as_json_format,
+        truncated: false,
+      };
   return {
+    rawStack,
+    values: {
+      constructor_name: constructorName,
+      message,
+      as_string: asStringValue,
+      typeof: typeof obj,
+    },
     entries: [
       ['instanceof_error', instanceofError],
       ['typeof', typeof obj],
@@ -1387,6 +1459,136 @@ function toObject<T>(entries: Entry[]): T {
   return Object.fromEntries(
     entries.filter(([, value]) => value !== undefined),
   ) as T;
+}
+
+// ███████╗██╗███╗   ██╗ ██████╗ ███████╗██████╗ ██████╗ ██████╗ ██╗███╗   ██╗████████╗
+// ██╔════╝██║████╗  ██║██╔════╝ ██╔════╝██╔══██╗██╔══██╗██╔══██╗██║████╗  ██║╚══██╔══╝
+// █████╗  ██║██╔██╗ ██║██║  ███╗█████╗  ██████╔╝██████╔╝██████╔╝██║██╔██╗ ██║   ██║
+// ██╔══╝  ██║██║╚██╗██║██║   ██║██╔══╝  ██╔══██╗██╔═══╝ ██╔══██╗██║██║╚██╗██║   ██║
+// ██║     ██║██║ ╚████║╚██████╔╝███████╗██║  ██║██║     ██║  ██║██║██║ ╚████║   ██║
+// ╚═╝     ╚═╝╚═╝  ╚═══╝ ╚═════╝ ╚══════╝╚═╝  ╚═╝╚═╝     ╚═╝  ╚═╝╚═╝╚═╝  ╚═══╝   ╚═╝
+
+/** Own cap of one nested value inside a fingerprint, in UTF-8 bytes. */
+const FINGERPRINT_VALUE_MAX_SIZE = 16_384;
+
+/**
+ * The maker's serializer with keys sorted and a fixed bound, so the same value
+ * hashes the same whatever order its properties were assigned in. One per
+ * inspection mode: an entry may override the maker's for its own read.
+ */
+function sortedStringify(ctx: Ctx, mode: CorjInspection): Stringify {
+  ctx.sorted[mode] ??= configureStringify({
+    ...ctx.stringifyOptions,
+    deterministic: true,
+    // Fixed unit and cap: neither reportSizeUnit nor maxReportSize may move a fingerprint.
+    lengthUnit: 'utf8-bytes',
+    lengthLimit: FINGERPRINT_VALUE_MAX_SIZE,
+    skipAccessors: mode === 'no-invoke' ? CORJ_OMITTED_MARKER : undefined,
+  }) as Stringify;
+  return ctx.sorted[mode] as Stringify;
+}
+
+/** What one part contributes for one node. Everything is hashed after redaction. */
+function fingerprintValue(
+  ctx: Ctx,
+  node: Node,
+  fields: NodeFields,
+  { part }: ResolvedPart,
+): FingerprintValue {
+  if (typeof part === 'string') {
+    if (part === 'stack') {
+      return typeof fields.rawStack === 'string'
+        ? stackWithoutHeader(fields.rawStack, fields.values.as_string)
+        : null;
+    }
+    return fields.values[part] ?? null;
+  }
+  let raw: unknown;
+  let mode = ctx.options.inspection;
+  if (typeof part === 'function') {
+    try {
+      raw = part({
+        index: node.index,
+        level: node.level,
+        path: node.path,
+        caught: node.obj,
+      });
+    } catch (failure: unknown) {
+      reportError(ctx, failure, {
+        stage: 'other',
+        path: node.path,
+        key: 'fingerprint',
+      });
+      return null;
+    }
+  } else {
+    const read = readEntry(ctx, node, part, 'fingerprint');
+    if (read.redacted !== undefined) return read.redacted;
+    if (read.omitted === true) return CORJ_OMITTED_MARKER;
+    if (!read.found) return null;
+    raw = read.value;
+    mode = part.inspection ?? mode;
+  }
+  if (typeof raw === 'string') {
+    return (
+      redactText(ctx, raw, {
+        stage: 'prop-access',
+        path: node.path,
+        key: 'fingerprint',
+      }) ?? null
+    );
+  }
+  if (typeof raw === 'boolean') return raw;
+  if (typeof raw === 'number') return Number.isFinite(raw) ? raw : null;
+  if (typeof raw !== 'object' || raw === null) return null;
+  try {
+    // Skip rules inside a nested value are keyed from the node's own path,
+    // which `keys` rules - the common case - do not depend on.
+    const redact = jsonRedact(ctx, node, false);
+    const json = sortedStringify(ctx, mode)(raw, null, {
+      ...(redact === undefined
+        ? {}
+        : { redact, mapKey: jsonKeyRedact(ctx), basePath: node.path }),
+    });
+    return json === undefined ? null : (JSON.parse(json) as CorjJsonValue);
+  } catch (failure: unknown) {
+    reportError(ctx, failure, {
+      stage: 'as_json',
+      path: node.path,
+      key: 'fingerprint',
+    });
+    return null;
+  }
+}
+
+/**
+ * The fingerprint of one report: one row of part values per node, hashed
+ * together with the recipe. The call's own argument outranks the parts.
+ */
+function computeFingerprint(
+  ctx: Ctx,
+  call: CorjCallInput,
+  root: Node,
+  rootFields: NodeFields,
+  children: readonly (readonly [Node, NodeFields])[],
+): string | undefined {
+  if (call.fingerprint !== undefined) return call.fingerprint;
+  const parts = ctx.parts;
+  if (parts === null) return undefined;
+  const rows = [[root, rootFields] as const, ...children].map(
+    ([node, fields]) =>
+      [
+        node.path,
+        parts.map((part) => fingerprintValue(ctx, node, fields, part)),
+      ] as const,
+  );
+  return fingerprintOf(
+    parts.map((part) => part.label),
+    rows,
+    [rootFields.values.typeof, rootFields.values.as_string ?? null],
+    // A thrown primitive or plain object has no stack; its string form is its identity.
+    typeof rootFields.rawStack !== 'string',
+  );
 }
 
 /**
@@ -1445,8 +1647,10 @@ function build(
   const { root, nodes } = discover(ctx, caught);
   const rootFields = makeNodeFields(ctx, root);
   let anyTruncated = rootFields.truncated;
+  const childFields: (readonly [Node, NodeFields])[] = [];
   const rows = nodes.map((node) => {
     const fields = makeNodeFields(ctx, node);
+    childFields.push([node, fields]);
     anyTruncated ||= fields.truncated;
     return toObject<CorjReportChild>([
       ['id', node.id],
@@ -1459,6 +1663,15 @@ function build(
       ...fields.formatEntries,
     ]);
   });
+  // Before the context and the error list: those are not hashed, and a part
+  // that throws belongs in the list the report carries.
+  const fingerprint = computeFingerprint(
+    ctx,
+    call,
+    root,
+    rootFields,
+    childFields,
+  );
   // The context is its own document rooted at `$context`, so a rule written for
   // the caught object never reaches it, and vice versa.
   const given: unknown = call.context;
@@ -1499,6 +1712,7 @@ function build(
   if (asArray) {
     const rootRow = toObject<CorjReportChild>([
       ['occurrence_id', occurrenceId],
+      ['fingerprint', fingerprint],
       ['id', root.id],
       ['path', root.path],
       ['level', root.level],
@@ -1514,6 +1728,7 @@ function build(
   }
   return toObject<CorjReport>([
     ['occurrence_id', occurrenceId],
+    ['fingerprint', fingerprint],
     ['truncated', anyTruncated ? true : undefined],
     ...rootFields.entries,
     ['children_omitted', root.childrenOmitted],
@@ -1584,6 +1799,8 @@ export class CorjMaker {
       errors: null,
       stringifyOptions,
       unbounded: null,
+      sorted: {},
+      parts: resolveFingerprintParts(this.options.fingerprintParts),
       // Every serializer option lives in `stringifyOptions`; only the bound is
       // added here, so the unbounded twin a view builds keeps all the rest.
       stringify: configureStringify({
@@ -1637,6 +1854,24 @@ export class CorjMaker {
         build(this.ctx, caught, true, resolved) as CorjReportChild[],
       ),
     );
+  }
+
+  /** The fingerprint alone: discovery and node fields, without `as_json`, the context or the limiter. */
+  makeFingerprint(caught: unknown): string | undefined {
+    if (this.ctx.parts === null) return undefined;
+    return this.collecting(() => {
+      const { root, nodes } = discover(this.ctx, caught);
+      const fieldsOf = (node: Node) =>
+        [node, makeNodeFields(this.ctx, node, false)] as const;
+      const [, rootFields] = fieldsOf(root);
+      return computeFingerprint(
+        this.ctx,
+        {},
+        root,
+        rootFields,
+        nodes.map(fieldsOf),
+      );
+    });
   }
 
   /**

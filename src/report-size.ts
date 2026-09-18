@@ -35,6 +35,28 @@ export type Stringify = (
   },
 ) => string | undefined;
 
+/**
+ * One shape for every size bound corj accepts: a safe integer at or above the
+ * floor, or `null` for no bound. Floors differ - a report must hold a minimal
+ * report, a standalone value need not - so each caller passes its own.
+ */
+export function assertSizeLimit(
+  name: string,
+  value: unknown,
+  floor: number,
+  /** Appended after `or null`, for a message that says what `null` does. */
+  suffix = '',
+): asserts value is number | null {
+  if (
+    value !== null &&
+    (!Number.isSafeInteger(value) || (value as number) < floor)
+  ) {
+    throw new RangeError(
+      `${name} must be a safe integer >= ${floor}, or null${suffix}`,
+    );
+  }
+}
+
 export function resolveReportSizeOptions(
   options: Pick<CorjOptions, 'maxReportSize' | 'reportSizeUnit'>,
 ) {
@@ -46,15 +68,12 @@ export function resolveReportSizeOptions(
     options.reportSizeUnit === undefined
       ? DEFAULT_REPORT_SIZE_UNIT
       : options.reportSizeUnit;
-  if (
-    maxReportSize !== null &&
-    (!Number.isSafeInteger(maxReportSize) ||
-      maxReportSize < CORJ_MIN_REPORT_SIZE)
-  ) {
-    throw new RangeError(
-      'maxReportSize must be a safe integer >= 512, or null to disable the limit',
-    );
-  }
+  assertSizeLimit(
+    'maxReportSize',
+    maxReportSize,
+    CORJ_MIN_REPORT_SIZE,
+    ' to disable the limit',
+  );
   if (
     reportSizeUnit !== 'utf8-bytes' &&
     reportSizeUnit !== 'utf16-code-units'

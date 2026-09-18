@@ -1,6 +1,7 @@
 import { configure as configureStringify } from './safe-stable-stringify';
 import type { JsonSizeUnit } from './json-size';
 import {
+  assertSizeLimit,
   CORJ_CIRCULAR_MARKER,
   CORJ_OMITTED_MARKER,
   CORJ_TRUNCATED_MARKER,
@@ -281,6 +282,11 @@ export type CorjCallInput = {
 const MAX_REPORTING_ERRORS = 8;
 const REPORTING_ERROR_MAX_LENGTH = 256;
 const DEFAULT_MAX_CONTEXT_SIZE = 16_384;
+/**
+ * The smallest bound a single JSON value may be given. Lower than the report
+ * floor: one value has no minimal report to fit, only itself.
+ */
+const MIN_VALUE_SIZE = 256;
 
 function describeValue(value: unknown): string {
   try {
@@ -408,15 +414,7 @@ function resolveOptions(
     onError: pick('onError'),
   };
   resolveReportSizeOptions(options);
-  if (
-    options.maxContextSize !== null &&
-    (!Number.isSafeInteger(options.maxContextSize) ||
-      options.maxContextSize < 256)
-  ) {
-    throw new RangeError(
-      'maxContextSize must be a safe integer >= 256, or null',
-    );
-  }
+  assertSizeLimit('maxContextSize', options.maxContextSize, MIN_VALUE_SIZE);
   if (typeof options.omitExpectedValues !== 'boolean') {
     throw new TypeError('omitExpectedValues must be a boolean');
   }
@@ -1313,8 +1311,9 @@ function build(
   });
   // The context is its own document rooted at `$context`, so a rule written for
   // the caught object never reaches it, and vice versa.
+  const given: unknown = call.context;
   let context: CorjJsonValue | null | undefined;
-  if (call.context !== undefined) {
+  if (given !== undefined) {
     const view = makeAsJson(
       ctx,
       {
@@ -1322,7 +1321,7 @@ function build(
         index: -1,
         level: 0,
         path: '$context',
-        obj: call.context,
+        obj: given,
         childIds: [],
       },
       { lengthLimit: ctx.options.maxContextSize },
@@ -1507,9 +1506,7 @@ export class CorjMaker {
       options.maxSize === undefined
         ? this.options.maxReportSize
         : options.maxSize;
-    if (maxSize !== null && (!Number.isSafeInteger(maxSize) || maxSize < 256)) {
-      throw new RangeError('maxSize must be a safe integer >= 256, or null');
-    }
+    assertSizeLimit('maxSize', maxSize, MIN_VALUE_SIZE);
     return this.collecting(() => {
       const made = makeAsJson(
         this.ctx,

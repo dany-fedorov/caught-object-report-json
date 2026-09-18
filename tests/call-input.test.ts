@@ -15,10 +15,13 @@ const silent = () => undefined;
 
 describe('call input: context', () => {
   test('context is rendered into the root of an object report', () => {
-    const report = makeCorj(new Error('x'), undefined, {
-      context: { runId: 'run-1' },
-    });
+    const report = makeCorj(
+      new ErrorWithCause('x', { cause: new Error('y') }),
+      undefined,
+      { context: { runId: 'run-1' } },
+    );
     expect(report.context).toEqual({ runId: 'run-1' });
+    expect(report.children![0]).not.toHaveProperty('context');
   });
 
   test('context sits on the root row of an array report', () => {
@@ -100,9 +103,12 @@ describe('call input: context', () => {
 
   test('a call input that is not an object, or has an unknown key, is rejected', () => {
     const maker = new CorjMaker();
-    expect(() => maker.makeReportObject(new Error('x'), 5 as never)).toThrow(
-      TypeError,
-    );
+    // A null and an array are objects to `typeof`, so each needs its own check.
+    for (const notAnObject of [5, null, []]) {
+      expect(() =>
+        maker.makeReportObject(new Error('x'), notAnObject as never),
+      ).toThrow(new TypeError('call input must be an object'));
+    }
     expect(() =>
       maker.makeReportObject(new Error('x'), { contxt: 1 } as never),
     ).toThrow(

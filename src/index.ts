@@ -41,8 +41,6 @@ export { CORJ_EXPECTED_VALUES, restoreExpectedValues } from './expected-values';
 export { CORJ_REDACTED_MARKER } from './redaction';
 /** Validates and freezes a redaction policy; `undefined` and `null` both mean "no policy". */
 export { resolveRedactPolicy as resolveCorjRedactPolicy } from './redaction';
-/** Applies a resolved policy to text a consumer emits itself, such as a custom `onError` line. */
-export { Redactor as CorjRedactor } from './redaction';
 export type {
   CorjContext,
   CorjRedactContext,
@@ -199,6 +197,17 @@ export type CorjErrorContext = CorjContext;
 
 /** One failure met while a report was produced: where it happened, plus a scrubbed, bounded description. */
 export type CorjReportingError = CorjContext & { error: string };
+
+/**
+ * The JSON form of one value on its own, as {@link CorjMaker.makeJson} returns
+ * it: the value a report would have put in `as_json`, whether it was cut to fit
+ * the size bound, and the failures met while producing it.
+ */
+export type CorjJsonView = {
+  value: CorjJsonValue | null;
+  truncated: boolean;
+  errors: CorjReportingError[];
+};
 
 export type CorjErrorHandler = (
   caught: unknown,
@@ -412,9 +421,21 @@ function resolveOptions(
 // ██║  ██║███████╗███████╗██║     ███████╗██║  ██║███████║
 // ╚═╝  ╚═╝╚══════╝╚══════╝╚═╝     ╚══════╝╚═╝  ╚═╝╚══════╝
 
+/** The serializer configuration a maker keeps, so a view can rebuild it unbounded. */
+type StringifyConfig = {
+  circularValue: string;
+  deterministic: false;
+  lengthUnit: CorjReportSizeUnit;
+  skipAccessors?: string;
+};
+
 type Ctx = {
   options: CorjOptions;
   stringify: Stringify;
+  /** What `stringify` was configured with, minus the maker's own `lengthLimit`. */
+  stringifyOptions: StringifyConfig;
+  /** The same serializer with no length limit; built on first use by a view that asked for none. */
+  unbounded: Stringify | null;
   /** `null` when no redaction policy is configured, which is the default. */
   redactor: Redactor | null;
   /** Records kept for the report being produced; `null` means sealed - the handler still sees every failure. */
@@ -1057,20 +1078,36 @@ function jsonKeyRedact(
     redactor.text(key, { stage: 'as_json', path, key: 'as_json', prop: key });
 }
 
+/**
+ * The serializer one call needs: the maker's own, or an unbounded twin built on
+ * first use for a view that asked for no length limit.
+ */
+function viewStringify(
+  ctx: Ctx,
+  lengthLimit: number | null | undefined,
+): Stringify {
+  if (lengthLimit !== null) return ctx.stringify;
+  ctx.unbounded ??= configureStringify(ctx.stringifyOptions) as Stringify;
+  return ctx.unbounded;
+}
+
 function serialize(
   ctx: Ctx,
   value: unknown,
   replacer: ((this: object, key: string, value: unknown) => unknown) | null,
   node: Node,
   skipChildrenSources: boolean,
+  /** A view's own bound: a number replaces the maker's, `null` removes it. */
+  lengthLimit?: number | null,
 ): { json: string | undefined; truncated: boolean } {
   let truncated = false;
   const redact = jsonRedact(ctx, node, skipChildrenSources);
   const mapKey = jsonKeyRedact(ctx);
-  const json = ctx.stringify(value, replacer, {
+  const json = viewStringify(ctx, lengthLimit)(value, replacer, {
     onTruncate: () => {
       truncated = true;
     },
+    ...(typeof lengthLimit === 'number' ? { lengthLimit } : {}),
     ...(redact === undefined ? {} : { redact, mapKey, basePath: node.path }),
   });
   return { json, truncated };
@@ -1079,6 +1116,8 @@ function serialize(
 function makeAsJson(
   ctx: Ctx,
   node: Node,
+  /** Set when the JSON form is a standalone view rather than a report field. */
+  view?: { lengthLimit: number | null },
 ): {
   value: CorjJsonValue | null;
   format: CorjAsJsonFormat;
@@ -1098,7 +1137,14 @@ function makeAsJson(
         path,
         options: ctx.options,
       });
-      const { json, truncated } = serialize(ctx, raw, null, node, false);
+      const { json, truncated } = serialize(
+        ctx,
+        raw,
+        null,
+        node,
+        false,
+        view?.lengthLimit,
+      );
       if (json !== undefined) {
         return { value: JSON.parse(json), format: '.toCorjAsJson', truncated };
       }
@@ -1108,15 +1154,20 @@ function makeAsJson(
   }
   const format = CORJ_EXPECTED_VALUES.as_json_format;
   try {
+    // A view is the whole value: only a report node hides the properties its
+    // children are reported from, because those become child reports instead.
     const sources = ctx.options.childrenSources;
     const { json, truncated } = serialize(
       ctx,
       obj,
-      function (key, value) {
-        return this === obj && sources.includes(key) ? undefined : value;
-      },
+      view === undefined
+        ? function (key, value) {
+            return this === obj && sources.includes(key) ? undefined : value;
+          }
+        : null,
       node,
-      true,
+      view === undefined,
+      view?.lengthLimit,
     );
     if (json === undefined) {
       // Functions, symbols and undefined have no JSON form.
@@ -1277,6 +1328,9 @@ function finish<T extends Report>(ctx: Ctx, report: T): T {
 // ███████╗██╔╝ ██╗██║     ╚██████╔╝██║  ██║   ██║   ███████║
 // ╚══════╝╚═╝  ╚═╝╚═╝      ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚══════╝
 
+/** `$`, or `$` followed by an identifier: the roots {@link CorjMaker.makeJson} accepts. */
+const ROOT_PATTERN = /^\$([A-Za-z_][A-Za-z0-9_]*)?$/;
+
 /** Produces reports with one set of options. Construct once, reuse for every caught object. */
 export class CorjMaker {
   readonly options: CorjOptions;
@@ -1286,17 +1340,22 @@ export class CorjMaker {
   constructor(options?: CorjOptionsInput) {
     this.options = resolveOptions(CORJ_DEFAULT_OPTIONS, options);
     const { maxReportSize, reportSizeUnit } = this.options;
+    const stringifyOptions: StringifyConfig = {
+      circularValue: CORJ_CIRCULAR_MARKER,
+      deterministic: false,
+      lengthUnit: reportSizeUnit,
+      ...(this.options.inspection === 'no-invoke'
+        ? { skipAccessors: CORJ_OMITTED_MARKER }
+        : {}),
+    };
     this.ctx = {
       options: this.options,
       redactor: null,
       errors: null,
+      stringifyOptions,
+      unbounded: null,
       stringify: configureStringify({
-        circularValue: CORJ_CIRCULAR_MARKER,
-        deterministic: false,
-        lengthUnit: reportSizeUnit,
-        ...(this.options.inspection === 'no-invoke'
-          ? { skipAccessors: CORJ_OMITTED_MARKER }
-          : {}),
+        ...stringifyOptions,
         ...(maxReportSize === null ? {} : { lengthLimit: maxReportSize }),
       }) as Stringify,
     };
@@ -1340,6 +1399,68 @@ export class CorjMaker {
     return this.collecting(() =>
       finish(this.ctx, build(this.ctx, caught, true) as CorjReportChild[]),
     );
+  }
+
+  /**
+   * The bounded JSON form of any value, under this maker's `inspection` and
+   * `redact` options. A named `root` such as `"$context"` starts a separate
+   * document, so a rule written for one never reaches another.
+   */
+  makeJson(
+    value: unknown,
+    options: { root?: string; maxSize?: number | null } = {},
+  ): CorjJsonView {
+    const root = options.root ?? '$';
+    if (typeof root !== 'string' || !ROOT_PATTERN.test(root)) {
+      throw new TypeError(
+        'root must be "$" or a named root such as "$context": "$" followed by an identifier',
+      );
+    }
+    const maxSize =
+      options.maxSize === undefined
+        ? this.options.maxReportSize
+        : options.maxSize;
+    if (maxSize !== null && (!Number.isSafeInteger(maxSize) || maxSize < 256)) {
+      throw new RangeError('maxSize must be a safe integer >= 256, or null');
+    }
+    return this.collecting(() => {
+      const made = makeAsJson(
+        this.ctx,
+        {
+          id: 'root',
+          index: -1,
+          level: 0,
+          path: root,
+          obj: value,
+          childIds: [],
+        },
+        { lengthLimit: maxSize },
+      );
+      return {
+        value: made.value,
+        truncated: made.truncated,
+        errors: [...(this.ctx.errors as CorjReportingError[])],
+      };
+    });
+  }
+
+  /**
+   * This maker's `redact` policy applied to one string a consumer emits itself,
+   * such as a log line of its own. Without a policy it is the identity.
+   */
+  scrubText(
+    text: string,
+    where: { path?: string; key?: CorjReportKey; prop?: string } = {},
+  ): string {
+    if (typeof text !== 'string') throw new TypeError('text must be a string');
+    const redactor = this.ctx.redactor;
+    if (redactor === null) return text;
+    return redactor.text(text, {
+      stage: 'warning',
+      path: where.path ?? '$',
+      key: where.key,
+      prop: where.prop,
+    });
   }
 }
 

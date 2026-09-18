@@ -82,6 +82,10 @@ export type CorjRedactPolicy = {
   transform: CorjRedactTransform | null;
 };
 
+const MAX_REPLACEMENT_LENGTH = 128;
+/** Policies this module froze; handing one back in skips validation. */
+const resolved = new WeakSet<object>();
+
 function isMatcherList(value: unknown): value is readonly (string | RegExp)[] {
   return (
     Array.isArray(value) &&
@@ -97,6 +101,7 @@ export function resolveRedactPolicy(
   if (typeof input !== 'object') {
     throw new TypeError('redact must be an object or null');
   }
+  if (resolved.has(input)) return input as CorjRedactPolicy;
   const known = ['keys', 'paths', 'patterns', 'replacement', 'transform'];
   for (const key of Object.keys(input)) {
     if (!known.includes(key)) {
@@ -134,9 +139,12 @@ export function resolveRedactPolicy(
   }
   if (
     input.replacement !== undefined &&
-    typeof input.replacement !== 'string'
+    (typeof input.replacement !== 'string' ||
+      input.replacement.length > MAX_REPLACEMENT_LENGTH)
   ) {
-    throw new TypeError('redact.replacement must be a string');
+    throw new TypeError(
+      `redact.replacement must be a string of at most ${MAX_REPLACEMENT_LENGTH} characters`,
+    );
   }
   if (
     input.transform !== undefined &&
@@ -145,13 +153,15 @@ export function resolveRedactPolicy(
   ) {
     throw new TypeError('redact.transform must be a function');
   }
-  return Object.freeze({
+  const policy = Object.freeze({
     keys: Object.freeze([...(input.keys ?? [])]),
     paths: Object.freeze([...(input.paths ?? [])]),
     patterns: Object.freeze([...(input.patterns ?? [])]),
     replacement: input.replacement ?? CORJ_REDACTED_MARKER,
     transform: input.transform ?? null,
   });
+  resolved.add(policy);
+  return policy;
 }
 
 function matches(

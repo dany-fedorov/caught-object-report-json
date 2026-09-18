@@ -111,7 +111,6 @@ describe('Assertions about package exports', function () {
         "CORJ_VERSION",
         "CORJ_VERSION_FULL",
         "CorjMaker",
-        "CorjRedactor",
         "makeCorj",
         "makeCorjArray",
         "resolveCorjRedactPolicy",

@@ -2,7 +2,6 @@
 // package's types through its published layout, with no path mapping.
 import {
   CorjMaker,
-  CorjRedactor,
   CORJ_DEFAULT_OPTIONS,
   CORJ_OMITTED_MARKER,
   CORJ_REDACTED_MARKER,
@@ -36,7 +35,7 @@ const resolved = resolveCorjRedactPolicy(redact);
 const scrubbed: string =
   resolved === null
     ? 'no policy'
-    : new CorjRedactor(resolved, () => undefined).text('sk-live-AAA', warning);
+    : new CorjMaker({ redact: resolved }).scrubText('sk-live-AAA', warning);
 
 const report: CorjReport = makeCorj(new Error('typed'), options);
 const rows: CorjReportChild[] = makeCorjArray(new Error('typed'), options);

@@ -3,7 +3,6 @@ import {
   CORJ_OMITTED_MARKER,
   CORJ_REDACTED_MARKER,
   CorjMaker,
-  CorjRedactor,
   makeCorj,
   resolveCorjRedactPolicy,
   restoreExpectedValues,
@@ -864,62 +863,64 @@ describe('redact: default report ids are structural', () => {
   });
 });
 
-describe('redact: the exported redactor and policy resolver', () => {
+describe("redact: scrubbing a consumer's own text and the policy resolver", () => {
   /** The context a consumer scrubbing its own text passes in. */
   const context: CorjRedactContext = {
     stage: 'warning',
     path: '$',
     key: 'message',
   };
+  /** The part of it `scrubText` takes; the stage is always `warning`. */
+  const where = { path: '$', key: 'message' } as const;
 
-  test('CorjRedactor#text replaces a match with a literal $& replacement', () => {
-    const policy = resolveCorjRedactPolicy({
-      patterns: [/sk-live-\w+/g],
-      replacement: '<$&>',
-    })!;
-    const out = new CorjRedactor(policy, () => undefined).text(
-      'key sk-live-AAA here',
-      context,
-    );
+  test('scrubText replaces a match with a literal $& replacement', () => {
+    const out = new CorjMaker({
+      redact: { patterns: [/sk-live-\w+/g], replacement: '<$&>' },
+    }).scrubText('key sk-live-AAA here', where);
     expect(out).toBe('key <$&> here');
     expect(out).not.toContain('sk-live-AAA');
   });
 
-  test('CorjRedactor#text yields the replacement where a transform drops the value', () => {
-    const policy = resolveCorjRedactPolicy({
-      replacement: '[hidden]',
-      transform: () => undefined,
-    })!;
-    const redactor = new CorjRedactor(policy, () => undefined);
-    const out = redactor.text('sensitive', context);
+  test('scrubText yields the replacement where a transform drops the value', () => {
+    const out = new CorjMaker({
+      redact: { replacement: '[hidden]', transform: () => undefined },
+    }).scrubText('sensitive', where);
     expect(out).toBe('[hidden]');
     expect(typeof out).toBe('string');
-    // The same value through `#apply` is the symbol callers must map themselves.
-    expect(typeof redactor.apply('sensitive', context)).toBe('symbol');
   });
 
-  test('CorjRedactor#text yields the replacement where a transform returns a non-string', () => {
-    const policy = resolveCorjRedactPolicy({
-      replacement: '[hidden]',
-      transform: () => ({ not: 'a string' }),
-    })!;
+  test('scrubText yields the replacement where a transform returns a non-string', () => {
     expect(
-      new CorjRedactor(policy, () => undefined).text('sensitive', context),
+      new CorjMaker({
+        redact: {
+          replacement: '[hidden]',
+          transform: () => ({ not: 'a string' }),
+        },
+      }).scrubText('sensitive', where),
     ).toBe('[hidden]');
   });
 
-  test('CorjRedactor#text fails closed and reports once when a transform throws', () => {
-    const onFailure = jest.fn();
-    const policy = resolveCorjRedactPolicy({
-      replacement: '[hidden]',
-      transform: () => {
-        throw new Error('policy is broken');
+  test('scrubText fails closed and reports once when a transform throws', () => {
+    const onError = jest.fn();
+    const out = new CorjMaker({
+      onError,
+      redact: {
+        replacement: '[hidden]',
+        transform: () => {
+          throw new Error('policy is broken');
+        },
       },
-    })!;
-    const out = new CorjRedactor(policy, onFailure).text('sensitive', context);
+    }).scrubText('sensitive', where);
     expect(out).toBe('[hidden]');
-    expect(onFailure).toHaveBeenCalledTimes(1);
-    expect(onFailure.mock.calls[0]![1]).toEqual(context);
+    expect(onError).toHaveBeenCalledTimes(1);
+    // The record is itself scrubbed, and a policy that just threw is not
+    // consulted again, so every text field of it is the replacement.
+    expect(onError.mock.calls[0]![1]).toEqual({
+      stage: 'redact',
+      path: '[hidden]',
+      key: context.key,
+      error: '[hidden]',
+    });
   });
 
   test('resolveCorjRedactPolicy returns null for null and for undefined', () => {
@@ -946,7 +947,7 @@ describe('redact: the exported redactor and policy resolver', () => {
     expect(twice).toEqual(once);
     expect(Object.isFrozen(twice)).toBe(true);
     expect(
-      new CorjRedactor(twice, () => undefined).text('sk-live-AAA', context),
+      new CorjMaker({ redact: twice }).scrubText('sk-live-AAA', where),
     ).toBe('[hidden]');
   });
 });

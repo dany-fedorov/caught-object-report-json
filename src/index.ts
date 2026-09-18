@@ -36,6 +36,10 @@ import type { CorjSchemaLink, CorjVersion } from './version';
 
 export { CORJ_EXPECTED_VALUES, restoreExpectedValues } from './expected-values';
 export { CORJ_REDACTED_MARKER } from './redaction';
+/** Validates and freezes a redaction policy; `undefined` and `null` both mean "no policy". */
+export { resolveRedactPolicy as resolveCorjRedactPolicy } from './redaction';
+/** Applies a resolved policy to text a consumer emits itself, such as a custom `onError` line. */
+export { Redactor as CorjRedactor } from './redaction';
 export type {
   CorjRedactContext,
   CorjRedactPolicy,

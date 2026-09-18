@@ -3,7 +3,9 @@ import {
   CORJ_OMITTED_MARKER,
   CORJ_REDACTED_MARKER,
   CorjMaker,
+  CorjRedactor,
   makeCorj,
+  resolveCorjRedactPolicy,
   restoreExpectedValues,
 } from '../src';
 import * as reportSize from '../src/report-size';
@@ -766,5 +768,123 @@ describe('redact: leaks found in review', () => {
     }).makeReportArray(new Error(SECRET));
     expect(rows.map((row) => row.id)).toEqual([CORJ_REDACTED_MARKER]);
     expect(allText(rows)).not.toContain(SECRET);
+  });
+});
+
+describe('redact: the exported redactor and policy resolver', () => {
+  /** The context a consumer scrubbing its own text passes in. */
+  const context: CorjRedactContext = {
+    stage: 'warning',
+    path: '$',
+    key: 'error',
+  };
+
+  test('CorjRedactor#text replaces a match with a literal $& replacement', () => {
+    const policy = resolveCorjRedactPolicy({
+      patterns: [/sk-live-\w+/g],
+      replacement: '<$&>',
+    })!;
+    const out = new CorjRedactor(policy, () => undefined).text(
+      'key sk-live-AAA here',
+      context,
+    );
+    expect(out).toBe('key <$&> here');
+    expect(out).not.toContain('sk-live-AAA');
+  });
+
+  test('CorjRedactor#text yields the replacement where a transform drops the value', () => {
+    const policy = resolveCorjRedactPolicy({
+      replacement: '[hidden]',
+      transform: () => undefined,
+    })!;
+    const redactor = new CorjRedactor(policy, () => undefined);
+    const out = redactor.text('sensitive', context);
+    expect(out).toBe('[hidden]');
+    expect(typeof out).toBe('string');
+    // The same value through `#apply` is the symbol callers must map themselves.
+    expect(typeof redactor.apply('sensitive', context)).toBe('symbol');
+  });
+
+  test('CorjRedactor#text yields the replacement where a transform returns a non-string', () => {
+    const policy = resolveCorjRedactPolicy({
+      replacement: '[hidden]',
+      transform: () => ({ not: 'a string' }),
+    })!;
+    expect(
+      new CorjRedactor(policy, () => undefined).text('sensitive', context),
+    ).toBe('[hidden]');
+  });
+
+  test('CorjRedactor#text fails closed and reports once when a transform throws', () => {
+    const onFailure = jest.fn();
+    const policy = resolveCorjRedactPolicy({
+      replacement: '[hidden]',
+      transform: () => {
+        throw new Error('policy is broken');
+      },
+    })!;
+    const out = new CorjRedactor(policy, onFailure).text('sensitive', context);
+    expect(out).toBe('[hidden]');
+    expect(onFailure).toHaveBeenCalledTimes(1);
+    expect(onFailure.mock.calls[0]![1]).toEqual(context);
+  });
+
+  test('resolveCorjRedactPolicy returns null for null and for undefined', () => {
+    expect(resolveCorjRedactPolicy(null)).toBeNull();
+    expect(resolveCorjRedactPolicy(undefined)).toBeNull();
+  });
+
+  test('resolveCorjRedactPolicy rejects a pattern that is not global', () => {
+    expect(() =>
+      resolveCorjRedactPolicy({ patterns: [/sk-live-\w+/] }),
+    ).toThrow(TypeError);
+    expect(() =>
+      resolveCorjRedactPolicy({ patterns: [/sk-live-\w+/] }),
+    ).toThrow(/redact\.patterns must all be global/);
+  });
+
+  test('resolveCorjRedactPolicy accepts an already-resolved policy', () => {
+    const once = resolveCorjRedactPolicy({
+      keys: ['token'],
+      patterns: [/sk-live-\w+/g],
+      replacement: '[hidden]',
+    })!;
+    const twice = resolveCorjRedactPolicy(once)!;
+    expect(twice).toEqual(once);
+    expect(Object.isFrozen(twice)).toBe(true);
+    expect(
+      new CorjRedactor(twice, () => undefined).text('sk-live-AAA', context),
+    ).toBe('[hidden]');
+  });
+});
+
+describe('redact: claims the README makes', () => {
+  test('two property names that scrub to the same text collapse into one key', () => {
+    const report = new CorjMaker({
+      redact: { patterns: [/sk-live-\w+/g] },
+    }).makeReportObject({ 'sk-live-AAA': 1, 'sk-live-BBB': 2 });
+    expect(report.as_json).toEqual({ [CORJ_REDACTED_MARKER]: 2 });
+    expect(Object.keys(report.as_json as object)).toHaveLength(1);
+  });
+
+  test('a custom onError receives the caught object unchanged while the report is scrubbed', () => {
+    const seen: unknown[] = [];
+    const caught = new Error('top level holds sk-live-AAA');
+    Object.defineProperty(caught, 'exploding', {
+      enumerable: true,
+      configurable: true,
+      get(): never {
+        throw new Error('inspection failure holds sk-live-AAA');
+      },
+    });
+    const report = new CorjMaker({
+      redact: { patterns: [/sk-live-\w+/g] },
+      onError: (failure) => seen.push(failure),
+    }).makeReportObject(caught);
+    expect(seen).toHaveLength(1);
+    expect((seen[0] as Error).message).toBe(
+      'inspection failure holds sk-live-AAA',
+    );
+    expect(allText(report)).not.toContain('sk-live-AAA');
   });
 });

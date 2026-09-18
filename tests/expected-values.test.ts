@@ -447,6 +447,8 @@ describe('omitting expected values', () => {
     // Omission would run before and after the size limiter, but a failure
     // is reported once and the second pass is skipped so the report stays
     // consistently complete.
-    expect(errors).toEqual([[failure, { stage: 'other', path: '$' }]]);
+    expect(errors).toEqual([
+      [failure, { stage: 'other', path: '$', error: 'Error: cannot omit' }],
+    ]);
   });
 });

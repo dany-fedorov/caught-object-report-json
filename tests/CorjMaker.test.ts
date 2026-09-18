@@ -375,6 +375,14 @@ describe('CorjMaker', () => {
           "as_string": null,
           "constructor_name": "Object",
           "instanceof_error": false,
+          "reporting_errors": Array [
+            Object {
+              "error": "Error: I am a nasty error!",
+              "key": "as_string",
+              "path": "$",
+              "stage": "as_string",
+            },
+          ],
           "v": "corj/v0.13",
         }
       `);
@@ -397,6 +405,14 @@ describe('CorjMaker', () => {
           "as_string": null,
           "constructor_name": "Object",
           "instanceof_error": false,
+          "reporting_errors": Array [
+            Object {
+              "error": "TypeError: Cannot convert object to primitive value",
+              "key": "as_string",
+              "path": "$",
+              "stage": "as_string",
+            },
+          ],
           "v": "corj/v0.13",
         }
       `);
@@ -420,6 +436,21 @@ describe('CorjMaker', () => {
           "as_string": "[object Object]",
           "constructor_name": null,
           "instanceof_error": false,
+          "reporting_errors": Array [
+            Object {
+              "error": "Error: (in .constructor) thrown on purpose",
+              "key": "constructor_name",
+              "path": "$",
+              "prop": "constructor",
+              "stage": "prop-access",
+            },
+            Object {
+              "error": "Error: (in .constructor) thrown on purpose",
+              "key": "as_json",
+              "path": "$",
+              "stage": "as_json",
+            },
+          ],
           "v": "corj/v0.13",
         }
       `);
@@ -446,6 +477,21 @@ describe('CorjMaker', () => {
           "as_string": "[object Object]",
           "constructor_name": null,
           "instanceof_error": false,
+          "reporting_errors": Array [
+            Object {
+              "error": "Error: (in .constructor.name) thrown on purpose",
+              "key": "constructor_name",
+              "path": "$",
+              "prop": "name",
+              "stage": "prop-access",
+            },
+            Object {
+              "error": "Error: (in .constructor.name) thrown on purpose",
+              "key": "as_json",
+              "path": "$",
+              "stage": "as_json",
+            },
+          ],
           "v": "corj/v0.13",
         }
       `);
@@ -471,6 +517,21 @@ describe('CorjMaker', () => {
           "constructor_name": "Object",
           "instanceof_error": false,
           "message": null,
+          "reporting_errors": Array [
+            Object {
+              "error": "Error: (in .message) thrown on purpose",
+              "key": "message",
+              "path": "$",
+              "prop": "message",
+              "stage": "prop-access",
+            },
+            Object {
+              "error": "Error: (in .message) thrown on purpose",
+              "key": "as_json",
+              "path": "$",
+              "stage": "as_json",
+            },
+          ],
           "v": "corj/v0.13",
         }
       `);
@@ -496,6 +557,21 @@ describe('CorjMaker', () => {
           "as_string": "[object Object]",
           "constructor_name": "Object",
           "instanceof_error": false,
+          "reporting_errors": Array [
+            Object {
+              "error": "Error: (in .stack) thrown on purpose",
+              "key": "stack",
+              "path": "$",
+              "prop": "stack",
+              "stage": "prop-access",
+            },
+            Object {
+              "error": "Error: (in .stack) thrown on purpose",
+              "key": "as_json",
+              "path": "$",
+              "stage": "as_json",
+            },
+          ],
           "stack": null,
           "v": "corj/v0.13",
         }
@@ -583,6 +659,7 @@ describe('CorjMaker', () => {
             path: '$',
             key: 'stack',
             prop: 'stack',
+            error: 'Error: stack getter',
           },
         },
       ]);
@@ -604,7 +681,12 @@ describe('CorjMaker', () => {
       expect(report.instanceof_error).toBe(false);
       expect(errors[0]).toEqual({
         caught: failure,
-        context: { stage: 'other', path: '$', key: 'instanceof_error' },
+        context: {
+          stage: 'other',
+          path: '$',
+          key: 'instanceof_error',
+          error: 'Error: prototype unavailable',
+        },
       });
     });
   });
@@ -972,6 +1054,7 @@ describe('CorjMaker', () => {
         as_string: null,
         as_json: null,
         stack: null,
+        reporting_errors: errors.slice(0, 8).map((e) => e.context),
         v: 'corj/v0.13',
       });
       expect(report.children).toBeUndefined();
@@ -980,12 +1063,14 @@ describe('CorjMaker', () => {
         path: '$',
         key: 'children',
         prop: 'cause',
+        error: 'Error: has trap',
       });
       expect(errors.map((e) => e.context)).toContainEqual({
         stage: 'children',
         path: '$',
         key: 'children',
         prop: 'errors',
+        error: 'Error: has trap',
       });
       expect(errors.every((e) => e.caught === failure)).toBe(true);
     });
@@ -1010,6 +1095,7 @@ describe('CorjMaker', () => {
         path: '$.cause',
         key: 'child_ids',
         prop: 'cause',
+        error: 'Error: has trap',
       });
     });
 
@@ -1045,6 +1131,7 @@ describe('CorjMaker', () => {
           path: '$',
           key: 'children',
           prop: 'errors',
+          error: 'Error: keys trap',
         },
       });
     });
@@ -1068,6 +1155,7 @@ describe('CorjMaker', () => {
           path: '$',
           key: 'children',
           prop: '0',
+          error: 'Error: element trap',
         },
       });
     });
@@ -1138,11 +1226,21 @@ describe('CorjMaker', () => {
       expect(errors).toEqual([
         {
           caught: failure,
-          context: { stage: 'other', path: '$', key: 'id' },
+          context: {
+            stage: 'other',
+            path: '$',
+            key: 'id',
+            error: 'Error: no ids today',
+          },
         },
         {
           caught: failure,
-          context: { stage: 'other', path: '$.cause', key: 'id' },
+          context: {
+            stage: 'other',
+            path: '$.cause',
+            key: 'id',
+            error: 'Error: no ids today',
+          },
         },
       ]);
     });
@@ -1221,6 +1319,7 @@ describe('CorjMaker', () => {
             path: '$',
             key: 'as_string',
             prop: 'toCorjAsString',
+            error: 'Error: Hey!',
           },
         },
       ]);
@@ -1289,6 +1388,7 @@ describe('CorjMaker', () => {
             path: '$',
             key: 'as_json',
             prop: 'toCorjAsJson',
+            error: 'Error: hey',
           },
         },
       ]);

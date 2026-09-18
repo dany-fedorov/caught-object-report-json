@@ -144,6 +144,14 @@ describe('maker option and failure boundaries', () => {
         as_string: '[object Object]',
       };
       const path = nested ? '$.cause' : '$';
+      const reportingErrors = [
+        {
+          stage: 'other',
+          path,
+          key: 'instanceof_error',
+          error: 'Error: prototype unavailable',
+        },
+      ];
 
       if (format === 'object') {
         const report = maker.makeReportObject(caught);
@@ -158,7 +166,10 @@ describe('maker option and failure boundaries', () => {
             { id: '0', path: '$.cause', level: 1, ...fallback },
           ]);
         } else {
-          expect(report).toEqual(fallback);
+          expect(report).toEqual({
+            ...fallback,
+            reporting_errors: reportingErrors,
+          });
         }
       } else {
         const report = maker.makeReportArray(caught);
@@ -178,6 +189,7 @@ describe('maker option and failure boundaries', () => {
             as_string: '[object Object]',
             as_json: { message: 'outer' },
             child_ids: ['0'],
+            reporting_errors: reportingErrors,
           });
           expect(report[1]).toEqual({
             id: '0',
@@ -187,7 +199,13 @@ describe('maker option and failure boundaries', () => {
           });
         } else {
           expect(report).toEqual([
-            { id: 'root', path: '$', level: 0, ...fallback },
+            {
+              id: 'root',
+              path: '$',
+              level: 0,
+              ...fallback,
+              reporting_errors: reportingErrors,
+            },
           ]);
         }
       }
@@ -196,7 +214,12 @@ describe('maker option and failure boundaries', () => {
       expect(caughtDuring).toEqual([
         {
           caught: failure,
-          context: { stage: 'other', path, key: 'instanceof_error' },
+          context: {
+            stage: 'other',
+            path,
+            key: 'instanceof_error',
+            error: 'Error: prototype unavailable',
+          },
         },
       ]);
     },

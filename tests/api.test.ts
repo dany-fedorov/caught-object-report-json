@@ -635,8 +635,18 @@ describe('child discovery', () => {
     });
     expect(rows.map((r) => r.id)).toEqual(['root', '0']);
     expect(errors.calls.map((c) => c.context)).toEqual([
-      { stage: 'other', path: '$', key: 'id' },
-      { stage: 'other', path: '$.cause', key: 'id' },
+      {
+        stage: 'other',
+        path: '$',
+        key: 'id',
+        error: 'Error: no id for root',
+      },
+      {
+        stage: 'other',
+        path: '$.cause',
+        key: 'id',
+        error: 'TypeError: makeReportId must return a string, got 42',
+      },
     ]);
     expect(String(errors.calls[0]!.caught)).toBe('Error: no id for root');
     expect(String(errors.calls[1]!.caught)).toBe(
@@ -668,29 +678,65 @@ describe('hostile caught objects', () => {
       as_string: null,
       stack: null,
       as_json: null,
+      // The ninth failure is past the cap of eight records.
+      reporting_errors: errors.calls.slice(0, 8).map((c) => c.context),
       v: CORJ_VERSION,
     });
     expectValidObject(report);
+    const hasTrap = 'Error: has trap';
+    const getTrap = 'Error: get trap';
     expect(errors.calls.map((c) => c.context)).toEqual([
-      { stage: 'children', path: '$', key: 'children', prop: 'cause' },
-      { stage: 'children', path: '$', key: 'children', prop: 'errors' },
+      {
+        stage: 'children',
+        path: '$',
+        key: 'children',
+        prop: 'cause',
+        error: hasTrap,
+      },
+      {
+        stage: 'children',
+        path: '$',
+        key: 'children',
+        prop: 'errors',
+        error: hasTrap,
+      },
       {
         stage: 'prop-access',
         path: '$',
         key: 'constructor_name',
         prop: 'constructor',
+        error: hasTrap,
       },
-      { stage: 'prop-access', path: '$', key: 'message', prop: 'message' },
-      { stage: 'prop-access', path: '$', key: 'stack', prop: 'stack' },
+      {
+        stage: 'prop-access',
+        path: '$',
+        key: 'message',
+        prop: 'message',
+        error: hasTrap,
+      },
+      {
+        stage: 'prop-access',
+        path: '$',
+        key: 'stack',
+        prop: 'stack',
+        error: hasTrap,
+      },
       {
         stage: 'prop-access',
         path: '$',
         key: 'as_string',
         prop: 'toCorjAsString',
+        error: hasTrap,
       },
-      { stage: 'as_string', path: '$', key: 'as_string' },
-      { stage: 'prop-access', path: '$', key: 'as_json', prop: 'toCorjAsJson' },
-      { stage: 'as_json', path: '$', key: 'as_json' },
+      { stage: 'as_string', path: '$', key: 'as_string', error: getTrap },
+      {
+        stage: 'prop-access',
+        path: '$',
+        key: 'as_json',
+        prop: 'toCorjAsJson',
+        error: hasTrap,
+      },
+      { stage: 'as_json', path: '$', key: 'as_json', error: getTrap },
     ]);
     expect(makeCorjArray(caught, quiet)).toHaveLength(1);
   });
@@ -708,7 +754,12 @@ describe('hostile caught objects', () => {
     expect(report.message).toBe('proxied');
     expect(report.as_string).toBe('Error: proxied');
     expect(errors.calls.map((c) => c.context)).toEqual([
-      { stage: 'other', path: '$', key: 'instanceof_error' },
+      {
+        stage: 'other',
+        path: '$',
+        key: 'instanceof_error',
+        error: 'Error: proto trap',
+      },
     ]);
   });
 
@@ -725,7 +776,13 @@ describe('hostile caught objects', () => {
       makeCorj(keysThrow, { onError: errors.onError }).children,
     ).toBeUndefined();
     expect(errors.calls.map((c) => c.context)).toEqual([
-      { stage: 'children', path: '$', key: 'children', prop: 'errors' },
+      {
+        stage: 'children',
+        path: '$',
+        key: 'children',
+        prop: 'errors',
+        error: 'Error: keys trap',
+      },
     ]);
     errors.calls.length = 0;
     const elementThrows = {
@@ -742,7 +799,13 @@ describe('hostile caught objects', () => {
       '$.errors[2]',
     ]);
     expect(errors.calls.map((c) => c.context)).toEqual([
-      { stage: 'children', path: '$', key: 'children', prop: '1' },
+      {
+        stage: 'children',
+        path: '$',
+        key: 'children',
+        prop: '1',
+        error: 'Error: element trap',
+      },
     ]);
   });
 
@@ -758,7 +821,13 @@ describe('hostile caught objects', () => {
     });
     expect(report.children).toHaveLength(1);
     expect(errors.calls.map((c) => c.context)).toEqual([
-      { stage: 'children', path: '$.cause', key: 'child_ids', prop: 'cause' },
+      {
+        stage: 'children',
+        path: '$.cause',
+        key: 'child_ids',
+        prop: 'cause',
+        error: 'Error: cause trap',
+      },
     ]);
   });
 
@@ -791,6 +860,7 @@ describe('hostile caught objects', () => {
       path: '$',
       key: 'constructor_name',
       prop: 'name',
+      error: 'Error: name trap',
     });
     expect(makeCorj('str', quiet).constructor_name).toBe('String');
     expect(makeCorj(BigInt(1), quiet).constructor_name).toBe('BigInt');
@@ -808,7 +878,12 @@ describe('hostile caught objects', () => {
     expect(report.as_string).toBeNull();
     expect(report.as_string_format).toBeUndefined();
     expect(errors.calls.map((c) => c.context)).toEqual([
-      { stage: 'as_string', path: '$', key: 'as_string' },
+      {
+        stage: 'as_string',
+        path: '$',
+        key: 'as_string',
+        error: 'Error: no primitive',
+      },
     ]);
     expect(restoreExpectedValues(report).as_string_format).toBe('String');
   });
@@ -841,7 +916,12 @@ describe('hostile caught objects', () => {
     const report = makeCorj(caught, { onError: errors.onError });
     expect(report.as_json).toBeNull();
     expect(errors.calls.map((c) => c.context)).toEqual([
-      { stage: 'as_json', path: '$', key: 'as_json' },
+      {
+        stage: 'as_json',
+        path: '$',
+        key: 'as_json',
+        error: 'Error: toJSON trap',
+      },
     ]);
   });
 
@@ -946,11 +1026,18 @@ describe('custom formats', () => {
           path: '$',
           key: 'as_string',
           prop: 'toCorjAsString',
+          error: 'Error: string boom',
         },
       ],
       [
         'Error: json boom',
-        { stage: 'as_json', path: '$', key: 'as_json', prop: 'toCorjAsJson' },
+        {
+          stage: 'as_json',
+          path: '$',
+          key: 'as_json',
+          prop: 'toCorjAsJson',
+          error: 'Error: json boom',
+        },
       ],
     ]);
   });
@@ -1078,6 +1165,7 @@ describe('error handling', () => {
         path: '$.errors[1]',
         key: 'message',
         prop: 'message',
+        error: 'Error: child message trap',
       },
     ]);
   });
@@ -1101,7 +1189,10 @@ describe('error handling', () => {
     expect(report.$schema).toBe(CORJ_FULL_REPORT_OBJECT_JSON_SCHEMA_LINK);
     expect(report.instanceof_error).toBe(true);
     expect(errors.calls.map((c) => [String(c.caught), c.context])).toEqual([
-      ['Error: omit broke', { stage: 'other', path: '$' }],
+      [
+        'Error: omit broke',
+        { stage: 'other', path: '$', error: 'Error: omit broke' },
+      ],
     ]);
   });
 

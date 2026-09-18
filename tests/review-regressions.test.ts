@@ -83,7 +83,12 @@ describe('review regressions', () => {
         children_omitted: 'max_size',
       });
       expect(Array.isArray(report) ? report.length : 1).toBe(1);
-      expect(errors).toEqual([[failure, { stage: 'limit', path: '$' }]]);
+      expect(errors).toEqual([
+        [
+          failure,
+          { stage: 'limit', path: '$', error: 'Error: limiter failed' },
+        ],
+      ]);
     },
   );
 

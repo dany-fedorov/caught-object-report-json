@@ -39,6 +39,21 @@ describe('makeCorj', function () {
         "constructor_name": "Object",
         "instanceof_error": false,
         "message": null,
+        "reporting_errors": Array [
+          Object {
+            "error": "Error: no message",
+            "key": "message",
+            "path": "$",
+            "prop": "message",
+            "stage": "prop-access",
+          },
+          Object {
+            "error": "Error: no message",
+            "key": "as_json",
+            "path": "$",
+            "stage": "as_json",
+          },
+        ],
         "v": "corj/v0.13",
       }
     `);
@@ -47,6 +62,7 @@ describe('makeCorj', function () {
         Object {
           "caught": [Error: no message],
           "context": Object {
+            "error": "Error: no message",
             "key": "message",
             "path": "$",
             "prop": "message",
@@ -56,6 +72,7 @@ describe('makeCorj', function () {
         Object {
           "caught": [Error: no message],
           "context": Object {
+            "error": "Error: no message",
             "key": "as_json",
             "path": "$",
             "stage": "as_json",

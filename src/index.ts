@@ -137,6 +137,8 @@ export type CorjReportBase = {
   as_string_format?: CorjAsStringFormat;
   /** Omitted when `"safe-stable-stringify-with-length-limit"`. */
   as_json_format?: CorjAsJsonFormat;
+  /** Root only. Failures met while this report was produced, at most 8. Absent when there were none. */
+  reporting_errors?: CorjReportingError[];
   /** Root only. Report version, controlled by the `metadata` option. */
   v?: CorjVersion;
   /** Root only. Link to the JSON Schema of this report, controlled by the `metadata` option. */
@@ -195,7 +197,13 @@ export type CorjErrorStage = CorjStage;
 /** @deprecated Use {@link CorjContext}. */
 export type CorjErrorContext = CorjContext;
 
-export type CorjErrorHandler = (caught: unknown, context: CorjContext) => void;
+/** One failure met while a report was produced: where it happened, plus a scrubbed, bounded description. */
+export type CorjReportingError = CorjContext & { error: string };
+
+export type CorjErrorHandler = (
+  caught: unknown,
+  record: CorjReportingError,
+) => void;
 
 export type CorjOptions = {
   /** Size limit of the compact JSON of the whole report, children included. Defaults to `100000`; `null` disables it. */
@@ -220,7 +228,7 @@ export type CorjOptions = {
   childrenSources: readonly string[];
   /** Produces the `id` of a node. Called once per discovered node. */
   makeReportId: (context: CorjReportIdContext) => string;
-  /** Called when something throws while the report is produced. Defaults to `console.warn`. */
+  /** Called as `(caught, record)` when something throws while the report is produced. Defaults to `console.warn`. */
   onError: CorjErrorHandler;
 };
 
@@ -241,6 +249,9 @@ export type CorjOptionsInput = {
 // ╚██████╗╚██████╔╝██║ ╚████║███████║   ██║   ██║  ██║██║ ╚████║   ██║   ███████║
 //  ╚═════╝ ╚═════╝ ╚═╝  ╚═══╝╚══════╝   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═══╝   ╚═╝   ╚══════╝
 
+const MAX_REPORTING_ERRORS = 8;
+const REPORTING_ERROR_MAX_LENGTH = 256;
+
 function describeValue(value: unknown): string {
   try {
     return String(value);
@@ -249,32 +260,16 @@ function describeValue(value: unknown): string {
   }
 }
 
-function defaultOnError(
-  caught: unknown,
-  context: CorjContext,
-  redactor?: Redactor,
-): void {
+function defaultOnError(_caught: unknown, record: CorjReportingError): void {
   const where = [
-    `stage=${context.stage}`,
-    `path=${context.path}`,
-    context.key === undefined ? null : `field=${context.key}`,
-    context.prop === undefined ? null : `prop=${context.prop}`,
+    `stage=${record.stage}`,
+    `path=${record.path}`,
+    record.key === undefined ? null : `field=${record.key}`,
+    record.prop === undefined ? null : `prop=${record.prop}`,
   ]
     .filter(Boolean)
     .join(' ');
-  const described = describeValue(caught);
-  // A failure is described with the caught object's own text, so the warning
-  // line goes through the same policy the report content does.
-  const text =
-    redactor === undefined
-      ? described
-      : redactor.text(described, {
-          stage: 'warning',
-          path: context.path,
-          key: context.key,
-          prop: context.prop,
-        });
-  console.warn(`[caught-object-report-json] ${where}: ${text}`);
+  console.warn(`[caught-object-report-json] ${where}: ${record.error}`);
 }
 
 /**
@@ -422,6 +417,8 @@ type Ctx = {
   stringify: Stringify;
   /** `null` when no redaction policy is configured, which is the default. */
   redactor: Redactor | null;
+  /** Records kept for the report being produced; `null` means sealed - the handler still sees every failure. */
+  errors: CorjReportingError[] | null;
 };
 type Entry = [string, unknown];
 type Report = CorjReport | CorjReportChild[];
@@ -436,13 +433,44 @@ type Node = {
   childrenOmitted?: CorjChildrenOmitted;
 };
 
+function makeRecord(
+  ctx: Ctx,
+  caught: unknown,
+  context: CorjContext,
+): CorjReportingError {
+  const redactor = ctx.redactor;
+  // The whole record is scrubbed as the `warning` text it is, with corj's own
+  // context, so a path- or prop-keyed `transform` behaves as it did on the value.
+  const where: CorjContext = {
+    stage: 'warning',
+    path: context.path,
+    key: context.key,
+    prop: context.prop,
+  };
+  const scrub = (text: string): string =>
+    redactor === null ? text : redactor.text(text, where);
+  // Scrub first, cut second: a secret straddling the cut would stop matching.
+  // A policy's own failure is never quoted: its message can hold what it protected.
+  const error =
+    context.stage === 'redact' && redactor !== null
+      ? redactor.policy.replacement
+      : scrub(describeValue(caught)).slice(0, REPORTING_ERROR_MAX_LENGTH);
+  return toObject<CorjReportingError>([
+    ['stage', context.stage],
+    ['path', scrub(context.path)],
+    ['key', context.key],
+    ['prop', context.prop === undefined ? undefined : scrub(context.prop)],
+    ['error', error],
+  ]);
+}
+
 function reportError(ctx: Ctx, caught: unknown, context: CorjContext): void {
+  const record = makeRecord(ctx, caught, context);
+  if (ctx.errors !== null && ctx.errors.length < MAX_REPORTING_ERRORS) {
+    ctx.errors.push(record);
+  }
   try {
-    if (ctx.options.onError === defaultOnError && ctx.redactor !== null) {
-      defaultOnError(caught, context, ctx.redactor);
-    } else {
-      ctx.options.onError(caught, context);
-    }
+    ctx.options.onError(caught, record);
   } catch (failure: unknown) {
     console.warn(
       `[caught-object-report-json] onError threw: ${describeValue(failure)}`,
@@ -1187,6 +1215,9 @@ function build(ctx: Ctx, caught: unknown, asArray: boolean): Report {
     ['v', metadata.v ? (omit ? CORJ_VERSION : CORJ_VERSION_FULL) : undefined],
     ['$schema', metadata.$schema ? schemaLink : undefined],
   ];
+  // Last: every failure met while the content above was produced is in the list.
+  const reportingErrors =
+    ctx.errors !== null && ctx.errors.length > 0 ? [...ctx.errors] : undefined;
   if (asArray) {
     const rootRow = toObject<CorjReportChild>([
       ['id', root.id],
@@ -1196,6 +1227,7 @@ function build(ctx: Ctx, caught: unknown, asArray: boolean): Report {
       ...rootFields.entries,
       ['children_omitted', root.childrenOmitted],
       ['child_ids', root.childIds.length > 0 ? root.childIds : undefined],
+      ['reporting_errors', reportingErrors],
       ...tail,
     ]);
     return [rootRow, ...rows];
@@ -1205,11 +1237,15 @@ function build(ctx: Ctx, caught: unknown, asArray: boolean): Report {
     ...rootFields.entries,
     ['children_omitted', root.childrenOmitted],
     ['children', rows.length > 0 ? rows : undefined],
+    ['reporting_errors', reportingErrors],
     ...tail,
   ]);
 }
 
 function finish<T extends Report>(ctx: Ctx, report: T): T {
+  // The list is already in the report, so a failure from here on would not be
+  // seen by the reader: seal it, and let those failures reach the handler only.
+  ctx.errors = null;
   let omissionFailed = false;
   const omit = <R extends Report>(value: R): R => {
     if (!ctx.options.omitExpectedValues || omissionFailed) return value;
@@ -1252,6 +1288,7 @@ export class CorjMaker {
     this.ctx = {
       options: this.options,
       redactor: null,
+      errors: null,
       stringify: configureStringify({
         circularValue: CORJ_CIRCULAR_MARKER,
         deterministic: false,
@@ -1280,13 +1317,28 @@ export class CorjMaker {
     return new CorjMaker(resolveOptions(this.options, options));
   }
 
+  /** Records are per call. A caught object may re-enter this maker, so the previous list is restored. */
+  private collecting<T>(produce: () => T): T {
+    const previous = this.ctx.errors;
+    this.ctx.errors = [];
+    try {
+      return produce();
+    } finally {
+      this.ctx.errors = previous;
+    }
+  }
+
   makeReportObject(caught: unknown): CorjReport {
-    return finish(this.ctx, build(this.ctx, caught, false) as CorjReport);
+    return this.collecting(() =>
+      finish(this.ctx, build(this.ctx, caught, false) as CorjReport),
+    );
   }
 
   /** The root as the first element followed by every child; nodes link to each other by `child_ids`. */
   makeReportArray(caught: unknown): CorjReportChild[] {
-    return finish(this.ctx, build(this.ctx, caught, true) as CorjReportChild[]);
+    return this.collecting(() =>
+      finish(this.ctx, build(this.ctx, caught, true) as CorjReportChild[]),
+    );
   }
 }
 

@@ -143,13 +143,20 @@ describe('stack as an array of lines', () => {
     // The JSON serializer trips over the getter as well; the stack read itself
     // is reported exactly once.
     expect(contexts.filter((c) => c.stage === 'prop-access')).toEqual([
-      { stage: 'prop-access', path: '$', key: 'stack', prop: 'stack' },
+      {
+        stage: 'prop-access',
+        path: '$',
+        key: 'stack',
+        prop: 'stack',
+        error: 'Error: no stack for you',
+      },
     ]);
     expect(contexts.map((c) => c.key)).toEqual(['stack', 'as_json']);
     expect(contexts[1]).toEqual({
       stage: 'as_json',
       path: '$',
       key: 'as_json',
+      error: 'Error: no stack for you',
     });
   });
 

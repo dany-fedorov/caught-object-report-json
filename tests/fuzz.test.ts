@@ -256,7 +256,10 @@ describe('randomized invariants', () => {
       const object = maker.makeReportObject(caught);
       const rows = maker.makeReportArray(caught);
       const rootId = rows[0]!.id;
-      expect(rootId).toBe(input.makeReportId ? '-1@$' : 'root');
+      // A report that fell back to the minimal shape always carries the structural root id.
+      const minimal =
+        rows.length === 1 && rows[0]!.as_string === CORJ_TRUNCATED_MARKER;
+      expect(rootId).toBe(input.makeReportId && !minimal ? '-1@$' : 'root');
       checkObject(object, input, kind, rootId);
       checkArray(rows, input, kind);
       // Both forms describe the same tree; the size limiter keeps a prefix of

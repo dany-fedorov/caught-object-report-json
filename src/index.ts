@@ -553,9 +553,43 @@ function resolveOptions(
 
 const CALL_KEYS = ['occurrenceId', 'fingerprint', 'context'] as const;
 
-/** Validates one call's input; unknown keys are rejected the way unknown options are. */
-function resolveCall(call: unknown): CorjCallInput {
-  if (call === undefined) return {};
+/** What a call value that failed its token pattern is recorded as. The offending value is never quoted. */
+const CALL_TOKEN_ERRORS = {
+  occurrence_id:
+    'occurrenceId must be 1 to 128 printable ASCII characters without spaces',
+  fingerprint:
+    'fingerprint must be 1 to 64 printable ASCII characters without spaces',
+} as const;
+
+type CallTokenKey = keyof typeof CALL_TOKEN_ERRORS;
+
+/** One call's input, validated: a value that failed its token pattern was dropped, and its key is in `invalid`. */
+type ResolvedCall = {
+  /** The call object as given; `context` is read from it where it is used. */
+  input: CorjCallInput;
+  occurrenceId: string | undefined;
+  fingerprint: string | undefined;
+  /** Recorded from `build`, which is where a per-call record list exists. */
+  invalid: readonly CallTokenKey[];
+};
+
+const NO_CALL: ResolvedCall = Object.freeze({
+  input: Object.freeze({}),
+  occurrenceId: undefined,
+  fingerprint: undefined,
+  invalid: Object.freeze([]),
+});
+
+/**
+ * Validates one call's input; unknown keys are rejected the way unknown options
+ * are. The shape is the caller's configuration and throws, but `occurrenceId`
+ * and `fingerprint` are per-occurrence runtime data - a request id off the
+ * wire - so a value that fails its token pattern is recorded and passed over
+ * instead: reporting one error must never throw a second one inside the catch
+ * block that was reporting the first.
+ */
+function resolveCall(call: unknown): ResolvedCall {
+  if (call === undefined) return NO_CALL;
   if (typeof call !== 'object' || call === null || Array.isArray(call)) {
     throw new TypeError('call input must be an object');
   }
@@ -569,20 +603,22 @@ function resolveCall(call: unknown): CorjCallInput {
     }
   }
   const { occurrenceId, fingerprint } = call as CorjCallInput;
+  const invalid: CallTokenKey[] = [];
   if (occurrenceId !== undefined && !isValidId(occurrenceId)) {
-    throw new TypeError(
-      'occurrenceId must be 1 to 128 printable ASCII characters without spaces',
-    );
+    invalid.push('occurrence_id');
   }
   if (
     fingerprint !== undefined &&
     (typeof fingerprint !== 'string' || !FINGERPRINT_PATTERN.test(fingerprint))
   ) {
-    throw new TypeError(
-      'fingerprint must be 1 to 64 printable ASCII characters without spaces',
-    );
+    invalid.push('fingerprint');
   }
-  return call as CorjCallInput;
+  return {
+    input: call as CorjCallInput,
+    occurrenceId: invalid.includes('occurrence_id') ? undefined : occurrenceId,
+    fingerprint: invalid.includes('fingerprint') ? undefined : fingerprint,
+    invalid,
+  };
 }
 
 // ██╗  ██╗███████╗██╗     ██████╗ ███████╗██████╗ ███████╗
@@ -1624,12 +1660,12 @@ function readFingerprintValue(
  */
 function computeFingerprint(
   ctx: Ctx,
-  call: CorjCallInput,
+  callFingerprint: string | undefined,
   root: Node,
   rootFields: NodeFields,
   children: readonly (readonly [Node, NodeFields])[],
 ): string | undefined {
-  if (call.fingerprint !== undefined) return call.fingerprint;
+  if (callFingerprint !== undefined) return callFingerprint;
   const parts = ctx.parts;
   if (parts === null) return undefined;
   // Nothing below may throw out of a report: a report without a `fingerprint`
@@ -1671,9 +1707,9 @@ function computeFingerprint(
 function resolveOccurrenceId(
   ctx: Ctx,
   caught: unknown,
-  call: CorjCallInput,
+  callId: string | undefined,
 ): string | undefined {
-  if (call.occurrenceId !== undefined) return call.occurrenceId;
+  if (callId !== undefined) return callId;
   const sources = ctx.options.occurrenceIdSources;
   if (sources === null) return undefined;
   for (const source of sources) {
@@ -1712,10 +1748,18 @@ function build(
   ctx: Ctx,
   caught: unknown,
   asArray: boolean,
-  call: CorjCallInput,
+  call: ResolvedCall,
 ): Report {
+  // Before anything else: `resolveCall` runs before this list exists.
+  for (const key of call.invalid) {
+    reportError(ctx, CALL_TOKEN_ERRORS[key], {
+      stage: 'other',
+      path: '$',
+      key,
+    });
+  }
   // First, so the id heads the root and is in hand before anything can fail.
-  const occurrenceId = resolveOccurrenceId(ctx, caught, call);
+  const occurrenceId = resolveOccurrenceId(ctx, caught, call.occurrenceId);
   const { root, nodes } = discover(ctx, caught);
   const rootFields = makeNodeFields(ctx, root);
   let anyTruncated = rootFields.truncated;
@@ -1739,14 +1783,14 @@ function build(
   // that throws belongs in the list the report carries.
   const fingerprint = computeFingerprint(
     ctx,
-    call,
+    call.fingerprint,
     root,
     rootFields,
     childFields,
   );
   // The context is its own document rooted at `$context`, so a rule written for
   // the caught object never reaches it, and vice versa.
-  const given: unknown = call.context;
+  const given: unknown = call.input.context;
   let context: CorjJsonValue | null | undefined;
   if (given !== undefined) {
     const view = makeAsJson(
@@ -1943,7 +1987,7 @@ export class CorjMaker {
       const [, rootFields] = fieldsOf(root);
       return computeFingerprint(
         this.ctx,
-        {},
+        undefined,
         root,
         rootFields,
         nodes.map(fieldsOf),

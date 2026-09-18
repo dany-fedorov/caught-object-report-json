@@ -430,13 +430,35 @@ describe('fingerprint', () => {
         fingerprint: 'group-7',
       }).fingerprint,
     ).toBe('group-7');
-    expect(() =>
+  });
+
+  test('an invalid call argument is recorded, never quoted, and falls through', () => {
+    const records: CorjReportingError[] = [];
+    const maker = new CorjMaker({
+      onError: (_caught, record) => void records.push(record),
+      fingerprintParts: DEFAULT_PARTS,
+    });
+    const report = maker.makeReportObject(new Error('x'), {
+      fingerprint: 'group 7',
+    });
+    expect(report.fingerprint).toMatch(/^fp1_[0-9a-f]{32}$/);
+    expect(report.reporting_errors).toEqual([
+      {
+        stage: 'other',
+        path: '$',
+        key: 'fingerprint',
+        error:
+          'fingerprint must be 1 to 64 printable ASCII characters without spaces',
+      },
+    ]);
+    expect(records).toHaveLength(1);
+    expect(JSON.stringify(report)).not.toContain('group 7');
+    // With the feature off there is nothing to fall through to.
+    expect(
       withParts(null).makeReportObject(new Error('x'), {
         fingerprint: 'x'.repeat(65),
       }),
-    ).toThrow(
-      'fingerprint must be 1 to 64 printable ASCII characters without spaces',
-    );
+    ).not.toHaveProperty('fingerprint');
   });
 
   test('fingerprint follows occurrence_id at the head of the root, in both shapes', () => {

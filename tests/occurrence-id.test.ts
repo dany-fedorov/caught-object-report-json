@@ -1,5 +1,5 @@
 import { CorjMaker, makeCorj, makeCorjArray } from '../src/index';
-import type { CorjOccurrenceIdSource } from '../src/index';
+import type { CorjOccurrenceIdSource, CorjReportingError } from '../src/index';
 
 // The compile target predates `cause`; the runtime has it.
 const ErrorWithCause = Error as unknown as new (
@@ -242,17 +242,39 @@ describe('occurrence_id', () => {
   });
 
   test.each([[''], ['has space'], ['x'.repeat(129)], [7]])(
-    "an invalid call argument %j is the caller's mistake and throws",
+    'an invalid call argument %j is recorded and falls through to the sources',
     (occurrenceId) => {
-      expect(() =>
-        withSources(null).makeReportObject(new Error('x'), {
-          occurrenceId: occurrenceId as string,
-        }),
-      ).toThrow(
-        'occurrenceId must be 1 to 128 printable ASCII characters without spaces',
+      const records: CorjReportingError[] = [];
+      const maker = new CorjMaker({
+        onError: (_caught, record) => void records.push(record),
+        occurrenceIdSources: [{ field: 'requestId' }],
+      });
+      const report = maker.makeReportObject(
+        Object.assign(new Error('x'), { requestId: 'req-1' }),
+        { occurrenceId: occurrenceId as string },
       );
+      // Runtime data, not configuration: reporting one error never throws a second.
+      expect(report.occurrence_id).toBe('req-1');
+      expect(report.reporting_errors).toEqual([
+        {
+          stage: 'other',
+          path: '$',
+          key: 'occurrence_id',
+          error:
+            'occurrenceId must be 1 to 128 printable ASCII characters without spaces',
+        },
+      ]);
+      expect(records).toHaveLength(1);
     },
   );
+
+  test('an invalid call argument is never quoted back', () => {
+    const report = withSources(null).makeReportObject(new Error('x'), {
+      occurrenceId: 'req 42',
+    });
+    expect(report).not.toHaveProperty('occurrence_id');
+    expect(JSON.stringify(report)).not.toContain('req 42');
+  });
 
   test('a paths rule on an intermediate segment stops the read', () => {
     const caught = Object.assign(new Error('x'), {

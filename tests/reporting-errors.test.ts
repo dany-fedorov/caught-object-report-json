@@ -176,6 +176,19 @@ describe('reporting errors as data', () => {
     ).toBe(false);
   });
 
+  test('a handler that rewrites its record cannot rewrite the report', () => {
+    const report = makeCorj(throwingGetter('getter blew up'), {
+      onError: (_caught, record) => {
+        record.error = 'tampered';
+        record.path = '$.tampered';
+      },
+    });
+    const row = report.reporting_errors!.find((r) => r.prop === 'message')!;
+    expect(row.error).toBe('Error: getter blew up');
+    expect(row.path).toBe('$');
+    expect(JSON.stringify(report)).not.toContain('tampered');
+  });
+
   test('a handler that throws cannot break the report', () => {
     const warn = jest
       .spyOn(console, 'warn')

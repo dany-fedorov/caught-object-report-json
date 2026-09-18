@@ -470,7 +470,8 @@ function reportError(ctx: Ctx, caught: unknown, context: CorjContext): void {
     ctx.errors.push(record);
   }
   try {
-    ctx.options.onError(caught, record);
+    // A copy: a handler that rewrites its record cannot rewrite the report's row.
+    ctx.options.onError(caught, { ...record });
   } catch (failure: unknown) {
     console.warn(
       `[caught-object-report-json] onError threw: ${describeValue(failure)}`,

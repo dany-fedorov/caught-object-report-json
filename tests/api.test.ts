@@ -79,19 +79,19 @@ afterEach(() => {
 
 describe('constants', () => {
   test('versions, links and markers', () => {
-    expect(CORJ_VERSION).toBe('corj/v0.13');
-    expect(CORJ_VERSION_FULL).toBe('corj/v0.13-full');
+    expect(CORJ_VERSION).toBe('corj/v0.14');
+    expect(CORJ_VERSION_FULL).toBe('corj/v0.14-full');
     expect(CORJ_REPORT_OBJECT_JSON_SCHEMA_LINK).toMatch(
-      /corj\/v0\.13\/report-object\.json$/,
+      /corj\/v0\.14\/report-object\.json$/,
     );
     expect(CORJ_REPORT_ARRAY_JSON_SCHEMA_LINK).toMatch(
-      /corj\/v0\.13\/report-array\.json$/,
+      /corj\/v0\.14\/report-array\.json$/,
     );
     expect(CORJ_FULL_REPORT_OBJECT_JSON_SCHEMA_LINK).toMatch(
-      /corj\/v0\.13-full\/report-object\.json$/,
+      /corj\/v0\.14-full\/report-object\.json$/,
     );
     expect(CORJ_FULL_REPORT_ARRAY_JSON_SCHEMA_LINK).toMatch(
-      /corj\/v0\.13-full\/report-array\.json$/,
+      /corj\/v0\.14-full\/report-array\.json$/,
     );
     expect(CORJ_TRUNCATED_MARKER).toBe('[truncated]');
     expect(CORJ_TRUNCATED_MARKER).toBe(TRUNCATED_MARKER);
@@ -180,7 +180,7 @@ describe('options', () => {
   test('no options means the defaults', () => {
     const { options } = new CorjMaker();
     expect(options).toBe(CORJ_DEFAULT_OPTIONS);
-    expect(new CorjMaker().options).toBe(CORJ_DEFAULT_OPTIONS);
+    expect(new CorjMaker(undefined).options).toBe(CORJ_DEFAULT_OPTIONS);
   });
 
   test('an explicitly undefined option means the default', () => {
@@ -270,11 +270,7 @@ describe('options', () => {
 
   test('childrenSources is copied, so later mutation of the input has no effect', () => {
     const sources = ['rootCause'];
-    const maker = new CorjMaker({
-      ...LEGACY,
-      ...quiet,
-      childrenSources: sources,
-    });
+    const maker = new CorjMaker({ ...quiet, childrenSources: sources });
     sources.push('cause');
     const caught: Record<string, unknown> = {
       rootCause: new ErrorWithCause('a'),
@@ -387,7 +383,6 @@ describe('child discovery', () => {
       rootCause: new ErrorWithCause('inner'),
     });
     const report = makeCorj(caught, {
-      ...LEGACY,
       ...quiet,
       childrenSources: ['rootCause'],
     });
@@ -399,22 +394,14 @@ describe('child discovery', () => {
 
   test('a non-default childrenSources is reported on the root only', () => {
     const caught = { a: { a: { a: 1 } } };
-    const report = makeCorj(caught, {
-      ...LEGACY,
-      ...quiet,
-      childrenSources: ['a'],
-    });
+    const report = makeCorj(caught, { ...quiet, childrenSources: ['a'] });
     expect(report.children_sources).toEqual(['a']);
     expect(report.children).toHaveLength(3);
     for (const child of report.children!) {
       expect(child).not.toHaveProperty('children_sources');
       expect(child).not.toHaveProperty('v');
     }
-    const rows = makeCorjArray(caught, {
-      ...LEGACY,
-      ...quiet,
-      childrenSources: ['a'],
-    });
+    const rows = makeCorjArray(caught, { ...quiet, childrenSources: ['a'] });
     expect(rows[0]!.children_sources).toEqual(['a']);
     expect(rows.slice(1).every((row) => !('children_sources' in row))).toBe(
       true,
@@ -1114,11 +1101,7 @@ describe('custom formats', () => {
 
   test('a toCorjAsJson result that does not fit is truncated and flagged', () => {
     const caught = { toCorjAsJson: () => ({ big: 'x'.repeat(5000) }) };
-    const report = makeCorj(caught, {
-      ...LEGACY,
-      ...quiet,
-      maxReportSize: 512,
-    });
+    const report = makeCorj(caught, { ...quiet, maxReportSize: 512 });
     expect(report.truncated).toBe(true);
     expect(report.as_json_format).toBe('.toCorjAsJson');
     expect(
@@ -1465,7 +1448,6 @@ describe('report shape', () => {
       for (const metadata of [true, false]) {
         const compact = makeCorj(caught, { ...quiet, metadata });
         const full = makeCorj(caught, {
-          ...LEGACY,
           ...quiet,
           metadata,
           omitExpectedValues: false,
@@ -1473,13 +1455,8 @@ describe('report shape', () => {
         expect(restoreExpectedValues(compact)).toEqual(full);
         expectValidObject(compact);
         expectValidObject(full, 'full');
-        const compactRows = makeCorjArray(caught, {
-          ...LEGACY,
-          ...quiet,
-          metadata,
-        });
+        const compactRows = makeCorjArray(caught, { ...quiet, metadata });
         const fullRows = makeCorjArray(caught, {
-          ...LEGACY,
           ...quiet,
           metadata,
           omitExpectedValues: false,

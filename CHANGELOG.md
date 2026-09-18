@@ -1,3 +1,32 @@
+# [10.0.0](https://github.com/dany-fedorov/caught-object-report-json/compare/v9.0.1...v10.0.0) (2026-09-18)
+
+
+* feat!: close deep imports with an exports map ([ca71c69](https://github.com/dany-fedorov/caught-object-report-json/commit/ca71c69c55a2ae2e80eb64e6f2d8c8c4bb87158a))
+* feat!: configurable redaction and inspection that never invokes the caught object ([ac55b9c](https://github.com/dany-fedorov/caught-object-report-json/commit/ac55b9c7b2f0b1ea2d5cc36331518cff8b12630b)), closes [#211](https://github.com/dany-fedorov/caught-object-report-json/issues/211) [#212](https://github.com/dany-fedorov/caught-object-report-json/issues/212)
+
+
+### Bug Fixes
+
+* never run a default report id through the redaction policy ([4a01f63](https://github.com/dany-fedorov/caught-object-report-json/commit/4a01f63cd8984ae1947a170746004df4c0b67e41))
+
+
+### Features
+
+* export the redactor so a custom onError can apply the same policy ([fcf6751](https://github.com/dany-fedorov/caught-object-report-json/commit/fcf6751f77b0597c107886fcb05864e07b2585b9))
+
+
+### BREAKING CHANGES
+
+* the package now has an exports map. Only the package root and ./package.json resolve; deep imports such as caught-object-report-json/report-size throw ERR_PACKAGE_PATH_NOT_EXPORTED.
+
+Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
+* the report format is corj/v0.13. `children_omitted` gains
+"not_inspected" and "redacted", `as_string_format` gains "derived", and
+CorjErrorStage gains "redact". A reader validating against the corj/v0.12
+schema URLs must move to the corj/v0.13 ones; v0.12 schemas stay published.
+
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
+
 ## 9.0.1 (2026-09-12)
 
 ### Documentation

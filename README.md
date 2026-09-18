@@ -511,7 +511,11 @@ act on values that were already produced. The `transform` context is `{ stage, p
 
 - every report field: `message`, `stack`, `constructor_name`, `as_string`, and every value **and property name** inside
   `as_json`, at any depth;
-- `id`, which `makeReportId` may have built from the caught object;
+- `id`, but only when you supply `makeReportId`, because such an id may be built from the caught object. A **default**
+  id — `"root"` and the discovery index — is structural, carries nothing from the caught object and is never
+  rewritten, so `child_ids` keeps linking children to their reports. Two custom ids that scrub to the same text
+  collide, and `child_ids` can then no longer tell those children apart — an inherent limit of scrubbing an
+  identifier;
 - the output of a caught object's own `toCorjAsString()` and `toCorjAsJson()`;
 - every child report, not only the root;
 - the line the default `onError` prints about a failure, which is otherwise built from the caught object's own text. A

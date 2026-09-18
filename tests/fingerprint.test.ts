@@ -1,5 +1,10 @@
 import { CorjMaker, makeCorj, makeCorjArray } from '../src/index';
-import type { CorjFingerprintPart, CorjOptionsInput } from '../src/index';
+import type {
+  CorjFingerprintPart,
+  CorjOptionsInput,
+  CorjReportingError,
+} from '../src/index';
+import * as sha256 from '../src/sha256';
 
 // The compile target predates `cause` and AggregateError; the runtime has both.
 const ErrorWithCause = Error as unknown as new (
@@ -591,5 +596,74 @@ describe('fingerprint values are redacted under their own path', () => {
         }),
     );
     expect(a).toBe(b);
+  });
+});
+
+describe('the fingerprint hash input is bounded and cannot throw', () => {
+  // Big enough to have broken the old `number[]` hash input, small enough to
+  // keep the suite fast now that every string part is cut first.
+  const HUGE = 20 * 1024 * 1024;
+
+  test('a huge thrown string is reported with a fingerprint', () => {
+    const report = makeCorj('x'.repeat(HUGE), { onError: silent });
+    expect(report.fingerprint).toMatch(/^fp1_[0-9a-f]{32}$/);
+  });
+
+  test('a huge message is reported with a fingerprint', () => {
+    const report = makeCorj(new Error(`upstream said: ${'y'.repeat(HUGE)}`), {
+      onError: silent,
+      fingerprintParts: ['constructor_name', 'message'],
+    });
+    expect(report.fingerprint).toMatch(/^fp1_[0-9a-f]{32}$/);
+  });
+
+  test('two strings that differ only after the cap share a fingerprint', () => {
+    const maker = withParts(['message']);
+    const head = 'z'.repeat(20_000);
+    expect(maker.makeFingerprint(new Error(`${head}A`))).toBe(
+      maker.makeFingerprint(new Error(`${head}B`)),
+    );
+    expect(maker.makeFingerprint(new Error(`A${head}`))).not.toBe(
+      maker.makeFingerprint(new Error(`B${head}`)),
+    );
+  });
+
+  // The fallback is cut like any other string, and it may also be absent.
+  test('a root whose string form failed still hashes its fallback', () => {
+    const hostile = {
+      toString() {
+        throw new Error('no string');
+      },
+    };
+    expect(withParts(DEFAULT_PARTS).makeFingerprint(hostile)).toMatch(
+      /^fp1_[0-9a-f]{32}$/,
+    );
+  });
+
+  test('a failure inside hashing leaves the report without a fingerprint', () => {
+    const spy = jest.spyOn(sha256, 'sha256Hex').mockImplementation(() => {
+      throw new Error('hash boom');
+    });
+    try {
+      const records: CorjReportingError[] = [];
+      const report = makeCorj(new Error('x'), {
+        onError: (_caught, record) => void records.push(record),
+      });
+      expect(report).not.toHaveProperty('fingerprint');
+      expect(report.reporting_errors).toEqual([
+        {
+          stage: 'other',
+          path: '$',
+          key: 'fingerprint',
+          error: 'Error: hash boom',
+        },
+      ]);
+      expect(records).toHaveLength(1);
+      expect(
+        withParts(DEFAULT_PARTS).makeFingerprint(new Error('x')),
+      ).toBeUndefined();
+    } finally {
+      spy.mockRestore();
+    }
   });
 });

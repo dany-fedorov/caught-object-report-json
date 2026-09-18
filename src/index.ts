@@ -1488,6 +1488,18 @@ function toObject<T>(entries: Entry[]): T {
 
 /** Own cap of one nested value inside a fingerprint, in UTF-8 bytes. */
 const FINGERPRINT_VALUE_MAX_SIZE = 16_384;
+/**
+ * Own cap of one string value inside a fingerprint, in UTF-16 code units. It
+ * bounds the hash input at nodes x parts x this much, so no caught object can
+ * make hashing cost or allocate without limit. Two strings that differ only
+ * past the cap share a fingerprint, which is the same trade the nested cap makes.
+ */
+const FINGERPRINT_STRING_MAX_LENGTH = 16_384;
+
+/** Scrub first, cut second: a secret straddling the cut must not survive it. */
+function cutForFingerprint(text: string): string {
+  return text.slice(0, FINGERPRINT_STRING_MAX_LENGTH);
+}
 
 /**
  * The maker's serializer with keys sorted and a fixed bound, so the same value
@@ -1506,8 +1518,19 @@ function sortedStringify(ctx: Ctx, mode: CorjInspection): Stringify {
   return ctx.sorted[mode] as Stringify;
 }
 
-/** What one part contributes for one node. Everything is hashed after redaction. */
+/** What one part contributes for one node. Everything is hashed after redaction, and every string is cut. */
 function fingerprintValue(
+  ctx: Ctx,
+  node: Node,
+  fields: NodeFields,
+  part: ResolvedPart,
+): FingerprintValue {
+  const value = readFingerprintValue(ctx, node, fields, part);
+  return typeof value === 'string' ? cutForFingerprint(value) : value;
+}
+
+/** One part's value for one node, before the string cut. */
+function readFingerprintValue(
   ctx: Ctx,
   node: Node,
   fields: NodeFields,
@@ -1609,20 +1632,35 @@ function computeFingerprint(
   if (call.fingerprint !== undefined) return call.fingerprint;
   const parts = ctx.parts;
   if (parts === null) return undefined;
-  const rows = [[root, rootFields] as const, ...children].map(
-    ([node, fields]) =>
+  // Nothing below may throw out of a report: a report without a `fingerprint`
+  // is still a report, and the failure is data like any other.
+  try {
+    const rows = [[root, rootFields] as const, ...children].map(
+      ([node, fields]) =>
+        [
+          node.path,
+          parts.map((part) => fingerprintValue(ctx, node, fields, part)),
+        ] as const,
+    );
+    const asString = rootFields.values.as_string;
+    return fingerprintOf(
+      parts.map((part) => part.label),
+      rows,
       [
-        node.path,
-        parts.map((part) => fingerprintValue(ctx, node, fields, part)),
-      ] as const,
-  );
-  return fingerprintOf(
-    parts.map((part) => part.label),
-    rows,
-    [rootFields.values.typeof, rootFields.values.as_string ?? null],
-    // A thrown primitive or plain object has no stack; its string form is its identity.
-    typeof rootFields.rawStack !== 'string',
-  );
+        rootFields.values.typeof,
+        asString === null ? null : cutForFingerprint(asString),
+      ],
+      // A thrown primitive or plain object has no stack; its string form is its identity.
+      typeof rootFields.rawStack !== 'string',
+    );
+  } catch (failure: unknown) {
+    reportError(ctx, failure, {
+      stage: 'other',
+      path: '$',
+      key: 'fingerprint',
+    });
+    return undefined;
+  }
 }
 
 /**

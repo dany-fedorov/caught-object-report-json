@@ -18,9 +18,16 @@ const K = new Uint32Array([
   0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2,
 ]);
 
-/** UTF-8 bytes of a string; a lone surrogate becomes U+FFFD, as `TextEncoder` does. */
-function utf8(text: string): number[] {
-  const out: number[] = [];
+/** How many UTF-8 bytes one code point needs. */
+function utf8Size(code: number): number {
+  if (code < 0x80) return 1;
+  if (code < 0x800) return 2;
+  if (code < 0x10000) return 3;
+  return 4;
+}
+
+/** Every code point of a string; a lone surrogate becomes U+FFFD, as `TextEncoder` does. */
+function forEachCodePoint(text: string, visit: (code: number) => void): void {
   for (let i = 0; i < text.length; i++) {
     let code = text.charCodeAt(i);
     if (code >= 0xd800 && code <= 0xdbff) {
@@ -34,25 +41,46 @@ function utf8(text: string): number[] {
     } else if (code >= 0xdc00 && code <= 0xdfff) {
       code = 0xfffd;
     }
-    if (code < 0x80) {
-      out.push(code);
-    } else if (code < 0x800) {
-      out.push(0xc0 | (code >> 6), 0x80 | (code & 0x3f));
-    } else if (code < 0x10000) {
-      out.push(
-        0xe0 | (code >> 12),
-        0x80 | ((code >> 6) & 0x3f),
-        0x80 | (code & 0x3f),
-      );
-    } else {
-      out.push(
-        0xf0 | (code >> 18),
-        0x80 | ((code >> 12) & 0x3f),
-        0x80 | ((code >> 6) & 0x3f),
-        0x80 | (code & 0x3f),
-      );
-    }
+    visit(code);
   }
+}
+
+/** One code point written at `at`; returns the next free offset. */
+function writeUtf8(out: Uint8Array, at: number, code: number): number {
+  let next = at;
+  if (code < 0x80) {
+    out[next++] = code;
+  } else if (code < 0x800) {
+    out[next++] = 0xc0 | (code >> 6);
+    out[next++] = 0x80 | (code & 0x3f);
+  } else if (code < 0x10000) {
+    out[next++] = 0xe0 | (code >> 12);
+    out[next++] = 0x80 | ((code >> 6) & 0x3f);
+    out[next++] = 0x80 | (code & 0x3f);
+  } else {
+    out[next++] = 0xf0 | (code >> 18);
+    out[next++] = 0x80 | ((code >> 12) & 0x3f);
+    out[next++] = 0x80 | ((code >> 6) & 0x3f);
+    out[next++] = 0x80 | (code & 0x3f);
+  }
+  return next;
+}
+
+/**
+ * UTF-8 bytes of a string. Counted first and filled second, into an exactly
+ * sized `Uint8Array`: a `number[]` cost a JS number per byte and threw
+ * `RangeError: Invalid array length` once the input passed about 128 MB.
+ */
+function utf8(text: string): Uint8Array {
+  let length = 0;
+  forEachCodePoint(text, (code) => {
+    length += utf8Size(code);
+  });
+  const out = new Uint8Array(length);
+  let at = 0;
+  forEachCodePoint(text, (code) => {
+    at = writeUtf8(out, at, code);
+  });
   return out;
 }
 
@@ -61,29 +89,32 @@ const rotr = (x: number, n: number): number => (x >>> n) | (x << (32 - n));
 export function sha256Hex(text: string): string {
   const bytes = utf8(text);
   const bitLength = bytes.length * 8;
-  bytes.push(0x80);
-  while (bytes.length % 64 !== 56) bytes.push(0);
+  // The padded message: the bytes, one `0x80`, zeroes up to 56 mod 64, and the
+  // 64-bit big-endian bit length. Sized once, so nothing grows while hashing.
+  const zeroes = (((55 - (bytes.length % 64)) % 64) + 64) % 64;
+  const message = new Uint8Array(bytes.length + 9 + zeroes);
+  message.set(bytes);
+  message[bytes.length] = 0x80;
+  let tail = message.length - 8;
   for (const word of [Math.floor(bitLength / 0x100000000), bitLength >>> 0]) {
-    bytes.push(
-      (word >>> 24) & 0xff,
-      (word >>> 16) & 0xff,
-      (word >>> 8) & 0xff,
-      word & 0xff,
-    );
+    message[tail++] = (word >>> 24) & 0xff;
+    message[tail++] = (word >>> 16) & 0xff;
+    message[tail++] = (word >>> 8) & 0xff;
+    message[tail++] = word & 0xff;
   }
   const h = new Uint32Array([
     0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c,
     0x1f83d9ab, 0x5be0cd19,
   ]);
   const w = new Uint32Array(64);
-  for (let offset = 0; offset < bytes.length; offset += 64) {
+  for (let offset = 0; offset < message.length; offset += 64) {
     for (let i = 0; i < 16; i++) {
       const j = offset + i * 4;
       w[i] =
-        (bytes[j]! << 24) |
-        (bytes[j + 1]! << 16) |
-        (bytes[j + 2]! << 8) |
-        bytes[j + 3]!;
+        (message[j]! << 24) |
+        (message[j + 1]! << 16) |
+        (message[j + 2]! << 8) |
+        message[j + 3]!;
     }
     for (let i = 16; i < 64; i++) {
       const s0 =

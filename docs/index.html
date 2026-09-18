@@ -458,54 +458,61 @@ route failures into your logs. Only your own configuration throws: unknown optio
 <code>toCorjAsJson(): unknown</code>. Both are called with <code>this</code> bound to the object and one argument <code>{ path, options }</code>. A method that
 throws is reported through <code>onError</code> and the default format is used; a method that returns an unusable value (a non-string, or a
 value without a JSON form) falls back silently. The formats used are recorded in <code>as_string_format</code> and <code>as_json_format</code>.</p>
-<a id="md:redacting-what-the-report-emits" class="tsd-anchor"></a><h1><a href="#md:redacting-what-the-report-emits">Redacting what the report emits</a></h1><p>A diagnostic representation can carry credentials: in enumerable properties, in a message, in a stack, in <code>as_string</code>, in a
-nested cause, and in the text of a secondary inspection failure. The package supplies the traversal and the transformation;
-which content is sensitive stays your decision.</p>
+<a id="md:redacting-what-the-report-emits" class="tsd-anchor"></a><h1><a href="#md:redacting-what-the-report-emits">Redacting what the report emits</a></h1><p>A report can carry credentials: in a property, a message, a stack, <code>as_string</code>, a nested cause, or the text of an inspection
+failure. CORJ supplies the mechanism; which content is sensitive stays your decision.</p>
+<p>A policy has two kinds of rule. <strong>Skip</strong> rules (<code>keys</code>, <code>paths</code>) name properties CORJ never reads, so an excluded getter never
+runs. <strong>Scrub</strong> rules (<code>patterns</code>, <code>transform</code>) rewrite text wherever the report emits it.</p>
 <pre><code class="language-typescript"><span class="hl-7">const</span><span class="hl-1"> </span><span class="hl-8">maker</span><span class="hl-1"> = </span><span class="hl-7">new</span><span class="hl-1"> </span><span class="hl-4">CorjMaker</span><span class="hl-1">({</span><br/><span class="hl-1">  </span><span class="hl-2">redact:</span><span class="hl-1"> {</span><br/><span class="hl-1">    </span><span class="hl-2">keys:</span><span class="hl-1"> [</span><span class="hl-3">&#39;password&#39;</span><span class="hl-1">,</span><span class="hl-11"> /</span><span class="hl-12">^</span><span class="hl-11">authorization</span><span class="hl-12">$</span><span class="hl-11">/</span><span class="hl-7">i</span><span class="hl-1">],</span><br/><span class="hl-1">    </span><span class="hl-2">paths:</span><span class="hl-1"> [</span><span class="hl-3">&#39;$.cause.config.headers&#39;</span><span class="hl-1">],</span><br/><span class="hl-1">    </span><span class="hl-2">patterns:</span><span class="hl-1"> [</span><span class="hl-11">/sk-live-</span><span class="hl-13">[</span><span class="hl-11">A-Za-z0-9</span><span class="hl-13">]</span><span class="hl-14">+</span><span class="hl-11">/</span><span class="hl-7">g</span><span class="hl-1">],</span><br/><span class="hl-1">    </span><span class="hl-2">replacement:</span><span class="hl-1"> </span><span class="hl-3">&#39;[redacted]&#39;</span><span class="hl-1">,</span><br/><span class="hl-1">    </span><span class="hl-4">transform</span><span class="hl-2">:</span><span class="hl-1"> (</span><span class="hl-2">value</span><span class="hl-1">, { </span><span class="hl-2">prop</span><span class="hl-1"> }) </span><span class="hl-7">=&gt;</span><span class="hl-1"> (</span><span class="hl-2">prop</span><span class="hl-1"> === </span><span class="hl-3">&#39;url&#39;</span><span class="hl-1"> ? </span><span class="hl-3">&#39;[url]&#39;</span><span class="hl-1"> : </span><span class="hl-2">value</span><span class="hl-1">),</span><br/><span class="hl-1">  },</span><br/><span class="hl-1">});</span>
 </code><button>Copy</button></pre>
 <table>
 <thead>
 <tr>
-<th>Part</th>
+<th>Rule</th>
+<th>Kind</th>
 <th>Meaning</th>
 </tr>
 </thead>
 <tbody><tr>
 <td><code>keys</code></td>
-<td>Property names CORJ never reads. A string matches exactly and is case-sensitive; use a <code>RegExp</code> for anything else.</td>
+<td>skip</td>
+<td>Property names never read, wherever they appear. A string matches exactly and is case-sensitive; use a <code>RegExp</code> for anything else.</td>
 </tr>
 <tr>
 <td><code>paths</code></td>
-<td>JSONPaths CORJ never reads, e.g. <code>&#39;$.cause.config.headers&#39;</code>. A string matches exactly.</td>
+<td>skip</td>
+<td>JSONPaths never read, e.g. <code>&#39;$.cause.config.headers&#39;</code>. A string matches exactly.</td>
 </tr>
 <tr>
 <td><code>patterns</code></td>
+<td>scrub</td>
 <td><code>RegExp</code>s replaced in every string the report emits. Each must carry the <code>g</code> flag, or the policy is rejected.</td>
 </tr>
 <tr>
-<td><code>replacement</code></td>
-<td>What an excluded value and a pattern match become, used literally (<code>$&amp;</code> and <code>$1</code> are not expanded). Defaults to <code>CORJ_REDACTED_MARKER</code> (<code>&#39;[redacted]&#39;</code>).</td>
+<td><code>transform</code></td>
+<td>scrub</td>
+<td><code>(value, context) =&gt; unknown</code>, run last on every emitted value. Returning <code>undefined</code> leaves the field out.</td>
 </tr>
 <tr>
-<td><code>transform</code></td>
-<td><code>(value, context) =&gt; unknown</code>, the last word on every emitted value. Returning <code>undefined</code> leaves the field out.</td>
+<td><code>replacement</code></td>
+<td>—</td>
+<td>What skipped and scrubbed content becomes, inserted literally (<code>$&amp;</code> and <code>$1</code> are not expanded). Defaults to <code>CORJ_REDACTED_MARKER</code> (<code>&#39;[redacted]&#39;</code>).</td>
 </tr>
 </tbody></table>
-<p><code>keys</code> and <code>paths</code> are consulted <strong>before</strong> the property is read, so CORJ never invokes an excluded getter. They select
-<em>properties</em>, not content — and error text is duplicated across <code>message</code>, <code>stack</code> and <code>as_string</code>, so excluding one read does
-not remove the text from the others:</p>
+<p><strong>To remove a secret&#39;s text, use <code>patterns</code>.</strong> Skip rules select <em>properties</em>, not content, and error text is duplicated
+across <code>message</code>, <code>stack</code> and <code>as_string</code>, so skipping one read does not remove the text from the others:</p>
 <pre><code class="language-typescript"><span class="hl-4">makeCorj</span><span class="hl-1">(</span><span class="hl-7">new</span><span class="hl-1"> </span><span class="hl-4">Error</span><span class="hl-1">(</span><span class="hl-3">&#39;boom SECRET&#39;</span><span class="hl-1">), { </span><span class="hl-2">redact:</span><span class="hl-1"> { </span><span class="hl-2">keys:</span><span class="hl-1"> [</span><span class="hl-3">&#39;message&#39;</span><span class="hl-1">] } });</span><br/><span class="hl-6">// message: &#39;[redacted]&#39;   stack[0]: &#39;Error: boom SECRET&#39;</span>
 </code><button>Copy</button></pre>
-<p>Under the default inspection the caught object&#39;s own <code>toString</code>, and V8&#39;s stack formatting, read <code>message</code> themselves; no
-policy can stop code CORJ did not call. <strong>To remove content, use <code>patterns</code> or <code>transform</code></strong>; combine them with
-<code>inspection: &#39;no-invoke&#39;</code> if you also need the getter never to run. <code>patterns</code> and <code>transform</code>
-act on values that were already produced. The <code>transform</code> context is <code>{ stage, path, key, prop }</code>, where <code>stage</code> is
-<code>&#39;prop-access&#39;</code>, <code>&#39;as_string&#39;</code>, <code>&#39;as_json&#39;</code> or <code>&#39;warning&#39;</code>. (<code>&#39;children&#39;</code> reaches only the <code>keys</code>/<code>paths</code> matchers, never
-<code>transform</code>, because a children source is excluded before it is read or not at all.)</p>
+<p>The caught object&#39;s own <code>toString</code>, and V8&#39;s stack formatting, read <code>message</code> themselves; no policy can stop code CORJ did not
+call. Add <code>inspection: &#39;no-invoke&#39;</code> if the getter must also never run.</p>
+<p>The <code>transform</code> context is <code>{ stage, path, key, prop }</code>, where <code>stage</code> is <code>&#39;prop-access&#39;</code>, <code>&#39;as_string&#39;</code>, <code>&#39;as_json&#39;</code> or
+<code>&#39;warning&#39;</code>. (<code>&#39;children&#39;</code> reaches only the skip rules, never <code>transform</code>: a children source is excluded before it is read or
+not at all.)</p>
 <a id="md:what-the-policy-reaches" class="tsd-anchor"></a><h2><a href="#md:what-the-policy-reaches">What the policy reaches</a></h2><ul>
 <li>every report field: <code>message</code>, <code>stack</code>, <code>constructor_name</code>, <code>as_string</code>, and every value <strong>and property name</strong> inside
 <code>as_json</code>, at any depth;</li>
-<li><code>id</code>, which <code>makeReportId</code> may have built from the caught object;</li>
+<li><code>id</code>, only when you supply <code>makeReportId</code>, since such an id may be built from the caught object. Default ids are
+structural and never rewritten, so <code>child_ids</code> keeps linking children to their reports. Two custom ids that scrub to
+the same text collide;</li>
 <li>the output of a caught object&#39;s own <code>toCorjAsString()</code> and <code>toCorjAsJson()</code>;</li>
 <li>every child report, not only the root;</li>
 <li>the line the default <code>onError</code> prints about a failure, which is otherwise built from the caught object&#39;s own text. A
@@ -516,18 +523,21 @@ Report schema, cycle handling and the <code>maxReportSize</code> budget are unaf
 Two property names that scrub to the same text collapse into one key in <code>as_json</code>.</p>
 <p>Because <code>keys</code> matches a property <em>name</em> wherever it appears, a broad name has a broad reach: <code>keys: [&#39;name&#39;]</code> also blanks
 <code>constructor_name</code>, which is read as <code>constructor.name</code>.</p>
-<a id="md:applying-the-policy-to-your-own-text" class="tsd-anchor"></a><h2><a href="#md:applying-the-policy-to-your-own-text">Applying the policy to your own text</a></h2><p>A <strong>custom</strong> <code>onError</code> gets the caught object unchanged, and anything else you log next to a report is text CORJ never sees.
-<code>resolveCorjRedactPolicy</code> and <code>CorjRedactor</code> are the same mechanism the maker uses, exported so one policy covers both.
-Resolve the policy once — the resolver validates it, returns <code>null</code> for <code>null</code> and <code>undefined</code>, and accepts an
-already-resolved policy — then hand it to a <code>CorjRedactor</code> and call <code>#text</code> on every string you emit yourself. <code>#text</code> always
-returns a string: a <code>transform</code> that drops the value, returns a non-string or throws yields the <code>replacement</code>. Use <code>#apply</code>
-only for a value that may legitimately stop being a string; it returns the <code>CORJ_REDACT_DROP</code> symbol for a dropped field,
-which the caller must map. <code>#text</code> never returns it.</p>
+<a id="md:applying-the-policy-to-your-own-text" class="tsd-anchor"></a><h2><a href="#md:applying-the-policy-to-your-own-text">Applying the policy to your own text</a></h2><p>A <strong>custom</strong> <code>onError</code> receives the caught object unchanged, and anything you log next to a report is text CORJ never sees.
+Apply the same policy to that text with the two exports the maker itself uses:</p>
+<ul>
+<li><code>resolveCorjRedactPolicy(input)</code> validates a policy once. It returns <code>null</code> for <code>null</code> and <code>undefined</code>, and accepts an
+already-resolved policy.</li>
+<li><code>new CorjRedactor(policy, onFailure).text(value, context)</code> scrubs one string and always returns a string: a <code>transform</code>
+that drops the value, returns a non-string or throws yields the <code>replacement</code>.</li>
+</ul>
+<p><code>#apply</code> is for a value that may stop being a string; it returns the <code>CORJ_REDACT_DROP</code> symbol for a dropped field, which the
+caller must map. <code>#text</code> never returns it.</p>
 <pre><code class="language-typescript"><span class="hl-0">import</span><span class="hl-1"> {</span><br/><span class="hl-1">  </span><span class="hl-2">CorjMaker</span><span class="hl-1">,</span><br/><span class="hl-1">  </span><span class="hl-2">CorjRedactor</span><span class="hl-1">,</span><br/><span class="hl-1">  </span><span class="hl-2">resolveCorjRedactPolicy</span><span class="hl-1">,</span><br/><span class="hl-1">} </span><span class="hl-0">from</span><span class="hl-1"> </span><span class="hl-3">&#39;caught-object-report-json&#39;</span><span class="hl-1">;</span><br/><br/><span class="hl-7">const</span><span class="hl-1"> </span><span class="hl-8">redact</span><span class="hl-1"> = { </span><span class="hl-2">patterns:</span><span class="hl-1"> [</span><span class="hl-11">/sk-live-</span><span class="hl-13">[</span><span class="hl-11">A-Za-z0-9</span><span class="hl-13">]</span><span class="hl-14">+</span><span class="hl-11">/</span><span class="hl-7">g</span><span class="hl-1">] };</span><br/><span class="hl-7">const</span><span class="hl-1"> </span><span class="hl-8">policy</span><span class="hl-1"> = </span><span class="hl-4">resolveCorjRedactPolicy</span><span class="hl-1">(</span><span class="hl-2">redact</span><span class="hl-1">);</span><br/><span class="hl-7">const</span><span class="hl-1"> </span><span class="hl-8">redactor</span><span class="hl-1"> = </span><span class="hl-2">policy</span><span class="hl-1"> &amp;&amp; </span><span class="hl-7">new</span><span class="hl-1"> </span><span class="hl-4">CorjRedactor</span><span class="hl-1">(</span><span class="hl-2">policy</span><span class="hl-1">, () </span><span class="hl-7">=&gt;</span><span class="hl-1"> </span><span class="hl-7">undefined</span><span class="hl-1">);</span><br/><br/><span class="hl-7">const</span><span class="hl-1"> </span><span class="hl-8">maker</span><span class="hl-1"> = </span><span class="hl-7">new</span><span class="hl-1"> </span><span class="hl-4">CorjMaker</span><span class="hl-1">({</span><br/><span class="hl-1">  </span><span class="hl-2">redact</span><span class="hl-1">,</span><br/><span class="hl-1">  </span><span class="hl-4">onError</span><span class="hl-2">:</span><span class="hl-1"> (</span><span class="hl-2">caught</span><span class="hl-1">, { </span><span class="hl-2">stage</span><span class="hl-1">, </span><span class="hl-2">path</span><span class="hl-1"> }) </span><span class="hl-7">=&gt;</span><span class="hl-1"> {</span><br/><span class="hl-1">    </span><span class="hl-7">const</span><span class="hl-1"> </span><span class="hl-8">line</span><span class="hl-1"> = </span><span class="hl-3">`corj </span><span class="hl-7">${</span><span class="hl-2">stage</span><span class="hl-7">}</span><span class="hl-3"> failed at </span><span class="hl-7">${</span><span class="hl-2">path</span><span class="hl-7">}</span><span class="hl-3">: </span><span class="hl-7">${</span><span class="hl-4">String</span><span class="hl-15">(</span><span class="hl-2">caught</span><span class="hl-15">)</span><span class="hl-7">}</span><span class="hl-3">`</span><span class="hl-1">;</span><br/><span class="hl-1">    </span><span class="hl-6">// `stage: &#39;warning&#39;` is the redaction stage for text a handler prints.</span><br/><span class="hl-1">    </span><span class="hl-2">logger</span><span class="hl-1">.</span><span class="hl-4">warn</span><span class="hl-1">(</span><br/><span class="hl-1">      </span><span class="hl-2">redactor</span><span class="hl-1"> ? </span><span class="hl-2">redactor</span><span class="hl-1">.</span><span class="hl-4">text</span><span class="hl-1">(</span><span class="hl-2">line</span><span class="hl-1">, { </span><span class="hl-2">stage:</span><span class="hl-1"> </span><span class="hl-3">&#39;warning&#39;</span><span class="hl-1">, </span><span class="hl-2">path</span><span class="hl-1"> }) : </span><span class="hl-2">line</span><span class="hl-1">,</span><br/><span class="hl-1">    );</span><br/><span class="hl-1">  },</span><br/><span class="hl-1">});</span>
 </code><button>Copy</button></pre>
-<a id="md:when-the-policy-itself-fails" class="tsd-anchor"></a><h2><a href="#md:when-the-policy-itself-fails">When the policy itself fails</a></h2><p>A throwing matcher or <code>transform</code> fails closed. The value it was asked about becomes the replacement rather than passing
-through, and the failure is reported once through <code>onError</code> with <code>stage: &#39;redact&#39;</code>. Reporting that failure does not consult the
-same policy again, so a policy that always throws cannot recurse.</p>
+<a id="md:when-the-policy-itself-fails" class="tsd-anchor"></a><h2><a href="#md:when-the-policy-itself-fails">When the policy itself fails</a></h2><p>A throwing matcher or <code>transform</code> fails closed: the value it was asked about becomes the replacement rather than passing
+through. The failure is reported through <code>onError</code> with <code>stage: &#39;redact&#39;</code>, once per value, so a <code>transform</code> that always throws
+reports several. Reporting a failure does not consult the same policy again, so such a policy cannot recurse.</p>
 <a id="md:what-a-policy-cannot-do" class="tsd-anchor"></a><h2><a href="#md:what-a-policy-cannot-do">What a policy cannot do</a></h2><ul>
 <li>It cannot discover a secret it was not told about. <code>keys</code>, <code>paths</code> and <code>patterns</code> are your configuration, not detection.</li>
 <li>It does not make error text trustworthy. A redacted message is still text a caught object controlled: it is diagnostic
@@ -792,10 +802,13 @@ the resolution mode, because the package exports named bindings and no <code>def
 <p>All four are checked under <code>--strict</code>, with no path mapping, against the installed artifact.</p>
 <a id="md:tested-versions" class="tsd-anchor"></a><h2><a href="#md:tested-versions">Tested versions</a></h2><p>CI runs the checks on Node 20 and Node 24, with the Bun, TypeScript, Vite and Playwright versions pinned in
 <code>tests/consumers/run.mjs</code>; the driver prints the exact versions it used at the top of every run.</p>
-<p>The published build targets CommonJS. There is no ESM build and no <code>exports</code> map, because the tests above show the current
-layout resolves correctly in every environment listed — not because the layout was judged ideal. One consequence is that every
-internal module is reachable as a deep import (<code>caught-object-report-json/report-size</code> and so on); treat those as private, as
-adding an <code>exports</code> map in a future major will close them.</p>
+<p>The published build targets CommonJS, and there is no ESM build: one file is served to every condition, so <code>import</code> and
+<code>require</code> always reach the same module instance and <code>instanceof</code> holds across import styles.</p>
+<p>As of 10.0.0 the package has an <code>exports</code> map, and only two entry points resolve: the package root and
+<code>caught-object-report-json/package.json</code>. Deep imports of internal modules — <code>caught-object-report-json/report-size</code>,
+<code>/redaction</code> and the rest — were never public and now throw <code>ERR_PACKAGE_PATH_NOT_EXPORTED</code>; in TypeScript under <code>node16</code> or
+<code>nodenext</code> they no longer type-check. Everything supported is exported from the root. The consumer checks assert both the
+closed paths and the single module instance against the packed artifact.</p>
 <p>Not covered by these tests, and therefore not supported: Deno, Cloudflare Workers and other edge runtimes, and React Native.</p>
 <a id="md:report-schema-history" class="tsd-anchor"></a><h1><a href="#md:report-schema-history">Report schema history</a></h1><table>
 <thead>
@@ -826,6 +839,11 @@ excludes a children source); <code>as_string_format</code> gained <code>&quot;de
 is configured.</li>
 <li>In TypeScript, <code>CorjErrorStage</code> gained <code>&#39;redact&#39;</code> and <code>CorjChildrenOmitted</code> gained those two values, so an exhaustive
 <code>switch</code> over either needs a new arm.</li>
+<li>Deep imports such as <code>caught-object-report-json/report-size</code> no longer resolve; import from the package root. The package
+now has an <code>exports</code> map, and only the root and <code>./package.json</code> are exported.</li>
+<li>A default report id (<code>&quot;root&quot;</code> and the discovery index) is no longer rewritten by a <code>redact</code> policy, so <code>child_ids</code> keeps
+linking children to their reports under a policy such as <code>patterns: [/\d/g]</code>. An id from a custom <code>makeReportId</code> is still
+scrubbed.</li>
 <li>New in 10.0.0: the <code>redact</code> and <code>inspection</code> options, and the <code>resolveCorjRedactPolicy</code> and <code>CorjRedactor</code> exports that let a
 custom <code>onError</code> apply the same policy.</li>
 </ul>

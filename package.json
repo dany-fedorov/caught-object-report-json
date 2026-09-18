@@ -12,7 +12,8 @@
     "postpublish-me": "rm -fr npm-module-build",
     "build-watch": "chokidar './src/**/*.ts' -c 'npm run build' -i './node_modules/**/*' --initial",
     "ts-file": "ts-node -r tsconfig-paths/register -T -s",
-    "test-ci": "npm run test -- --ci --coverage"
+    "test-ci": "npm run test -- --ci --coverage",
+    "test-consumers": "node ./tests/consumers/run.mjs"
   },
   "repository": {
     "type": "git",

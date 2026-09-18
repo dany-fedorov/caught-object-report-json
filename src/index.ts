@@ -135,6 +135,10 @@ export type CorjReportBase = {
   as_string_format?: CorjAsStringFormat;
   /** Omitted when `"safe-stable-stringify-with-length-limit"`. */
   as_json_format?: CorjAsJsonFormat;
+  /** Root only. The JSON form of the call's `context`, rooted at `$context`. Absent when the call passed none. */
+  context?: CorjJsonValue | null;
+  /** Root only. Present when `context` was left out to meet `maxReportSize`. */
+  context_omitted?: 'max_size';
   /** Root only. Failures met while this report was produced, at most 8. Absent when there were none. */
   reporting_errors?: CorjReportingError[];
   /** Root only. Report version, controlled by the `metadata` option. */
@@ -219,6 +223,8 @@ export type CorjOptions = {
   maxReportSize: number | null;
   /** Unit of `maxReportSize`. Defaults to UTF-8 bytes; `utf16-code-units` counts `json.length`. */
   reportSizeUnit: CorjReportSizeUnit;
+  /** Own size cap of the context container, inside `maxReportSize`. Defaults to `16384`; `null` leaves only the report budget. */
+  maxContextSize: number | null;
   /** Leave out fields holding their expected value, see {@link CORJ_EXPECTED_VALUES}. Defaults to `true`. */
   omitExpectedValues: boolean;
   /** Store `stack` as `stack.split('\n')` (`lines`, the default) or as the raw string. */
@@ -251,6 +257,14 @@ export type CorjOptionsInput = {
   redact?: CorjRedactPolicyInput | null;
 };
 
+/** What one call to a report function knows that its maker's options do not. */
+export type CorjCallInput = {
+  occurrenceId?: string;
+  fingerprint?: string;
+  /** Anything the caller wants beside the caught object. Reported at the root, rooted at `$context`. */
+  context?: unknown;
+};
+
 //  ██████╗ ██████╗ ███╗   ██╗███████╗████████╗ █████╗ ███╗   ██╗████████╗███████╗
 // ██╔════╝██╔═══██╗████╗  ██║██╔════╝╚══██╔══╝██╔══██╗████╗  ██║╚══██╔══╝██╔════╝
 // ██║     ██║   ██║██╔██╗ ██║███████╗   ██║   ███████║██╔██╗ ██║   ██║   ███████╗
@@ -260,6 +274,7 @@ export type CorjOptionsInput = {
 
 const MAX_REPORTING_ERRORS = 8;
 const REPORTING_ERROR_MAX_LENGTH = 256;
+const DEFAULT_MAX_CONTEXT_SIZE = 16_384;
 
 function describeValue(value: unknown): string {
   try {
@@ -295,6 +310,7 @@ function defaultMakeReportId({ index }: CorjReportIdContext): string {
 export const CORJ_DEFAULT_OPTIONS: CorjOptions = Object.freeze({
   maxReportSize: DEFAULT_MAX_REPORT_SIZE,
   reportSizeUnit: DEFAULT_REPORT_SIZE_UNIT,
+  maxContextSize: DEFAULT_MAX_CONTEXT_SIZE,
   omitExpectedValues: true,
   stackFormat: 'lines',
   inspection: 'default',
@@ -310,6 +326,7 @@ export const CORJ_DEFAULT_OPTIONS: CorjOptions = Object.freeze({
 const OPTION_KEYS: readonly (keyof CorjOptions)[] = Object.freeze([
   'maxReportSize',
   'reportSizeUnit',
+  'maxContextSize',
   'omitExpectedValues',
   'stackFormat',
   'inspection',
@@ -372,6 +389,7 @@ function resolveOptions(
   const options: CorjOptions = {
     maxReportSize: pick('maxReportSize'),
     reportSizeUnit: pick('reportSizeUnit'),
+    maxContextSize: pick('maxContextSize'),
     omitExpectedValues: pick('omitExpectedValues'),
     stackFormat: pick('stackFormat'),
     inspection: pick('inspection'),
@@ -384,6 +402,15 @@ function resolveOptions(
     onError: pick('onError'),
   };
   resolveReportSizeOptions(options);
+  if (
+    options.maxContextSize !== null &&
+    (!Number.isSafeInteger(options.maxContextSize) ||
+      options.maxContextSize < 256)
+  ) {
+    throw new RangeError(
+      'maxContextSize must be a safe integer >= 256, or null',
+    );
+  }
   if (typeof options.omitExpectedValues !== 'boolean') {
     throw new TypeError('omitExpectedValues must be a boolean');
   }
@@ -412,6 +439,26 @@ function resolveOptions(
     throw new TypeError('onError must be a function');
   }
   return Object.freeze(options);
+}
+
+const CALL_KEYS = ['occurrenceId', 'fingerprint', 'context'] as const;
+
+/** Validates one call's input; unknown keys are rejected the way unknown options are. */
+function resolveCall(call: unknown): CorjCallInput {
+  if (call === undefined) return {};
+  if (typeof call !== 'object' || call === null || Array.isArray(call)) {
+    throw new TypeError('call input must be an object');
+  }
+  for (const key of Object.keys(call)) {
+    if (!(CALL_KEYS as readonly string[]).includes(key)) {
+      throw new TypeError(
+        `Unknown call input "${key}". Known call inputs: ${CALL_KEYS.join(
+          ', ',
+        )}`,
+      );
+    }
+  }
+  return call as CorjCallInput;
 }
 
 // ██╗  ██╗███████╗██╗     ██████╗ ███████╗██████╗ ███████╗
@@ -1235,7 +1282,12 @@ function toObject<T>(entries: Entry[]): T {
   ) as T;
 }
 
-function build(ctx: Ctx, caught: unknown, asArray: boolean): Report {
+function build(
+  ctx: Ctx,
+  caught: unknown,
+  asArray: boolean,
+  call: CorjCallInput,
+): Report {
   const { root, nodes } = discover(ctx, caught);
   const rootFields = makeNodeFields(ctx, root);
   let anyTruncated = rootFields.truncated;
@@ -1253,6 +1305,25 @@ function build(ctx: Ctx, caught: unknown, asArray: boolean): Report {
       ...fields.formatEntries,
     ]);
   });
+  // The context is its own document rooted at `$context`, so a rule written for
+  // the caught object never reaches it, and vice versa.
+  let context: CorjJsonValue | null | undefined;
+  if (call.context !== undefined) {
+    const view = makeAsJson(
+      ctx,
+      {
+        id: 'context',
+        index: -1,
+        level: 0,
+        path: '$context',
+        obj: call.context,
+        childIds: [],
+      },
+      { lengthLimit: ctx.options.maxContextSize },
+    );
+    context = view.value;
+    anyTruncated ||= view.truncated;
+  }
   const { metadata, omitExpectedValues: omit } = ctx.options;
   const schemaLink = omit
     ? asArray
@@ -1279,6 +1350,7 @@ function build(ctx: Ctx, caught: unknown, asArray: boolean): Report {
       ...rootFields.entries,
       ['children_omitted', root.childrenOmitted],
       ['child_ids', root.childIds.length > 0 ? root.childIds : undefined],
+      ['context', context],
       ['reporting_errors', reportingErrors],
       ...tail,
     ]);
@@ -1289,6 +1361,7 @@ function build(ctx: Ctx, caught: unknown, asArray: boolean): Report {
     ...rootFields.entries,
     ['children_omitted', root.childrenOmitted],
     ['children', rows.length > 0 ? rows : undefined],
+    ['context', context],
     ['reporting_errors', reportingErrors],
     ...tail,
   ]);
@@ -1388,16 +1461,22 @@ export class CorjMaker {
     }
   }
 
-  makeReportObject(caught: unknown): CorjReport {
+  /** An invalid call input throws a `TypeError` before any work is done. */
+  makeReportObject(caught: unknown, call?: CorjCallInput): CorjReport {
+    const resolved = resolveCall(call);
     return this.collecting(() =>
-      finish(this.ctx, build(this.ctx, caught, false) as CorjReport),
+      finish(this.ctx, build(this.ctx, caught, false, resolved) as CorjReport),
     );
   }
 
   /** The root as the first element followed by every child; nodes link to each other by `child_ids`. */
-  makeReportArray(caught: unknown): CorjReportChild[] {
+  makeReportArray(caught: unknown, call?: CorjCallInput): CorjReportChild[] {
+    const resolved = resolveCall(call);
     return this.collecting(() =>
-      finish(this.ctx, build(this.ctx, caught, true) as CorjReportChild[]),
+      finish(
+        this.ctx,
+        build(this.ctx, caught, true, resolved) as CorjReportChild[],
+      ),
     );
   }
 
@@ -1476,14 +1555,16 @@ function makerFor(options: CorjOptionsInput | undefined): CorjMaker {
 export function makeCorj(
   caught: unknown,
   options?: CorjOptionsInput,
+  call?: CorjCallInput,
 ): CorjReport {
-  return makerFor(options).makeReportObject(caught);
+  return makerFor(options).makeReportObject(caught, call);
 }
 
 /** {@link CorjMaker.makeReportArray} with {@link CORJ_DEFAULT_OPTIONS} and the given overrides. */
 export function makeCorjArray(
   caught: unknown,
   options?: CorjOptionsInput,
+  call?: CorjCallInput,
 ): CorjReportChild[] {
-  return makerFor(options).makeReportArray(caught);
+  return makerFor(options).makeReportArray(caught, call);
 }

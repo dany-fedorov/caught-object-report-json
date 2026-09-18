@@ -64,6 +64,7 @@ describe('Assertions about package exports', function () {
         "inspection": "default",
         "makeReportId": [Function],
         "maxChildren": 100,
+        "maxContextSize": 16384,
         "maxDepth": 5,
         "maxReportSize": 100000,
         "metadata": Object {

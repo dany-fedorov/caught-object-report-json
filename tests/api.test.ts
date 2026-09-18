@@ -120,6 +120,7 @@ describe('constants', () => {
         "inspection": "default",
         "makeReportId": [Function],
         "maxChildren": 100,
+        "maxContextSize": 16384,
         "maxDepth": 5,
         "maxReportSize": 100000,
         "metadata": Object {
@@ -193,7 +194,7 @@ describe('options', () => {
     ]) {
       expect(() => new CorjMaker({ [name]: 1 } as CorjOptionsInput)).toThrow(
         new TypeError(
-          `Unknown option "${name}". Known options: maxReportSize, reportSizeUnit, omitExpectedValues, stackFormat, inspection, redact, metadata, maxDepth, maxChildren, childrenSources, makeReportId, onError`,
+          `Unknown option "${name}". Known options: maxReportSize, reportSizeUnit, maxContextSize, omitExpectedValues, stackFormat, inspection, redact, metadata, maxDepth, maxChildren, childrenSources, makeReportId, onError`,
         ),
       );
     }

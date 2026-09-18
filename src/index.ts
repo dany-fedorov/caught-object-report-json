@@ -896,6 +896,32 @@ function access(
   }
 }
 
+/** A canonical array index, the `$.ids[0]` spelling a `paths` rule is written in. */
+const INDEX_SEGMENT = /^(0|[1-9][0-9]*)$/;
+
+/**
+ * The JSONPath one segment leads to. An index is `[n]` whether it was written
+ * as a number or as a string, so `{ path: ['ids', '0'] }` asks the policy about
+ * the same `$.ids[0]` the serializer emits.
+ */
+function segmentPath(
+  path: string,
+  host: unknown,
+  segment: string | number,
+): string {
+  const prop = String(segment);
+  if (typeof segment === 'number' || INDEX_SEGMENT.test(prop)) {
+    let isArray = typeof segment === 'number';
+    try {
+      isArray ||= Array.isArray(host);
+    } catch {
+      // A revoked proxy answers nothing; the dotted spelling is the safe default.
+    }
+    if (isArray) return `${path}[${prop}]`;
+  }
+  return `${path}.${prop}`;
+}
+
 /** A `{ field }` or `{ path }` read, with the JSONPath the value was reached at. */
 type EntryRead = Access & { path: string };
 
@@ -918,8 +944,7 @@ function readEntry(
   let last: Access = { found: false, threw: false };
   for (const segment of segments) {
     const prop = String(segment);
-    const next =
-      typeof segment === 'number' ? `${path}[${prop}]` : `${path}.${prop}`;
+    const next = segmentPath(path, host, segment);
     last = access(
       ctx,
       { stage: 'prop-access', path, key },

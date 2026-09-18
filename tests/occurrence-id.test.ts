@@ -317,6 +317,46 @@ describe('occurrence_id', () => {
     ).toBe('deep-2');
   });
 
+  test('a numeric string segment addresses an array index for skip rules', () => {
+    const caught = Object.assign(new Error('x'), {
+      ids: ['SECRET-ID-0', 'public-1'],
+    });
+    for (const path of [
+      ['ids', 0],
+      ['ids', '0'],
+    ]) {
+      const maker = new CorjMaker({
+        onError: silent,
+        occurrenceIdSources: [{ path } as CorjOccurrenceIdSource],
+        redact: { paths: ['$.ids[0]'] },
+      });
+      const report = maker.makeReportObject(caught);
+      expect(report).not.toHaveProperty('occurrence_id');
+      expect(report.as_json).toEqual({ ids: ['[redacted]', 'public-1'] });
+    }
+  });
+
+  test('a numeric key of a plain object keeps its dotted path', () => {
+    const caught = Object.assign(new Error('x'), { map: { '0': 'from-map' } });
+    const maker = new CorjMaker({
+      onError: silent,
+      occurrenceIdSources: [{ path: ['map', '0'] }],
+      redact: { paths: ['$.map[0]'] },
+    });
+    expect(maker.makeReportObject(caught).occurrence_id).toBe('from-map');
+  });
+
+  test('a revoked proxy on the way to an index answers nothing', () => {
+    const { proxy, revoke } = Proxy.revocable<Record<string, unknown>>({}, {});
+    revoke();
+    const caught = Object.assign(new Error('x'), { a: proxy });
+    const maker = new CorjMaker({
+      onError: silent,
+      occurrenceIdSources: [{ path: ['a', '0'] }],
+    });
+    expect(maker.makeReportObject(caught)).not.toHaveProperty('occurrence_id');
+  });
+
   test('occurrence_id is the first key of the root, in both shapes', () => {
     const options = {
       onError: silent,

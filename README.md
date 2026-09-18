@@ -45,6 +45,7 @@ try {
 * [Options](#options)
 * [Redacting what the report emits](#redacting-what-the-report-emits)
     * [What the policy reaches](#what-the-policy-reaches)
+    * [Applying the policy to your own text](#applying-the-policy-to-your-own-text)
     * [When the policy itself fails](#when-the-policy-itself-fails)
     * [What a policy cannot do](#what-a-policy-cannot-do)
 * [Reporting without running the caught object](#reporting-without-running-the-caught-object)
@@ -56,6 +57,7 @@ try {
     * [Imports](#imports)
     * [Tested versions](#tested-versions)
 * [Report schema history](#report-schema-history)
+* [Upgrading from v9](#upgrading-from-v9)
 * [Upgrading from v8](#upgrading-from-v8)
 * [Links](#links)
 
@@ -521,6 +523,39 @@ Two property names that scrub to the same text collapse into one key in `as_json
 
 Because `keys` matches a property *name* wherever it appears, a broad name has a broad reach: `keys: ['name']` also blanks
 `constructor_name`, which is read as `constructor.name`.
+
+## Applying the policy to your own text
+
+A **custom** `onError` gets the caught object unchanged, and anything else you log next to a report is text CORJ never sees.
+`resolveCorjRedactPolicy` and `CorjRedactor` are the same mechanism the maker uses, exported so one policy covers both.
+Resolve the policy once — the resolver validates it, returns `null` for `null` and `undefined`, and accepts an
+already-resolved policy — then hand it to a `CorjRedactor` and call `#text` on every string you emit yourself. `#text` always
+returns a string: a `transform` that drops the value, returns a non-string or throws yields the `replacement`. Use `#apply`
+only for a value that may legitimately stop being a string; it returns the `CORJ_REDACT_DROP` symbol for a dropped field,
+which the caller must map. `#text` never returns it.
+
+```typescript
+import {
+  CorjMaker,
+  CorjRedactor,
+  resolveCorjRedactPolicy,
+} from 'caught-object-report-json';
+
+const redact = { patterns: [/sk-live-[A-Za-z0-9]+/g] };
+const policy = resolveCorjRedactPolicy(redact);
+const redactor = policy && new CorjRedactor(policy, () => undefined);
+
+const maker = new CorjMaker({
+  redact,
+  onError: (caught, { stage, path }) => {
+    const line = `corj ${stage} failed at ${path}: ${String(caught)}`;
+    // `stage: 'warning'` is the redaction stage for text a handler prints.
+    logger.warn(
+      redactor ? redactor.text(line, { stage: 'warning', path }) : line,
+    );
+  },
+});
+```
 
 ## When the policy itself fails
 
@@ -1389,6 +1424,17 @@ and `makeReportArray(caught)`. `maker.with(options)` returns a new maker with th
 
 Fills omitted expected values back in, turning a `corj/v0.13` report into its `corj/v0.13-full` form.
 
+#### `resolveCorjRedactPolicy(input)`
+
+Validates a redaction policy and returns it frozen, `null` for `null` and `undefined`, and throws a `TypeError` for anything
+invalid. An already-resolved policy is accepted and returned resolved.
+
+#### `new CorjRedactor(policy, onFailure)`
+
+Applies one resolved policy. `#text(value, context)` scrubs a string you emit yourself and always returns a string; `#apply`
+may return the `CORJ_REDACT_DROP` symbol. See
+[Applying the policy to your own text](#applying-the-policy-to-your-own-text).
+
 #### Types
 
 `CorjReport`, `CorjReportChild`, `CorjReportBase`, `CorjOptions`, `CorjOptionsInput`, `CorjErrorContext`,
@@ -1458,18 +1504,34 @@ Not covered by these tests, and therefore not supported: Deno, Cloudflare Worker
 
 | Version | Change |
 | --- | --- |
-| `corj/v0.13` | `as_string_format` gained `"derived"`; `children_omitted` gained `"not_inspected"` and `"redacted"`. Both appear only when `inspection` or `redact` is configured. |
-| `corj/v0.12` | Shipped with v9: shorter API, bounded child discovery, omitted expected values. |
+| `corj/v0.13` | Shipped with 10.0.0: `as_string_format` gained `"derived"`; `children_omitted` gained `"not_inspected"` and `"redacted"`. Both appear only when `inspection` or `redact` is configured. |
+| `corj/v0.12` | Shipped with 9.0.0: shorter API, bounded child discovery, omitted expected values. |
 
-A reader that ignores `v` needs no change for `corj/v0.13`; one that validates against the `corj/v0.12` schema URL must move to
-the `corj/v0.13` URL, because each schema pins its own `v`. In TypeScript, `CorjErrorStage` gained `'redact'` and
-`CorjChildrenOmitted` gained two values, so an exhaustive `switch` over either needs a new arm.
+Each schema pins its own `v`, so a reader that validates against a schema URL moves with the format; a reader that ignores `v`
+does not have to.
+
+# Upgrading from v9
+
+10.0.0 is a major only because the report format moved to `corj/v0.13` (`corj/v0.13-full` for the full form). **Nothing
+changes for a caller that configures neither `redact` nor `inspection`:** no option was renamed or removed, and the output of
+every 9.x call is identical apart from `v`.
+
+- A reader that validates against the `corj/v0.12` schema URL must move to the `corj/v0.13` URL. One that ignores `v` needs no
+  change.
+- `children_omitted` gained `"not_inspected"` (from `inspection: 'no-invoke'`) and `"redacted"` (from a `redact` policy that
+  excludes a children source); `as_string_format` gained `"derived"`. All three appear only when the option that produces them
+  is configured.
+- In TypeScript, `CorjErrorStage` gained `'redact'` and `CorjChildrenOmitted` gained those two values, so an exhaustive
+  `switch` over either needs a new arm.
+- New in 10.0.0: the `redact` and `inspection` options, and the `resolveCorjRedactPolicy` and `CorjRedactor` exports that let a
+  custom `onError` apply the same policy.
 
 # Upgrading from v8
 
-Reports use schema `corj/v0.13`. The runtime rejects the old option names with a `TypeError` that lists the valid ones.
+9.0.0 renamed the API and 10.0.0 kept those names, so a v8 codebase moves to 10.0.0 in one step. Reports use schema
+`corj/v0.13`. The runtime rejects the old option names with a `TypeError` that lists the valid ones.
 
-| v8 | v9 |
+| v8 | 10.0.0 |
 | --- | --- |
 | `makeCaughtObjectReportJson`, `bakeCorj` | `makeCorj` |
 | `makeCaughtObjectReportJsonArray`, `bakeCorjArray` | `makeCorjArray` |

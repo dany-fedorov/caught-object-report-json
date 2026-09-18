@@ -12,7 +12,7 @@ describe('makeCorj', function () {
     delete report.stack;
     expect(report).toMatchInlineSnapshot(`
       Object {
-        "v": "corj/v0.12",
+        "v": "corj/v0.13",
       }
     `);
   });
@@ -39,7 +39,7 @@ describe('makeCorj', function () {
         "constructor_name": "Object",
         "instanceof_error": false,
         "message": null,
-        "v": "corj/v0.12",
+        "v": "corj/v0.13",
       }
     `);
     expect(onErrorArray).toMatchInlineSnapshot(`
@@ -94,7 +94,7 @@ describe('makeCorj', function () {
     const b = makeCorjArray(new Error('b'), { metadata: false });
     expect(getReportArrayReportValidator()(a)).toBe(true);
     expect(getReportArrayReportValidator()(b)).toBe(true);
-    expect(a[0]!.v).toBe('corj/v0.12');
+    expect(a[0]!.v).toBe('corj/v0.13');
     expect(b[0]!.v).toBeUndefined();
     expect(spy.mock.instances[0]).not.toBe(spy.mock.instances[1]);
     spy.mockRestore();

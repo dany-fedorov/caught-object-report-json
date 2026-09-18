@@ -10,12 +10,27 @@ export const DEFAULT_REPORT_SIZE_UNIT: JsonSizeUnit = 'utf8-bytes';
 export const CORJ_TRUNCATED_MARKER: string = TRUNCATED_MARKER;
 /** Replaces a circular reference inside `as_json`. */
 export const CORJ_CIRCULAR_MARKER = '[circular]';
+/**
+ * Replaces content that `inspection: "no-invoke"` refused to produce because
+ * obtaining it would have run code on the caught object. It marks content that
+ * exists but was not inspected, which a missing field does not.
+ */
+export const CORJ_OMITTED_MARKER = '[not-inspected]';
 
-/** A configured serializer with optional per-call limit overrides. */
+/** A configured serializer with optional per-call overrides. */
 export type Stringify = (
   value: unknown,
   replacer?: ((this: object, key: string, value: unknown) => unknown) | null,
-  perCall?: { lengthLimit?: number; onTruncate?: () => void },
+  perCall?: {
+    lengthLimit?: number;
+    onTruncate?: () => void;
+    /** Decides a property's fate before it is read; see `safe-stable-stringify`. */
+    redact?: (key: string, path: string, read: () => unknown) => unknown;
+    /** Rewrites an object key on its way into the output. */
+    mapKey?: ((key: string, path: string) => string) | undefined;
+    /** JSONPath the root value sits at. Defaults to `"$"`. */
+    basePath?: string;
+  },
 ) => string | undefined;
 
 export function resolveReportSizeOptions(

@@ -127,6 +127,7 @@ describe('constants', () => {
           "$schema": false,
           "v": true,
         },
+        "occurrenceIdSources": null,
         "omitExpectedValues": true,
         "onError": [Function],
         "redact": null,
@@ -194,7 +195,7 @@ describe('options', () => {
     ]) {
       expect(() => new CorjMaker({ [name]: 1 } as CorjOptionsInput)).toThrow(
         new TypeError(
-          `Unknown option "${name}". Known options: maxReportSize, reportSizeUnit, maxContextSize, omitExpectedValues, stackFormat, inspection, redact, metadata, maxDepth, maxChildren, childrenSources, makeReportId, onError`,
+          `Unknown option "${name}". Known options: maxReportSize, reportSizeUnit, maxContextSize, omitExpectedValues, stackFormat, inspection, redact, metadata, maxDepth, maxChildren, childrenSources, occurrenceIdSources, makeReportId, onError`,
         ),
       );
     }

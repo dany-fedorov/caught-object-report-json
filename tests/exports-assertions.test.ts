@@ -71,6 +71,7 @@ describe('Assertions about package exports', function () {
           "$schema": false,
           "v": true,
         },
+        "occurrenceIdSources": null,
         "omitExpectedValues": true,
         "onError": [Function],
         "redact": null,

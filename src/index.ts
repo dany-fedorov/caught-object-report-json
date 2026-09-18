@@ -28,6 +28,7 @@ import type {
   CorjReportKey,
   CorjStage,
 } from './redaction';
+import { isValidId, randomOccurrenceId, validateSourceEntry } from './tokens';
 import {
   CORJ_FULL_REPORT_ARRAY_JSON_SCHEMA_LINK,
   CORJ_FULL_REPORT_OBJECT_JSON_SCHEMA_LINK,
@@ -201,6 +202,22 @@ export type CorjReportIdContext = {
   caught: unknown;
 };
 
+/**
+ * One place on the caught object a token is read from: a single property, or a
+ * path of at most 16 segments walked from the root. `inspection` overrides the
+ * maker's own for this read alone.
+ */
+export type CorjSourceEntry =
+  | { field: string; inspection?: CorjInspection }
+  | { path: readonly (string | number)[]; inspection?: CorjInspection };
+/** A source that computes a token itself. It is given the root's id context. */
+export type CorjEntryFunction = (context: CorjReportIdContext) => unknown;
+/** One entry of {@link CorjOptions.occurrenceIdSources}. `{ auto: 'random' }` always yields an id, so nothing may follow it. */
+export type CorjOccurrenceIdSource =
+  | CorjSourceEntry
+  | CorjEntryFunction
+  | { auto: 'random' };
+
 /** @deprecated Use {@link CorjStage}. */
 export type CorjErrorStage = CorjStage;
 /** @deprecated Use {@link CorjContext}. */
@@ -248,6 +265,8 @@ export type CorjOptions = {
   maxChildren: number;
   /** Properties to collect children from. Arrays contribute one child per element. Defaults to `["cause", "errors"]`. */
   childrenSources: readonly string[];
+  /** Where `occurrence_id` comes from: an ordered list, first valid id wins. `null` or `[]` omits the field. */
+  occurrenceIdSources: readonly CorjOccurrenceIdSource[] | null;
   /** Produces the `id` of a node. Called once per discovered node. */
   makeReportId: (context: CorjReportIdContext) => string;
   /** Called as `(caught, record)` when something throws while the report is produced. Defaults to `console.warn`. */
@@ -331,6 +350,7 @@ export const CORJ_DEFAULT_OPTIONS: CorjOptions = Object.freeze({
   maxDepth: 5,
   maxChildren: 100,
   childrenSources: CORJ_EXPECTED_VALUES.children_sources,
+  occurrenceIdSources: null,
   makeReportId: defaultMakeReportId,
   onError: defaultOnError,
 });
@@ -347,9 +367,47 @@ const OPTION_KEYS: readonly (keyof CorjOptions)[] = Object.freeze([
   'maxDepth',
   'maxChildren',
   'childrenSources',
+  'occurrenceIdSources',
   'makeReportId',
   'onError',
 ]);
+
+/**
+ * Validates and freezes the occurrence id source list. `{ auto: 'random' }`
+ * always produces an id, so an entry after it is a configuration mistake rather
+ * than a fallback that never fires.
+ */
+function resolveOccurrenceIdSources(
+  value: unknown,
+): readonly CorjOccurrenceIdSource[] | null {
+  if (value === null) return null;
+  if (!Array.isArray(value)) {
+    throw new TypeError('occurrenceIdSources must be an array or null');
+  }
+  let autoAt = -1;
+  value.forEach((entry: unknown, index) => {
+    const where = `occurrenceIdSources[${index}]`;
+    if (autoAt !== -1) {
+      throw new TypeError(`${where} can never be reached: it follows { auto }`);
+    }
+    if (typeof entry === 'function') return;
+    if (typeof entry !== 'object' || entry === null) {
+      throw new TypeError(`${where} must be an object or a function`);
+    }
+    if ('auto' in entry) {
+      if (
+        (entry as { auto: unknown }).auto !== 'random' ||
+        Object.keys(entry).length !== 1
+      ) {
+        throw new TypeError(`${where}.auto must be "random"`);
+      }
+      autoAt = index;
+      return;
+    }
+    validateSourceEntry(entry, where);
+  });
+  return Object.freeze([...value]) as readonly CorjOccurrenceIdSource[];
+}
 
 function resolveOptions(
   base: CorjOptions,
@@ -410,6 +468,7 @@ function resolveOptions(
     maxDepth: pick('maxDepth'),
     maxChildren: pick('maxChildren'),
     childrenSources: pick('childrenSources'),
+    occurrenceIdSources: pick('occurrenceIdSources'),
     makeReportId: pick('makeReportId'),
     onError: pick('onError'),
   };
@@ -436,6 +495,9 @@ function resolveOptions(
     throw new TypeError('childrenSources must be an array of strings');
   }
   options.childrenSources = Object.freeze([...options.childrenSources]);
+  options.occurrenceIdSources = resolveOccurrenceIdSources(
+    options.occurrenceIdSources,
+  );
   if (typeof options.makeReportId !== 'function') {
     throw new TypeError('makeReportId must be a function');
   }
@@ -461,6 +523,12 @@ function resolveCall(call: unknown): CorjCallInput {
         )}`,
       );
     }
+  }
+  const { occurrenceId } = call as CorjCallInput;
+  if (occurrenceId !== undefined && !isValidId(occurrenceId)) {
+    throw new TypeError(
+      'occurrenceId must be 1 to 128 printable ASCII characters without spaces',
+    );
   }
   return call as CorjCallInput;
 }
@@ -682,7 +750,8 @@ function accessNoInvoke(host: unknown, prop: PropertyKey): Access {
 /**
  * Read `host[prop]` without letting a getter, proxy trap or primitive host throw
  * out. `redactPath` overrides the JSONPath the policy is asked about, for reads
- * whose path is not `<node path>.<prop>`.
+ * whose path is not `<node path>.<prop>`. `inspection` overrides the maker's own
+ * for this one read.
  */
 function access(
   ctx: Ctx,
@@ -690,6 +759,7 @@ function access(
   host: unknown,
   prop: string,
   redactPath?: string,
+  inspection?: CorjInspection,
 ): Access {
   if (host === undefined || host === null) {
     return { found: false, threw: false };
@@ -711,7 +781,7 @@ function access(
     };
   }
   try {
-    if (ctx.options.inspection === 'no-invoke') {
+    if ((inspection ?? ctx.options.inspection) === 'no-invoke') {
       return accessNoInvoke(host, prop);
     }
     if (!isObjectLike(host)) {
@@ -732,6 +802,39 @@ function access(
     reportError(ctx, caught, { ...context, prop });
     return { found: false, threw: true };
   }
+}
+
+/** Walk a `{ field }` or `{ path }` entry from a node. Skip rules and `inspection` apply at every segment. */
+function readEntry(
+  ctx: Ctx,
+  node: Pick<Node, 'obj' | 'path'>,
+  entry: CorjSourceEntry,
+  key: CorjReportKey,
+): Access {
+  const segments: readonly (string | number)[] =
+    'field' in entry ? [entry.field] : entry.path;
+  let host: unknown = node.obj;
+  let path = node.path;
+  let last: Access = { found: false, threw: false };
+  for (const segment of segments) {
+    const prop = String(segment);
+    const next =
+      typeof segment === 'number' ? `${path}[${prop}]` : `${path}.${prop}`;
+    last = access(
+      ctx,
+      { stage: 'prop-access', path, key },
+      host,
+      prop,
+      next,
+      entry.inspection,
+    );
+    if (!last.found || last.redacted !== undefined || last.omitted === true) {
+      return last;
+    }
+    host = last.value;
+    path = next;
+  }
+  return last;
 }
 
 function makeId(ctx: Ctx, context: CorjReportIdContext): string {
@@ -1286,12 +1389,59 @@ function toObject<T>(entries: Entry[]): T {
   ) as T;
 }
 
+/**
+ * The first source that yields a valid id wins; a source that yields nothing
+ * usable is passed over in silence, since a missing id is not a failure. The
+ * call's own argument outranks every source.
+ */
+function resolveOccurrenceId(
+  ctx: Ctx,
+  caught: unknown,
+  call: CorjCallInput,
+): string | undefined {
+  if (call.occurrenceId !== undefined) return call.occurrenceId;
+  const sources = ctx.options.occurrenceIdSources;
+  if (sources === null) return undefined;
+  for (const source of sources) {
+    let candidate: unknown;
+    if (typeof source === 'function') {
+      try {
+        candidate = source({ index: -1, level: 0, path: '$', caught });
+      } catch (failure: unknown) {
+        reportError(ctx, failure, {
+          stage: 'other',
+          path: '$',
+          key: 'occurrence_id',
+        });
+        continue;
+      }
+    } else if ('auto' in source) {
+      return randomOccurrenceId(caught);
+    } else {
+      const read = readEntry(
+        ctx,
+        { obj: caught, path: '$' },
+        source,
+        'occurrence_id',
+      );
+      candidate =
+        read.found && read.redacted === undefined && read.omitted !== true
+          ? read.value
+          : undefined;
+    }
+    if (isValidId(candidate)) return candidate;
+  }
+  return undefined;
+}
+
 function build(
   ctx: Ctx,
   caught: unknown,
   asArray: boolean,
   call: CorjCallInput,
 ): Report {
+  // First, so the id heads the root and is in hand before anything can fail.
+  const occurrenceId = resolveOccurrenceId(ctx, caught, call);
   const { root, nodes } = discover(ctx, caught);
   const rootFields = makeNodeFields(ctx, root);
   let anyTruncated = rootFields.truncated;
@@ -1348,6 +1498,7 @@ function build(
     ctx.errors !== null && ctx.errors.length > 0 ? [...ctx.errors] : undefined;
   if (asArray) {
     const rootRow = toObject<CorjReportChild>([
+      ['occurrence_id', occurrenceId],
       ['id', root.id],
       ['path', root.path],
       ['level', root.level],
@@ -1362,6 +1513,7 @@ function build(
     return [rootRow, ...rows];
   }
   return toObject<CorjReport>([
+    ['occurrence_id', occurrenceId],
     ['truncated', anyTruncated ? true : undefined],
     ...rootFields.entries,
     ['children_omitted', root.childrenOmitted],

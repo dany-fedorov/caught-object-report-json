@@ -860,13 +860,21 @@ function access(
   }
 }
 
-/** Walk a `{ field }` or `{ path }` entry from a node. Skip rules and `inspection` apply at every segment. */
+/** A `{ field }` or `{ path }` read, with the JSONPath the value was reached at. */
+type EntryRead = Access & { path: string };
+
+/**
+ * Walk a `{ field }` or `{ path }` entry from a node. Skip rules and
+ * `inspection` apply at every segment, and the JSONPath the last segment was
+ * reached at comes back with the value: every consumer of the value keys the
+ * policy from it, so a `paths` rule sees one path per value wherever it is used.
+ */
 function readEntry(
   ctx: Ctx,
   node: Pick<Node, 'obj' | 'path'>,
   entry: CorjSourceEntry,
   key: CorjReportKey,
-): Access {
+): EntryRead {
   const segments: readonly (string | number)[] =
     'field' in entry ? [entry.field] : entry.path;
   let host: unknown = node.obj;
@@ -884,13 +892,13 @@ function readEntry(
       next,
       entry.inspection,
     );
+    path = next;
     if (!last.found || last.redacted !== undefined || last.omitted === true) {
-      return last;
+      break;
     }
     host = last.value;
-    path = next;
   }
-  return last;
+  return { ...last, path };
 }
 
 function makeId(ctx: Ctx, context: CorjReportIdContext): string {
@@ -1533,12 +1541,15 @@ function fingerprintValue(
     }
   }
   let prop: string | undefined;
+  // A function part's value has no path of its own: it is the node's.
+  let path = node.path;
   if (typeof part !== 'function') {
     const read = readEntry(ctx, node, part, 'fingerprint');
     if (read.redacted !== undefined) return read.redacted;
     if (read.omitted === true) return CORJ_OMITTED_MARKER;
     if (!read.found) return null;
     raw = read.value;
+    path = read.path;
     mode = part.inspection ?? mode;
     prop =
       'field' in part ? part.field : String(part.path[part.path.length - 1]);
@@ -1548,7 +1559,7 @@ function fingerprintValue(
   if (ctx.redactor !== null) {
     const out = ctx.redactor.apply(raw, {
       stage: 'prop-access',
-      path: node.path,
+      path,
       key: 'fingerprint',
       prop,
     });
@@ -1561,8 +1572,8 @@ function fingerprintValue(
   if (typeof raw === 'number') return Number.isFinite(raw) ? raw : null;
   if (typeof raw !== 'object' || raw === null) return null;
   try {
-    // Skip rules inside a nested value are keyed from the node's own path,
-    // which `keys` rules - the common case - do not depend on.
+    // Rooted at the value's own path, so a `paths` rule that redacts something
+    // inside it in `as_json` redacts the same thing in the hash input.
     const redact = jsonRedact(ctx, node, false, 'fingerprint');
     const json = sortedStringify(ctx, mode)(raw, null, {
       ...(redact === undefined
@@ -1570,7 +1581,7 @@ function fingerprintValue(
         : {
             redact,
             mapKey: jsonKeyRedact(ctx, 'fingerprint'),
-            basePath: node.path,
+            basePath: path,
           }),
     });
     return json === undefined ? null : (JSON.parse(json) as CorjJsonValue);

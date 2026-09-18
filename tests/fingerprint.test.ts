@@ -477,3 +477,119 @@ describe('fingerprint', () => {
     expect(one).toBe(two);
   });
 });
+
+describe('fingerprint values are redacted under their own path', () => {
+  const pair = (
+    options: CorjOptionsInput,
+    make: (secret: string) => unknown,
+  ): [string | undefined, string | undefined] => {
+    const maker = new CorjMaker({ onError: silent, ...options });
+    const [a, b] = ['AAA', 'BBB'].map((secret) =>
+      maker.makeFingerprint(make(secret)),
+    );
+    return [a, b];
+  };
+  const withDetails = (secret: string) =>
+    Object.assign(new Error('boom'), {
+      details: { tool: 'grep', token: secret, inner: { token2: secret } },
+    });
+
+  test('a paths rule on a property inside the value reaches the hash', () => {
+    const options = {
+      fingerprintParts: [{ field: 'details' }],
+      redact: { paths: ['$.details.token', '$.details.inner.token2'] },
+    } as const;
+    const [a, b] = pair(options, withDetails);
+    expect(a).toBe(b);
+    expect(
+      new CorjMaker({ onError: silent, ...options }).makeReportObject(
+        withDetails('AAA'),
+      ).as_json,
+    ).toEqual({
+      details: {
+        tool: 'grep',
+        token: '[redacted]',
+        inner: { token2: '[redacted]' },
+      },
+    });
+  });
+
+  test('an anchored paths RegExp reaches the hash', () => {
+    const [a, b] = pair(
+      {
+        fingerprintParts: [{ field: 'details' }],
+        redact: { paths: [/^\$\.details\.(token|inner)$/] },
+      },
+      withDetails,
+    );
+    expect(a).toBe(b);
+  });
+
+  test('a path entry hashes under the path it read from', () => {
+    const [a, b] = pair(
+      {
+        fingerprintParts: [{ path: ['details', 'inner'] }],
+        redact: { paths: ['$.details.inner.token2'] },
+      },
+      withDetails,
+    );
+    expect(a).toBe(b);
+  });
+
+  test('a transform keyed on the path of a nested value reaches the hash', () => {
+    const [a, b] = pair(
+      {
+        fingerprintParts: [{ field: 'details' }],
+        redact: {
+          transform: (value, { path }) =>
+            path === '$.details.token' || path === '$.details.inner.token2'
+              ? '[x]'
+              : value,
+        },
+      },
+      withDetails,
+    );
+    expect(a).toBe(b);
+  });
+
+  test('a transform keyed on the path of a string field reaches the hash', () => {
+    const [a, b] = pair(
+      {
+        fingerprintParts: [{ field: 'secretField' }],
+        redact: {
+          transform: (value, { path }) =>
+            path === '$.secretField' ? '[x]' : value,
+        },
+      },
+      (secret) => Object.assign(new Error('boom'), { secretField: secret }),
+    );
+    expect(a).toBe(b);
+  });
+
+  test('a keys rule still reaches the hash', () => {
+    const [a, b] = pair(
+      {
+        fingerprintParts: [{ field: 'details' }],
+        redact: { keys: ['token', 'token2'] },
+      },
+      withDetails,
+    );
+    expect(a).toBe(b);
+  });
+
+  test('a child node hashes under its own path', () => {
+    const [a, b] = pair(
+      {
+        fingerprintParts: [{ field: 'details' }],
+        redact: { paths: ['$.cause.details.token'] },
+      },
+      (secret) =>
+        new ErrorWithCause('outer', {
+          cause: Object.assign(new Error('boom'), {
+            details: { token: secret },
+          }),
+        }),
+    );
+    expect(a).toBe(b);
+  });
+});

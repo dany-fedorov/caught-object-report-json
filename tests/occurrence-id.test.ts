@@ -254,6 +254,47 @@ describe('occurrence_id', () => {
     },
   );
 
+  test('a paths rule on an intermediate segment stops the read', () => {
+    const caught = Object.assign(new Error('x'), {
+      a: { b: { id: 'deep-1' } },
+    });
+    const entry = { path: ['a', 'b', 'id'] } as const;
+    expect(withSources([entry]).makeReportObject(caught).occurrence_id).toBe(
+      'deep-1',
+    );
+    const skipping = new CorjMaker({
+      onError: silent,
+      occurrenceIdSources: [entry],
+      redact: { paths: ['$.a.b'] },
+    });
+    expect(skipping.makeReportObject(caught)).not.toHaveProperty(
+      'occurrence_id',
+    );
+  });
+
+  test('a per-entry inspection applies at every segment of a path', () => {
+    const caught = Object.assign(new Error('x'), {
+      a: {
+        get b(): { id: string } {
+          return { id: 'deep-2' };
+        },
+      },
+    });
+    const source = (inspection: 'default' | 'no-invoke') =>
+      ({ path: ['a', 'b', 'id'], inspection } as const);
+    // The first segment is a data property, so only the second can be refused.
+    expect(
+      withSources([source('no-invoke')]).makeReportObject(caught),
+    ).not.toHaveProperty('occurrence_id');
+    expect(
+      new CorjMaker({
+        onError: silent,
+        inspection: 'no-invoke',
+        occurrenceIdSources: [source('default')],
+      }).makeReportObject(caught).occurrence_id,
+    ).toBe('deep-2');
+  });
+
   test('occurrence_id is the first key of the root, in both shapes', () => {
     const options = {
       onError: silent,

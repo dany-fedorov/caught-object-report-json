@@ -1427,6 +1427,8 @@ export class CorjMaker {
       errors: null,
       stringifyOptions,
       unbounded: null,
+      // Every serializer option lives in `stringifyOptions`; only the bound is
+      // added here, so the unbounded twin a view builds keeps all the rest.
       stringify: configureStringify({
         ...stringifyOptions,
         ...(maxReportSize === null ? {} : { lengthLimit: maxReportSize }),

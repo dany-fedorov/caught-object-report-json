@@ -187,11 +187,36 @@ describe('the edges of the view API', () => {
     );
   });
 
-  test('the unbounded serializer is built once and reused', () => {
+  test('a second unbounded view is still unbounded, cache or not', () => {
     const maker = new CorjMaker({ maxReportSize: 512 });
     const big = { big: 'x'.repeat(5000) };
     expect(maker.makeJson(big, { maxSize: null }).truncated).toBe(false);
     expect(maker.makeJson(big, { maxSize: null }).truncated).toBe(false);
+  });
+
+  test('an unbounded view still obeys inspection: no-invoke', () => {
+    let ran = 0;
+    const value = {};
+    Object.defineProperty(value, 'lazy', {
+      enumerable: true,
+      get() {
+        ran++;
+        return 1;
+      },
+    });
+    const view = new CorjMaker({ inspection: 'no-invoke' }).makeJson(value, {
+      maxSize: null,
+    });
+    expect(ran).toBe(0);
+    expect(view.value).toEqual({ lazy: '[not-inspected]' });
+  });
+
+  test('an unbounded view marks a cycle instead of chasing it', () => {
+    const value: { self?: unknown; n: number } = { n: 1 };
+    value.self = value;
+    const view = new CorjMaker().makeJson(value, { maxSize: null });
+    expect(view.value).toEqual({ n: 1, self: '[circular]' });
+    expect(view.truncated).toBe(false);
   });
 
   test('a value with no JSON form comes back as null', () => {

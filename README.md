@@ -891,6 +891,7 @@ produces
 | | `'default'` | `'no-invoke'` |
 | --- | --- | --- |
 | a getter on `message`, `stack`, `constructor`, `cause`, `errors` | invoked | replaced with `CORJ_OMITTED_MARKER` |
+| `stack` of a host whose `name` or `message` is a getter | invoked | replaced with `CORJ_OMITTED_MARKER`, without the `stack` descriptor being read |
 | a getter reached while building `as_json` | invoked | replaced with `CORJ_OMITTED_MARKER` |
 | `toJSON`, `toCorjAsJson` | used | never called |
 | `toString`, `toCorjAsString` | used | never called; `as_string` is derived instead |
@@ -915,10 +916,15 @@ which means the caught object never had that property, and from `null`, which st
 Native errors keep their `stack` on V8 (Node, Chromium, Bun), which exposes `stack` as an own accessor property; `no-invoke`
 calls that one engine-provided getter, identified by reference, and no other accessor. Two cases withhold it instead:
 
-- V8 formats the stack string on first read, and formatting reads `name` and `message`. If either is an accessor, calling the
-  engine's getter would run the caught object's code, so `stack` becomes the marker rather than the mode breaking its promise.
+- V8 formats the stack string on first read, and formatting reads `name` and `message`. When either is an accessor, `stack`
+  is reported as the marker on **every** engine, whatever shape that engine gives it: on Node 18 and 20 the lazily formatted
+  stack is an own *data* property, and `Object.getOwnPropertyDescriptor(caught, 'stack')` is itself that first read, so the
+  descriptors of `name` and `message` - which are safe to read - settle the question before any `stack` descriptor is looked
+  at. The same rule withholds a plain `stack` string on a host whose `name` or `message` is an accessor, in `as_json` too:
+  telling the two shapes apart would mean performing the read the mode is avoiding.
 - The getter is identified by reference, so an error from another realm (a `vm` context, an iframe) is not recognized and its
-  `stack` and `as_string` are both the marker. On an engine that exposes `stack` as a data property, it is read normally.
+  `stack` and `as_string` are both the marker. Where `stack` is a data property and `name` and `message` are data properties
+  too, its value is read off the descriptor like any other property's.
 
 `Error.prepareStackTrace` is a global application hook rather than anything the caught object owns; if your process installs
 one it still runs during formatting, and no in-process option can prevent that.

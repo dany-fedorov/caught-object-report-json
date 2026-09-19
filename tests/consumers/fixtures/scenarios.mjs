@@ -117,6 +117,35 @@ export const scenarios = [
     },
   },
   {
+    name: 'inspection: "no-invoke" never formats a lazy stack',
+    run(corj) {
+      let read = 0;
+      class Lazy extends Error {
+        get name() {
+          read++;
+          return 'Lazy';
+        }
+      }
+      // On older V8 `stack` is an own data property the engine formats on the
+      // first read - including the read of its descriptor - and formatting
+      // performs a [[Get]] of `name`. The stack has to be withheld instead.
+      const report = corj.makeCorj(new Lazy('boom'), {
+        inspection: 'no-invoke',
+      });
+      assert(read === 0, `the name accessor ran ${read} times`);
+      assert(
+        String(report.stack) === corj.CORJ_OMITTED_MARKER,
+        `the stack was not withheld: ${String(report.stack)}`,
+      );
+      assert(
+        corj.makeCorj(new Error('ordinary'), {
+          inspection: 'no-invoke',
+        }).stack.length > 0,
+        'an ordinary error lost its stack',
+      );
+    },
+  },
+  {
     name: 'a redaction policy',
     run(corj) {
       const report = corj.makeCorj(new Error('token sk-live-ABC'), {

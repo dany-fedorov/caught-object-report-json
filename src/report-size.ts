@@ -5,6 +5,8 @@ import { stackDerivedFields } from './expected-values';
 
 export const DEFAULT_MAX_REPORT_SIZE = 100_000;
 export const DEFAULT_REPORT_SIZE_UNIT: JsonSizeUnit = 'utf8-bytes';
+/** The smallest budget a minimal report is guaranteed to fit. */
+export const CORJ_MIN_REPORT_SIZE = 512;
 
 /** Appended to a string, array or object that was cut to fit the report size limit. */
 export const CORJ_TRUNCATED_MARKER: string = TRUNCATED_MARKER;
@@ -33,6 +35,28 @@ export type Stringify = (
   },
 ) => string | undefined;
 
+/**
+ * One shape for every size bound corj accepts: a safe integer at or above the
+ * floor, or `null` for no bound. Floors differ - a report must hold a minimal
+ * report, a standalone value need not - so each caller passes its own.
+ */
+export function assertSizeLimit(
+  name: string,
+  value: unknown,
+  floor: number,
+  /** Appended after `or null`, for a message that says what `null` does. */
+  suffix = '',
+): asserts value is number | null {
+  if (
+    value !== null &&
+    (!Number.isSafeInteger(value) || (value as number) < floor)
+  ) {
+    throw new RangeError(
+      `${name} must be a safe integer >= ${floor}, or null${suffix}`,
+    );
+  }
+}
+
 export function resolveReportSizeOptions(
   options: Pick<CorjOptions, 'maxReportSize' | 'reportSizeUnit'>,
 ) {
@@ -44,14 +68,12 @@ export function resolveReportSizeOptions(
     options.reportSizeUnit === undefined
       ? DEFAULT_REPORT_SIZE_UNIT
       : options.reportSizeUnit;
-  if (
-    maxReportSize !== null &&
-    (!Number.isSafeInteger(maxReportSize) || maxReportSize < 256)
-  ) {
-    throw new RangeError(
-      'maxReportSize must be a safe integer >= 256, or null to disable the limit',
-    );
-  }
+  assertSizeLimit(
+    'maxReportSize',
+    maxReportSize,
+    CORJ_MIN_REPORT_SIZE,
+    ' to disable the limit',
+  );
   if (
     reportSizeUnit !== 'utf8-bytes' &&
     reportSizeUnit !== 'utf16-code-units'
@@ -74,7 +96,6 @@ const contentKeys = [
 ] as const;
 const metadataKeys = [
   '$schema',
-  'v',
   'as_json_format',
   'as_string_format',
   'children_sources',
@@ -87,7 +108,17 @@ export function makeMinimalReport<T extends Report>(report: T): T {
   const hasChildren = isArray
     ? report.length > 1
     : (root.children ?? []).length > 0;
-  const minimal: CorjReport = {
+  // The fixed fields head the root in both shapes, so a reader finds them in
+  // the same place; in the array form `id`, `path` and `level` follow them.
+  const fixed: CorjReport = {
+    ...(root.occurrence_id === undefined
+      ? {}
+      : { occurrence_id: root.occurrence_id }),
+    ...(root.fingerprint === undefined
+      ? {}
+      : { fingerprint: root.fingerprint }),
+  };
+  const rest: CorjReport = {
     truncated: true,
     ...(root.instanceof_error === undefined
       ? {}
@@ -96,9 +127,19 @@ export function makeMinimalReport<T extends Report>(report: T): T {
     as_string: CORJ_TRUNCATED_MARKER,
     as_json: null,
     ...(hasChildren ? { children_omitted: 'max_size' as const } : {}),
+    ...(root.context === undefined && root.context_omitted === undefined
+      ? {}
+      : { context_omitted: 'max_size' as const }),
+    ...(root.reporting_errors === undefined &&
+    root.reporting_errors_omitted === undefined
+      ? {}
+      : { reporting_errors_omitted: 'max_size' as const }),
+    ...(root.v === undefined ? {} : { v: root.v }),
   };
   return (
-    isArray ? [{ id: 'root', path: '$', level: 0, ...minimal }] : minimal
+    isArray
+      ? [{ ...fixed, id: 'root', path: '$', level: 0, ...rest }]
+      : { ...fixed, ...rest }
   ) as T;
 }
 
@@ -127,11 +168,38 @@ export function limitReportSize<T extends Report>(
   const fits = (value: Report) => !measure(value, maxReportSize).truncated;
   if (fits(report)) return report;
 
+  // `report` is rebound below, so read its parts through these helpers rather
+  // than through a narrowing that a reassignment invalidates.
   const isArray = Array.isArray(report);
-  const root = (isArray ? report[0] : report) as CorjReportChild & CorjReport;
-  const children: CorjReportChild[] = isArray
-    ? report.slice(1)
-    : root.children ?? [];
+  const rootOf = (value: Report): CorjReportChild & CorjReport =>
+    (Array.isArray(value) ? value[0] : value) as CorjReportChild & CorjReport;
+  // Only the root is rewritten below, so the rows after it never change.
+  const tail: CorjReportChild[] = Array.isArray(report) ? report.slice(1) : [];
+
+  // Optional root parts go before any error content: the caller's context,
+  // whole, then the reporting errors. Each leaves a flag behind.
+  const stripped = (drop: ('context' | 'reporting_errors')[]): T => {
+    const next: CorjReport = { ...rootOf(report), truncated: true };
+    for (const key of drop) {
+      if (next[key] === undefined) continue;
+      delete next[key];
+      next[`${key}_omitted`] = 'max_size';
+    }
+    return (isArray ? [next, ...tail] : next) as T;
+  };
+  const rootNow = rootOf(report);
+  if (rootNow.context !== undefined) {
+    const next = stripped(['context']);
+    if (fits(next)) return next;
+  }
+  if (rootNow.context !== undefined || rootNow.reporting_errors !== undefined) {
+    const next = stripped(['context', 'reporting_errors']);
+    if (fits(next)) return next;
+    report = next;
+  }
+
+  const root = rootOf(report);
+  const children: CorjReportChild[] = isArray ? tail : root.children ?? [];
 
   function candidate(
     valueLimit: number,
@@ -218,7 +286,7 @@ export function limitReportSize<T extends Report>(
   }
   if (!fits(best)) {
     // Custom IDs/paths can themselves exceed the entire budget. A minimal
-    // root-only report has no references to break and fits the 256-unit floor.
+    // root-only report has no references to break and fits the 512-unit floor.
     return makeMinimalReport(report);
   }
 

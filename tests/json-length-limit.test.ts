@@ -20,7 +20,7 @@ describe('report JSON length limit', () => {
     expect(report.as_json_format).toBe(
       'safe-stable-stringify-with-length-limit',
     );
-    expect(report.v).toBe('corj/v0.13-full');
+    expect(report.v).toBe('corj/v0.14-full');
     expect(getReportObjectReportValidator('full')(report)).toBe(true);
   });
 

@@ -3,6 +3,7 @@ import {
   getReportArrayReportValidator,
   getReportObjectReportValidator,
 } from './utils/getReportObjectReportValidator';
+import { LEGACY } from './legacy-options';
 
 describe('maker option and failure boundaries', () => {
   afterEach(() => {
@@ -36,7 +37,7 @@ describe('maker option and failure boundaries', () => {
   });
 
   test('with() without changes keeps every option', () => {
-    const maker = new CorjMaker({ maxDepth: 0, metadata: false });
+    const maker = new CorjMaker({ ...LEGACY, maxDepth: 0, metadata: false });
     const report = maker.with({}).makeReportObject({ cause: 'child' });
     expect(report).toEqual({
       instanceof_error: false,
@@ -47,7 +48,7 @@ describe('maker option and failure boundaries', () => {
   });
 
   test('with() can lift a limit again', () => {
-    const maker = new CorjMaker({ maxDepth: 0 });
+    const maker = new CorjMaker({ ...LEGACY, maxDepth: 0 });
     const report = maker.with({ maxDepth: 5 }).makeReportObject({
       cause: 'child',
     });
@@ -83,7 +84,7 @@ describe('maker option and failure boundaries', () => {
       },
     );
 
-    const report = new CorjMaker().makeReportObject({
+    const report = new CorjMaker(LEGACY).makeReportObject({
       message: 'outer',
       cause: child,
     });
@@ -128,6 +129,7 @@ describe('maker option and failure boundaries', () => {
         },
       );
       const maker = new CorjMaker({
+        ...LEGACY,
         maxReportSize: 512,
         metadata: false,
         onError: (caught, context) => {
@@ -144,6 +146,14 @@ describe('maker option and failure boundaries', () => {
         as_string: '[object Object]',
       };
       const path = nested ? '$.cause' : '$';
+      const reportingErrors = [
+        {
+          stage: 'other',
+          path,
+          key: 'instanceof_error',
+          error: 'Error: prototype unavailable',
+        },
+      ];
 
       if (format === 'object') {
         const report = maker.makeReportObject(caught);
@@ -158,7 +168,10 @@ describe('maker option and failure boundaries', () => {
             { id: '0', path: '$.cause', level: 1, ...fallback },
           ]);
         } else {
-          expect(report).toEqual(fallback);
+          expect(report).toEqual({
+            ...fallback,
+            reporting_errors: reportingErrors,
+          });
         }
       } else {
         const report = maker.makeReportArray(caught);
@@ -178,6 +191,7 @@ describe('maker option and failure boundaries', () => {
             as_string: '[object Object]',
             as_json: { message: 'outer' },
             child_ids: ['0'],
+            reporting_errors: reportingErrors,
           });
           expect(report[1]).toEqual({
             id: '0',
@@ -187,7 +201,13 @@ describe('maker option and failure boundaries', () => {
           });
         } else {
           expect(report).toEqual([
-            { id: 'root', path: '$', level: 0, ...fallback },
+            {
+              id: 'root',
+              path: '$',
+              level: 0,
+              ...fallback,
+              reporting_errors: reportingErrors,
+            },
           ]);
         }
       }
@@ -196,7 +216,12 @@ describe('maker option and failure boundaries', () => {
       expect(caughtDuring).toEqual([
         {
           caught: failure,
-          context: { stage: 'other', path, key: 'instanceof_error' },
+          context: {
+            stage: 'other',
+            path,
+            key: 'instanceof_error',
+            error: 'Error: prototype unavailable',
+          },
         },
       ]);
     },

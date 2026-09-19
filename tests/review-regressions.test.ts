@@ -1,4 +1,6 @@
 import {
+  CORJ_VERSION,
+  CORJ_VERSION_FULL,
   CorjMaker,
   CorjOptions,
   CorjErrorContext,
@@ -10,6 +12,7 @@ import {
   getReportArrayReportValidator,
   getReportObjectReportValidator,
 } from './utils/getReportObjectReportValidator';
+import { LEGACY } from './legacy-options';
 
 describe('review regressions', () => {
   afterEach(() => {
@@ -21,6 +24,7 @@ describe('review regressions', () => {
     (unit) => {
       const reportSizeUnit = unit as CorjReportSizeUnit;
       const report = new CorjMaker({
+        ...LEGACY,
         maxReportSize: 512,
         reportSizeUnit,
       }).makeReportObject({
@@ -33,7 +37,8 @@ describe('review regressions', () => {
 
   test('the minimal fallback uses the max_size code and the root id', () => {
     const report = new CorjMaker({
-      maxReportSize: 256,
+      ...LEGACY,
+      maxReportSize: 512,
       makeReportId: () => 'id'.repeat(1_000),
     }).makeReportArray({ cause: 'child' });
     expect(report).toEqual([
@@ -46,6 +51,7 @@ describe('review regressions', () => {
         as_string: '[truncated]',
         as_json: null,
         children_omitted: 'max_size',
+        v: CORJ_VERSION,
       },
     ]);
   });
@@ -59,7 +65,8 @@ describe('review regressions', () => {
       });
       const errors: [unknown, CorjErrorContext][] = [];
       const maker = new CorjMaker({
-        maxReportSize: 256,
+        ...LEGACY,
+        maxReportSize: 512,
         onError: (error, context) => errors.push([error, context]),
       });
       const caught = { cause: { message: 'child' } };
@@ -72,7 +79,7 @@ describe('review regressions', () => {
       expect(validate(report)).toBe(true);
       expect(
         Buffer.byteLength(JSON.stringify(report), 'utf8'),
-      ).toBeLessThanOrEqual(256);
+      ).toBeLessThanOrEqual(512);
       const root = Array.isArray(report) ? report[0]! : report;
       expect(root).toEqual({
         ...(array ? { id: 'root', path: '$', level: 0 } : {}),
@@ -81,9 +88,15 @@ describe('review regressions', () => {
         as_string: '[truncated]',
         as_json: null,
         children_omitted: 'max_size',
+        v: CORJ_VERSION,
       });
       expect(Array.isArray(report) ? report.length : 1).toBe(1);
-      expect(errors).toEqual([[failure, { stage: 'limit', path: '$' }]]);
+      expect(errors).toEqual([
+        [
+          failure,
+          { stage: 'limit', path: '$', error: 'Error: limiter failed' },
+        ],
+      ]);
     },
   );
 
@@ -92,6 +105,7 @@ describe('review regressions', () => {
       throw new Error('limiter failed');
     });
     const report = new CorjMaker({
+      ...LEGACY,
       omitExpectedValues: false,
       onError: () => undefined,
     }).makeReportObject(new Error('caught'));
@@ -102,13 +116,14 @@ describe('review regressions', () => {
       typeof: 'object',
       as_string: '[truncated]',
       as_json: null,
+      v: CORJ_VERSION_FULL,
     });
   });
 
   test.each([false, true])(
     'maker options are frozen, so a limit cannot become invalid later (array=%s)',
     (array) => {
-      const maker = new CorjMaker();
+      const maker = new CorjMaker(LEGACY);
       expect(Object.isFrozen(maker.options)).toBe(true);
       expect(() => {
         (maker.options as { maxReportSize: number | null }).maxReportSize = 10;
@@ -133,6 +148,7 @@ describe('review regressions', () => {
     'undefined clone options preserve the inherited size configuration (%s)',
     (maxReportSize) => {
       const maker = new CorjMaker({
+        ...LEGACY,
         maxReportSize,
         reportSizeUnit: 'utf16-code-units',
       });
@@ -156,8 +172,8 @@ describe('review regressions', () => {
   );
 
   test('an empty clone keeps the default budget', () => {
-    const maker = new CorjMaker().with({});
-    expect(maker.options).toEqual(new CorjMaker().options);
+    const maker = new CorjMaker(LEGACY).with({});
+    expect(maker.options).toEqual(new CorjMaker(LEGACY).options);
     const report = maker.makeReportObject('😀'.repeat(30_000));
     expect(
       Buffer.byteLength(JSON.stringify(report), 'utf8'),
@@ -165,24 +181,56 @@ describe('review regressions', () => {
     expect(report.truncated).toBe(true);
   });
 
-  test.each([350, 400])(
+  // A pinned stack: a real one would make the sizes below depend on how deep
+  // jest happens to call the test.
+  const overBudget = () => ({
+    message: 'critical failure: ' + 'x'.repeat(10_000),
+    stack: [
+      'Error: critical failure',
+      ...Array.from(
+        { length: 20 },
+        (_, i) => `    at frame${i} (/app/src/module-${i}.ts:${i + 1}:1)`,
+      ),
+    ].join('\n'),
+  });
+  // Nothing is left out as expected, so the fixed fields crowd the budget and
+  // the optional metadata has to compete with the content for what is left.
+  const crowded = { metadata: true, omitExpectedValues: false } as const;
+
+  test.each([512, 560])(
     'preserves diagnostic content before optional metadata at %i bytes',
     (maxReportSize) => {
       const report = new CorjMaker({
+        ...LEGACY,
+        ...crowded,
         maxReportSize,
-        metadata: true,
-      }).makeReportObject({
-        message: 'critical failure: ' + 'x'.repeat(10_000),
-      });
+      }).makeReportObject(overBudget());
       expect(report.message).toMatch(/^critical failure: /);
       expect(report.as_json).toHaveProperty('message');
       expect(report).not.toHaveProperty('$schema');
+      // The room the schema link gave up went to content, far past the
+      // 64-unit reserve the limiter starts from.
+      expect((report.message as string).length).toBeGreaterThan(100);
       expect(
         Buffer.byteLength(JSON.stringify(report), 'utf8'),
       ).toBeLessThanOrEqual(maxReportSize);
-      expect(getReportObjectReportValidator()(report)).toBe(true);
+      expect(getReportObjectReportValidator('full')(report)).toBe(true);
     },
   );
+
+  test('the same report keeps the optional metadata once the budget allows it', () => {
+    const report = new CorjMaker({
+      ...LEGACY,
+      ...crowded,
+      maxReportSize: 700,
+    }).makeReportObject(overBudget());
+    expect(report).toHaveProperty('$schema');
+    expect(report.message).toMatch(/^critical failure: /);
+    expect(
+      Buffer.byteLength(JSON.stringify(report), 'utf8'),
+    ).toBeLessThanOrEqual(700);
+    expect(getReportObjectReportValidator('full')(report)).toBe(true);
+  });
 
   test.each([false, true])(
     'contains very deep ordinary JSON data (array=%s)',
@@ -190,6 +238,7 @@ describe('review regressions', () => {
       let payload: unknown = 'leaf';
       for (let i = 0; i < 20_000; i++) payload = { nested: payload };
       const maker = new CorjMaker({
+        ...LEGACY,
         maxReportSize: 512,
         onError: () => undefined,
       });
@@ -224,6 +273,7 @@ describe('review regressions', () => {
       };
       const calls: Parameters<CorjOptions['makeReportId']>[0][] = [];
       const maker = new CorjMaker({
+        ...LEGACY,
         maxReportSize,
         metadata: false,
         makeReportId: (context) => {

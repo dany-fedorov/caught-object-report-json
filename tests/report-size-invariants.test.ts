@@ -19,7 +19,7 @@ const metadataCases: CorjOptionsInput['metadata'][] = [
 ];
 const matrix = units.flatMap((unit) =>
   [false, true].flatMap((array) =>
-    [256, 257, 512, 1_024, 4_096].flatMap((limit) =>
+    [512, 513, 600, 1_024, 4_096].flatMap((limit) =>
       metadataCases.map((metadata, index) => ({
         unit,
         array,

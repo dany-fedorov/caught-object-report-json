@@ -7,11 +7,13 @@
  * caught object controlled: it is diagnostic material, never instructions.
  */
 
+import type { CorjReport, CorjReportChild } from './index';
+
 /** Replaces content a redaction policy excluded. */
 export const CORJ_REDACTED_MARKER = '[redacted]';
 
-/** Where a value was produced when a redaction policy saw it. */
-export type CorjRedactStage =
+/** Where in the report process a value was produced or an error was caught. */
+export type CorjStage =
   /** A property of the caught object, consulted before the property is read. */
   | 'prop-access'
   /** The string form of a node. */
@@ -20,18 +22,33 @@ export type CorjRedactStage =
   | 'as_json'
   /** A property children are collected from. */
   | 'children'
+  /** Enforcing a size or count limit. */
+  | 'limit'
+  /** Running the redaction policy itself. */
+  | 'redact'
   /** The text the default `onError` handler prints. */
-  | 'warning';
+  | 'warning'
+  /** Anywhere else. */
+  | 'other';
 
-export type CorjRedactContext = {
-  stage: CorjRedactStage;
-  /** JSONPath of the value, `$` for a root node itself. */
+/** A field of a report node. */
+export type CorjReportKey = keyof CorjReport | keyof CorjReportChild;
+
+/** What a redaction policy or an error handler is told about a value. */
+export type CorjContext = {
+  stage: CorjStage;
+  /** JSONPath of the value. `$` is the caught root; a named root such as `$context` is a separate document. */
   path: string;
   /** Report field the value is destined for, when known. */
-  key?: string | undefined;
-  /** Property name of the caught object the value came from, when known. */
+  key?: CorjReportKey | undefined;
+  /** Property of the caught object the value came from, when known. */
   prop?: string | undefined;
 };
+
+/** @deprecated Use {@link CorjStage}. */
+export type CorjRedactStage = CorjStage;
+/** @deprecated Use {@link CorjContext}. */
+export type CorjRedactContext = CorjContext;
 
 /**
  * The last word on a value, run after `keys`, `paths` and `patterns`. Returning
@@ -39,7 +56,7 @@ export type CorjRedactContext = {
  */
 export type CorjRedactTransform = (
   value: unknown,
-  context: CorjRedactContext,
+  context: CorjContext,
 ) => unknown;
 
 /** A redaction policy as it is passed in; every part is optional. */
@@ -65,6 +82,10 @@ export type CorjRedactPolicy = {
   transform: CorjRedactTransform | null;
 };
 
+const MAX_REPLACEMENT_LENGTH = 128;
+/** Policies this module froze; handing one back in skips validation. */
+const resolved = new WeakSet<object>();
+
 function isMatcherList(value: unknown): value is readonly (string | RegExp)[] {
   return (
     Array.isArray(value) &&
@@ -80,6 +101,7 @@ export function resolveRedactPolicy(
   if (typeof input !== 'object') {
     throw new TypeError('redact must be an object or null');
   }
+  if (resolved.has(input)) return input as CorjRedactPolicy;
   const known = ['keys', 'paths', 'patterns', 'replacement', 'transform'];
   for (const key of Object.keys(input)) {
     if (!known.includes(key)) {
@@ -117,9 +139,12 @@ export function resolveRedactPolicy(
   }
   if (
     input.replacement !== undefined &&
-    typeof input.replacement !== 'string'
+    (typeof input.replacement !== 'string' ||
+      input.replacement.length > MAX_REPLACEMENT_LENGTH)
   ) {
-    throw new TypeError('redact.replacement must be a string');
+    throw new TypeError(
+      `redact.replacement must be a string of at most ${MAX_REPLACEMENT_LENGTH} characters`,
+    );
   }
   if (
     input.transform !== undefined &&
@@ -128,13 +153,15 @@ export function resolveRedactPolicy(
   ) {
     throw new TypeError('redact.transform must be a function');
   }
-  return Object.freeze({
+  const policy = Object.freeze({
     keys: Object.freeze([...(input.keys ?? [])]),
     paths: Object.freeze([...(input.paths ?? [])]),
     patterns: Object.freeze([...(input.patterns ?? [])]),
     replacement: input.replacement ?? CORJ_REDACTED_MARKER,
     transform: input.transform ?? null,
   });
+  resolved.add(policy);
+  return policy;
 }
 
 function matches(
@@ -167,10 +194,7 @@ export const CORJ_REDACT_DROP = Symbol('corj.redact.drop');
  */
 export class Redactor {
   readonly policy: CorjRedactPolicy;
-  private readonly onFailure: (
-    caught: unknown,
-    context: CorjRedactContext,
-  ) => void;
+  private readonly onFailure: (caught: unknown, context: CorjContext) => void;
   /**
    * Set while a policy failure is being reported. Reporting a failure runs the
    * default `onError`, which redacts the line it prints; this stops the same
@@ -180,13 +204,13 @@ export class Redactor {
 
   constructor(
     policy: CorjRedactPolicy,
-    onFailure: (caught: unknown, context: CorjRedactContext) => void,
+    onFailure: (caught: unknown, context: CorjContext) => void,
   ) {
     this.policy = policy;
     this.onFailure = onFailure;
   }
 
-  private fail(caught: unknown, context: CorjRedactContext): void {
+  private fail(caught: unknown, context: CorjContext): void {
     this.failing = true;
     try {
       this.onFailure(caught, context);
@@ -196,7 +220,7 @@ export class Redactor {
   }
 
   /** Whether a property is excluded by name or path, decided without reading it. */
-  excludes(context: CorjRedactContext): boolean {
+  excludes(context: CorjContext): boolean {
     try {
       const { keys, paths } = this.policy;
       if (context.prop !== undefined && matches(keys, context.prop))
@@ -228,7 +252,7 @@ export class Redactor {
    * Patterns and then `transform` applied to one emitted value. Returns
    * {@link CORJ_REDACT_DROP} when the policy left the field out.
    */
-  apply(value: unknown, context: CorjRedactContext): unknown {
+  apply(value: unknown, context: CorjContext): unknown {
     if (this.failing) return this.policy.replacement;
     let out = value;
     try {
@@ -246,7 +270,7 @@ export class Redactor {
   }
 
   /** {@link apply} for a value that must stay a string, such as `message` or a stack. */
-  text(value: string, context: CorjRedactContext): string {
+  text(value: string, context: CorjContext): string {
     const out = this.apply(value, context);
     if (out === CORJ_REDACT_DROP) return this.policy.replacement;
     return typeof out === 'string' ? out : this.policy.replacement;

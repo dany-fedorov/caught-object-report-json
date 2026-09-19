@@ -1,5 +1,7 @@
 import {
   CORJ_EXPECTED_VALUES,
+  CORJ_VERSION,
+  CORJ_VERSION_FULL,
   CorjErrorContext,
   CorjMaker,
   makeCorj,
@@ -11,8 +13,9 @@ import {
   getReportArrayReportValidator,
   getReportObjectReportValidator,
 } from './utils/getReportObjectReportValidator';
+import { LEGACY } from './legacy-options';
 
-const quiet = { onError: () => undefined };
+const quiet = { ...LEGACY, onError: () => undefined };
 
 const omittedKeys = [
   'instanceof_error',
@@ -50,18 +53,18 @@ describe('omitting expected values', () => {
   });
 
   test('a plain Error report keeps only distinctive fields by default', () => {
-    const report = makeCorj(new Error('boom'));
+    const report = makeCorj(new Error('boom'), LEGACY);
     expect(getReportObjectReportValidator()(report)).toBe(true);
     expect(Object.keys(report).sort()).toEqual(['stack', 'v']);
     expect((report.stack as string[])[0]).toBe('Error: boom');
-    expect(report.v).toBe('corj/v0.13');
+    expect(report.v).toBe(CORJ_VERSION);
   });
 
   test.each([false, true])(
     'restoreExpectedValues reproduces the complete report (array=%s)',
     (array) => {
       const caught = makeNested();
-      const complete = new CorjMaker({ omitExpectedValues: false });
+      const complete = new CorjMaker({ ...LEGACY, omitExpectedValues: false });
       const compact = complete.with({ omitExpectedValues: true });
       const full = array
         ? complete.makeReportArray(caught)
@@ -131,6 +134,7 @@ describe('omitting expected values', () => {
 
   test('omitExpectedValues: false keeps every field', () => {
     const report = makeCorj(new Error('boom'), {
+      ...LEGACY,
       omitExpectedValues: false,
     });
     expect(report).toMatchObject({
@@ -146,6 +150,7 @@ describe('omitting expected values', () => {
 
   test('as_string is derived from a stack array too', () => {
     const report = makeCorj(new Error('boom'), {
+      ...LEGACY,
       stackFormat: 'lines',
     });
     expect(report).not.toHaveProperty('as_string');
@@ -159,11 +164,11 @@ describe('omitting expected values', () => {
         return 'custom text';
       }
     }
-    const report = makeCorj(new Custom('boom'));
+    const report = makeCorj(new Custom('boom'), LEGACY);
     expect(report.as_string).toBe('custom text');
     expect((report.stack as string[])[0]).toBe('Error: boom');
 
-    const noStack = makeCorj({ message: 'no stack' });
+    const noStack = makeCorj({ message: 'no stack' }, LEGACY);
     expect(noStack.as_string).toBe('[object Object]');
     expect(noStack.as_json).toEqual({ message: 'no stack' });
     expect(noStack.instanceof_error).toBe(false);
@@ -175,15 +180,19 @@ describe('omitting expected values', () => {
   });
 
   test('a stack without a newline equals as_string as a whole', () => {
-    const report = makeCorj({
-      stack: '[object Object]',
-    });
+    const report = makeCorj(
+      {
+        stack: '[object Object]',
+      },
+      LEGACY,
+    );
     expect(report).not.toHaveProperty('as_string');
     expect(restoreExpectedValues(report).as_string).toBe('[object Object]');
   });
 
   test('non-expected values and failures are kept', () => {
     const report = makeCorj([], {
+      ...LEGACY,
       childrenSources: ['cause'],
       metadata: true,
     });
@@ -191,15 +200,19 @@ describe('omitting expected values', () => {
     expect(report.children_sources).toEqual(['cause']);
     expect(report.instanceof_error).toBe(false);
 
-    const custom = makeCorj({
-      toCorjAsJson: () => ({}),
-      toCorjAsString: () => '[object Object]',
-    });
+    const custom = makeCorj(
+      {
+        toCorjAsJson: () => ({}),
+        toCorjAsString: () => '[object Object]',
+      },
+      LEGACY,
+    );
     expect(custom).not.toHaveProperty('as_json');
     expect(custom.as_json_format).toBe('.toCorjAsJson');
     expect(custom.as_string_format).toBe('.toCorjAsString');
 
     const reordered = makeCorj(1, {
+      ...LEGACY,
       childrenSources: ['errors', 'cause'],
     });
     expect(reordered.children_sources).toEqual(['errors', 'cause']);
@@ -325,13 +338,9 @@ describe('omitting expected values', () => {
   describe('with the report size limit', () => {
     test('an exactly fitting compact report is preserved', () => {
       const caught = makeNested();
-      const unlimited = makeCorj(caught, {
-        maxReportSize: null,
-      });
+      const unlimited = makeCorj(caught, { ...LEGACY, maxReportSize: null });
       const size = Buffer.byteLength(JSON.stringify(unlimited), 'utf8');
-      const exact = makeCorj(caught, {
-        maxReportSize: size,
-      });
+      const exact = makeCorj(caught, { ...LEGACY, maxReportSize: size });
       expect(exact).toEqual(unlimited);
       expect(exact).not.toHaveProperty('truncated');
     });
@@ -345,11 +354,12 @@ describe('omitting expected values', () => {
         let restoredFromTruncatedStack = 0;
         let kept = 0;
         for (
-          let maxReportSize = 256;
+          let maxReportSize = 512;
           maxReportSize <= 700;
           maxReportSize += 3
         ) {
           const report = makeCorj(caught, {
+            ...LEGACY,
             maxReportSize,
             metadata: false,
             stackFormat,
@@ -382,6 +392,7 @@ describe('omitting expected values', () => {
     test('keeps as_string omitted when the first stack line survives', () => {
       const caught = new Error('short');
       const report = makeCorj(caught, {
+        ...LEGACY,
         maxReportSize: 512,
         metadata: false,
       });
@@ -394,7 +405,8 @@ describe('omitting expected values', () => {
 
     test('the minimal fallback omits expected values as well', () => {
       const report = makeCorjArray(new Error('boom'), {
-        maxReportSize: 256,
+        ...LEGACY,
+        maxReportSize: 512,
         makeReportId: () => 'x'.repeat(1_000),
       });
       expect(getReportArrayReportValidator()(report)).toBe(true);
@@ -406,6 +418,7 @@ describe('omitting expected values', () => {
           truncated: true,
           as_string: '[truncated]',
           as_json: null,
+          v: CORJ_VERSION,
         },
       ]);
       expect(restoreExpectedValues(report)[0]).toMatchObject({
@@ -414,7 +427,8 @@ describe('omitting expected values', () => {
       });
 
       const kept = makeCorjArray(new Error('boom'), {
-        maxReportSize: 256,
+        ...LEGACY,
+        maxReportSize: 512,
         omitExpectedValues: false,
         makeReportId: () => 'x'.repeat(1_000),
       });
@@ -432,6 +446,7 @@ describe('omitting expected values', () => {
       throw failure;
     });
     const report = makeCorj(new Error('boom'), {
+      ...LEGACY,
       metadata: { $schema: true },
       onError: (error, context) => errors.push([error, context]),
     });
@@ -441,12 +456,16 @@ describe('omitting expected values', () => {
       typeof: 'object',
       as_json: {},
       as_string: 'Error: boom',
-      v: 'corj/v0.13-full',
-      $schema: expect.stringContaining('/corj/v0.13-full/report-object.json'),
+      v: CORJ_VERSION_FULL,
+      $schema: expect.stringContaining(
+        `/${CORJ_VERSION_FULL}/report-object.json`,
+      ),
     });
     // Omission would run before and after the size limiter, but a failure
     // is reported once and the second pass is skipped so the report stays
     // consistently complete.
-    expect(errors).toEqual([[failure, { stage: 'other', path: '$' }]]);
+    expect(errors).toEqual([
+      [failure, { stage: 'other', path: '$', error: 'Error: cannot omit' }],
+    ]);
   });
 });

@@ -1,7 +1,7 @@
 /** Version of reports that omit expected values (the default). */
-export const CORJ_VERSION = 'corj/v0.13';
+export const CORJ_VERSION = 'corj/v0.14';
 /** Version of complete reports, produced with `omitExpectedValues: false` or by `restoreExpectedValues`. */
-export const CORJ_VERSION_FULL = 'corj/v0.13-full';
+export const CORJ_VERSION_FULL = 'corj/v0.14-full';
 
 const SCHEMA_BASE =
   'https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions';

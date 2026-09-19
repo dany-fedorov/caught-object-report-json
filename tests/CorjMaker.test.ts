@@ -10,6 +10,7 @@ import {
   getReportArrayReportValidator,
   getReportObjectReportValidator,
 } from './utils/getReportObjectReportValidator';
+import { LEGACY } from './legacy-options';
 
 // The test tsconfig targets a lib without ES2022 error features.
 const AggregateErrorCtor: new (
@@ -29,6 +30,7 @@ type Caught = { caught: unknown; context: CorjErrorContext };
 function collecting(): { errors: Caught[]; maker: CorjMaker } {
   const errors: Caught[] = [];
   const maker = new CorjMaker({
+    ...LEGACY,
     onError: (caught, context) => {
       errors.push({ caught, context });
     },
@@ -51,7 +53,7 @@ describe('CorjMaker', () => {
       delete report.stack;
       expect(report).toMatchInlineSnapshot(`
         Object {
-          "v": "corj/v0.13",
+          "v": "corj/v0.14",
         }
       `);
       expect(errors).toEqual([]);
@@ -70,7 +72,7 @@ describe('CorjMaker', () => {
           "constructor_name": "String",
           "instanceof_error": false,
           "typeof": "string",
-          "v": "corj/v0.13",
+          "v": "corj/v0.14",
         }
       `);
       expect(errors).toEqual([]);
@@ -86,7 +88,7 @@ describe('CorjMaker', () => {
           "as_string": "undefined",
           "instanceof_error": false,
           "typeof": "undefined",
-          "v": "corj/v0.13",
+          "v": "corj/v0.14",
         }
       `);
       expect(errors).toEqual([]);
@@ -124,7 +126,7 @@ describe('CorjMaker', () => {
           "as_json": null,
           "as_string": "null",
           "instanceof_error": false,
-          "v": "corj/v0.13",
+          "v": "corj/v0.14",
         }
       `);
       expect(errors).toEqual([]);
@@ -141,7 +143,7 @@ describe('CorjMaker', () => {
           "constructor_name": "BigInt",
           "instanceof_error": false,
           "typeof": "bigint",
-          "v": "corj/v0.13",
+          "v": "corj/v0.14",
         }
       `);
       expect(errors).toEqual([]);
@@ -165,7 +167,7 @@ describe('CorjMaker', () => {
           "as_string": "1234,string,1234,[object Object]",
           "constructor_name": "Array",
           "instanceof_error": false,
-          "v": "corj/v0.13",
+          "v": "corj/v0.14",
         }
       `);
       expect(errors).toEqual([]);
@@ -173,6 +175,7 @@ describe('CorjMaker', () => {
 
     test('a plain Error with omitExpectedValues: false lists every field in order', () => {
       const report = makeCorj(new Error('full'), {
+        ...LEGACY,
         omitExpectedValues: false,
         metadata: true,
       });
@@ -201,9 +204,9 @@ describe('CorjMaker', () => {
         children_sources: ['cause', 'errors'],
         as_string_format: 'String',
         as_json_format: 'safe-stable-stringify-with-length-limit',
-        v: 'corj/v0.13-full',
+        v: 'corj/v0.14-full',
         $schema:
-          'https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.13-full/report-object.json',
+          'https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.14-full/report-object.json',
       });
     });
   });
@@ -211,29 +214,33 @@ describe('CorjMaker', () => {
   describe('Options', function () {
     test('metadata: { $schema: true } keeps v on', () => {
       const report = makeCorj(new Error('I am an error!'), {
+        ...LEGACY,
         metadata: { $schema: true },
       });
       expect(getReportObjectReportValidator()(report)).toBe(true);
       delete report.stack;
       expect(report).toMatchInlineSnapshot(`
         Object {
-          "$schema": "https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.13/report-object.json",
-          "v": "corj/v0.13",
+          "$schema": "https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.14/report-object.json",
+          "v": "corj/v0.14",
         }
       `);
     });
 
     test('metadata: true and false', () => {
-      const both = makeCorj(new Error('x'), { metadata: true });
-      expect(both.v).toBe('corj/v0.13');
-      expect(both.$schema).toContain('corj/v0.13/report-object.json');
-      const none = makeCorj(new Error('x'), { metadata: false });
+      const both = makeCorj(new Error('x'), { ...LEGACY, metadata: true });
+      expect(both.v).toBe('corj/v0.14');
+      expect(both.$schema).toContain('corj/v0.14/report-object.json');
+      const none = makeCorj(new Error('x'), { ...LEGACY, metadata: false });
       delete none.stack;
       expect(none).toEqual({});
     });
 
     test('metadata: { v: false } leaves nothing on a plain Error', () => {
-      const report = makeCorj(new Error('x'), { metadata: { v: false } });
+      const report = makeCorj(new Error('x'), {
+        ...LEGACY,
+        metadata: { v: false },
+      });
       delete report.stack;
       expect(report).toEqual({});
     });
@@ -250,7 +257,11 @@ describe('CorjMaker', () => {
     });
 
     test('partial options are merged over the defaults and frozen', () => {
-      const maker = new CorjMaker({ maxDepth: 2, childrenSources: ['cause'] });
+      const maker = new CorjMaker({
+        ...LEGACY,
+        maxDepth: 2,
+        childrenSources: ['cause'],
+      });
       expect(maker.options.maxDepth).toBe(2);
       expect(maker.options.maxChildren).toBe(100);
       expect(maker.options.childrenSources).toEqual(['cause']);
@@ -261,7 +272,7 @@ describe('CorjMaker', () => {
 
     test('childrenSources is copied so later mutation of the input does not leak in', () => {
       const sources = ['cause'];
-      const maker = new CorjMaker({ childrenSources: sources });
+      const maker = new CorjMaker({ ...LEGACY, childrenSources: sources });
       sources.push('errors');
       expect(maker.options.childrenSources).toEqual(['cause']);
     });
@@ -276,7 +287,7 @@ describe('CorjMaker', () => {
     });
 
     test('with() layers options over the maker and leaves the original alone', () => {
-      const base = new CorjMaker({ maxDepth: 1, metadata: false });
+      const base = new CorjMaker({ ...LEGACY, maxDepth: 1, metadata: false });
       const derived = base.with({
         maxChildren: 3,
         metadata: { $schema: true },
@@ -293,7 +304,7 @@ describe('CorjMaker', () => {
 
     test('unknown option names are rejected', () => {
       expect(() => new CorjMaker({ maxChildrenLevel: 2 } as never)).toThrow(
-        /Unknown option "maxChildrenLevel"\. Known options: maxReportSize, reportSizeUnit, omitExpectedValues, stackFormat, inspection, redact, metadata, maxDepth, maxChildren, childrenSources, makeReportId, onError/,
+        /Unknown option "maxChildrenLevel"\. Known options: maxReportSize, reportSizeUnit, maxContextSize, omitExpectedValues, stackFormat, inspection, redact, metadata, maxDepth, maxChildren, childrenSources, occurrenceIdSources, fingerprintParts, makeReportId, onError/,
       );
       expect(() =>
         makeCorj(1, { onCaughtMaking: () => undefined } as never),
@@ -301,7 +312,7 @@ describe('CorjMaker', () => {
     });
 
     test.each([
-      [{ maxReportSize: 255 }, RangeError],
+      [{ maxReportSize: 511 }, RangeError],
       [{ maxReportSize: 1.5 }, RangeError],
       [{ reportSizeUnit: 'bytes' }, TypeError],
       [{ omitExpectedValues: 'yes' }, TypeError],
@@ -321,7 +332,7 @@ describe('CorjMaker', () => {
     ])('invalid option %j throws', (options, error) => {
       expect(() => new CorjMaker(options as never)).toThrow(error);
       expect(() => makeCorj(1, options as never)).toThrow(error);
-      expect(() => new CorjMaker().with(options as never)).toThrow(error);
+      expect(() => new CorjMaker(LEGACY).with(options as never)).toThrow(error);
     });
 
     test('non-object options are rejected', () => {
@@ -332,21 +343,24 @@ describe('CorjMaker', () => {
     });
 
     test('maxDepth: 0 reports no children and says why', () => {
-      const report = makeCorj({ cause: 'child' }, { maxDepth: 0 });
+      const report = makeCorj({ cause: 'child' }, { ...LEGACY, maxDepth: 0 });
       expect(getReportObjectReportValidator()(report)).toBe(true);
       expect(report.children).toBeUndefined();
       expect(report.children_omitted).toBe('max_depth');
     });
 
     test('maxChildren: 0 reports no children and says why', () => {
-      const report = makeCorj({ cause: 'child' }, { maxChildren: 0 });
+      const report = makeCorj(
+        { cause: 'child' },
+        { ...LEGACY, maxChildren: 0 },
+      );
       expect(report.children).toBeUndefined();
       expect(report.children_omitted).toBe('max_children');
     });
 
     test('stackFormat: string keeps the raw stack', () => {
       const caught = new Error('raw');
-      const report = makeCorj(caught, { stackFormat: 'string' });
+      const report = makeCorj(caught, { ...LEGACY, stackFormat: 'string' });
       expect(getReportObjectReportValidator()(report)).toBe(true);
       expect(report.stack).toBe(caught.stack);
     });
@@ -368,14 +382,22 @@ describe('CorjMaker', () => {
           throw new Error('I am a nasty error!');
         },
       };
-      const report = new CorjMaker().makeReportObject(caught);
+      const report = new CorjMaker(LEGACY).makeReportObject(caught);
       expect(getReportObjectReportValidator()(report)).toBe(true);
       expect(report).toMatchInlineSnapshot(`
         Object {
           "as_string": null,
           "constructor_name": "Object",
           "instanceof_error": false,
-          "v": "corj/v0.13",
+          "reporting_errors": Array [
+            Object {
+              "error": "Error: I am a nasty error!",
+              "key": "as_string",
+              "path": "$",
+              "stage": "as_string",
+            },
+          ],
+          "v": "corj/v0.14",
         }
       `);
       expect(calls).toEqual([
@@ -390,14 +412,22 @@ describe('CorjMaker', () => {
           return { returningObjectAndNotAStringOnPurpose: true };
         },
       };
-      const report = new CorjMaker().makeReportObject(caught);
+      const report = new CorjMaker(LEGACY).makeReportObject(caught);
       expect(getReportObjectReportValidator()(report)).toBe(true);
       expect(report).toMatchInlineSnapshot(`
         Object {
           "as_string": null,
           "constructor_name": "Object",
           "instanceof_error": false,
-          "v": "corj/v0.13",
+          "reporting_errors": Array [
+            Object {
+              "error": "TypeError: Cannot convert object to primitive value",
+              "key": "as_string",
+              "path": "$",
+              "stage": "as_string",
+            },
+          ],
+          "v": "corj/v0.14",
         }
       `);
       expect(calls).toEqual([
@@ -412,7 +442,7 @@ describe('CorjMaker', () => {
           throw new Error('(in .constructor) thrown on purpose');
         },
       };
-      const report = new CorjMaker().makeReportObject(caught);
+      const report = new CorjMaker(LEGACY).makeReportObject(caught);
       expect(getReportObjectReportValidator()(report)).toBe(true);
       expect(report).toMatchInlineSnapshot(`
         Object {
@@ -420,7 +450,22 @@ describe('CorjMaker', () => {
           "as_string": "[object Object]",
           "constructor_name": null,
           "instanceof_error": false,
-          "v": "corj/v0.13",
+          "reporting_errors": Array [
+            Object {
+              "error": "Error: (in .constructor) thrown on purpose",
+              "key": "constructor_name",
+              "path": "$",
+              "prop": "constructor",
+              "stage": "prop-access",
+            },
+            Object {
+              "error": "Error: (in .constructor) thrown on purpose",
+              "key": "as_json",
+              "path": "$",
+              "stage": "as_json",
+            },
+          ],
+          "v": "corj/v0.14",
         }
       `);
       expect(calls).toEqual([
@@ -438,7 +483,7 @@ describe('CorjMaker', () => {
           },
         },
       };
-      const report = new CorjMaker().makeReportObject(caught);
+      const report = new CorjMaker(LEGACY).makeReportObject(caught);
       expect(getReportObjectReportValidator()(report)).toBe(true);
       expect(report).toMatchInlineSnapshot(`
         Object {
@@ -446,7 +491,22 @@ describe('CorjMaker', () => {
           "as_string": "[object Object]",
           "constructor_name": null,
           "instanceof_error": false,
-          "v": "corj/v0.13",
+          "reporting_errors": Array [
+            Object {
+              "error": "Error: (in .constructor.name) thrown on purpose",
+              "key": "constructor_name",
+              "path": "$",
+              "prop": "name",
+              "stage": "prop-access",
+            },
+            Object {
+              "error": "Error: (in .constructor.name) thrown on purpose",
+              "key": "as_json",
+              "path": "$",
+              "stage": "as_json",
+            },
+          ],
+          "v": "corj/v0.14",
         }
       `);
       expect(calls).toEqual([
@@ -462,7 +522,7 @@ describe('CorjMaker', () => {
           throw new Error('(in .message) thrown on purpose');
         },
       };
-      const report = new CorjMaker().makeReportObject(caught);
+      const report = new CorjMaker(LEGACY).makeReportObject(caught);
       expect(getReportObjectReportValidator()(report)).toBe(true);
       expect(report).toMatchInlineSnapshot(`
         Object {
@@ -471,7 +531,22 @@ describe('CorjMaker', () => {
           "constructor_name": "Object",
           "instanceof_error": false,
           "message": null,
-          "v": "corj/v0.13",
+          "reporting_errors": Array [
+            Object {
+              "error": "Error: (in .message) thrown on purpose",
+              "key": "message",
+              "path": "$",
+              "prop": "message",
+              "stage": "prop-access",
+            },
+            Object {
+              "error": "Error: (in .message) thrown on purpose",
+              "key": "as_json",
+              "path": "$",
+              "stage": "as_json",
+            },
+          ],
+          "v": "corj/v0.14",
         }
       `);
       expect(calls).toEqual([
@@ -487,7 +562,7 @@ describe('CorjMaker', () => {
           throw new Error('(in .stack) thrown on purpose');
         },
       };
-      const report = new CorjMaker().makeReportObject(caught);
+      const report = new CorjMaker(LEGACY).makeReportObject(caught);
       expect(getReportObjectReportValidator()(report)).toBe(true);
       expect(report.stack).toBe(null);
       expect(report).toMatchInlineSnapshot(`
@@ -496,8 +571,23 @@ describe('CorjMaker', () => {
           "as_string": "[object Object]",
           "constructor_name": "Object",
           "instanceof_error": false,
+          "reporting_errors": Array [
+            Object {
+              "error": "Error: (in .stack) thrown on purpose",
+              "key": "stack",
+              "path": "$",
+              "prop": "stack",
+              "stage": "prop-access",
+            },
+            Object {
+              "error": "Error: (in .stack) thrown on purpose",
+              "key": "as_json",
+              "path": "$",
+              "stage": "as_json",
+            },
+          ],
           "stack": null,
-          "v": "corj/v0.13",
+          "v": "corj/v0.14",
         }
       `);
       expect(calls).toEqual([
@@ -518,7 +608,7 @@ describe('CorjMaker', () => {
           throw unprintable;
         },
       };
-      new CorjMaker().makeReportObject(caught);
+      new CorjMaker(LEGACY).makeReportObject(caught);
       expect(calls[0]).toBe(
         '[caught-object-report-json] stage=prop-access path=$ field=message prop=message: [unprintable value]',
       );
@@ -533,7 +623,7 @@ describe('CorjMaker', () => {
           },
         },
       };
-      new CorjMaker().makeReportObject(caught);
+      new CorjMaker(LEGACY).makeReportObject(caught);
       expect(calls[0]).toBe(
         '[caught-object-report-json] stage=prop-access path=$.cause field=message prop=message: Error: child message',
       );
@@ -547,6 +637,7 @@ describe('CorjMaker', () => {
         calls.push(message);
       });
       const maker = new CorjMaker({
+        ...LEGACY,
         onError() {
           throw new Error('I was supposed to handle errors not throw them');
         },
@@ -583,6 +674,7 @@ describe('CorjMaker', () => {
             path: '$',
             key: 'stack',
             prop: 'stack',
+            error: 'Error: stack getter',
           },
         },
       ]);
@@ -604,7 +696,12 @@ describe('CorjMaker', () => {
       expect(report.instanceof_error).toBe(false);
       expect(errors[0]).toEqual({
         caught: failure,
-        context: { stage: 'other', path: '$', key: 'instanceof_error' },
+        context: {
+          stage: 'other',
+          path: '$',
+          key: 'instanceof_error',
+          error: 'Error: prototype unavailable',
+        },
       });
     });
   });
@@ -612,7 +709,7 @@ describe('CorjMaker', () => {
   describe('Nested', function () {
     test('Single object', () => {
       const caught = errorWithCause('lvl 0', new Error('lvl 1'));
-      const report = makeCorj(caught);
+      const report = makeCorj(caught, LEGACY);
       expect(getReportObjectReportValidator()(report)).toBe(true);
       expect(Array.isArray(report.stack)).toBe(true);
       delete report.stack;
@@ -629,7 +726,7 @@ describe('CorjMaker', () => {
               "path": "$.cause",
             },
           ],
-          "v": "corj/v0.13",
+          "v": "corj/v0.14",
         }
       `);
     });
@@ -639,7 +736,7 @@ describe('CorjMaker', () => {
         new Error('lvl 1; obj 0'),
         new Error('lvl 1; obj 1'),
       ]);
-      const report = makeCorj(caught);
+      const report = makeCorj(caught, LEGACY);
       expect(getReportObjectReportValidator()(report)).toBe(true);
       delete report.stack;
       for (const childReport of report.children!) {
@@ -660,7 +757,7 @@ describe('CorjMaker', () => {
               "path": "$.cause[1]",
             },
           ],
-          "v": "corj/v0.13",
+          "v": "corj/v0.14",
         }
       `);
     });
@@ -682,7 +779,7 @@ describe('CorjMaker', () => {
           new Error('lvl 2; obj 1.1'),
         ]),
       ]);
-      const reportCheck = makeCorj(caught);
+      const reportCheck = makeCorj(caught, LEGACY);
       expect(getReportObjectReportValidator()(reportCheck)).toBe(true);
       delete reportCheck.stack;
       for (const childReport of reportCheck.children!) {
@@ -759,11 +856,11 @@ describe('CorjMaker', () => {
               "path": "$.cause[0].cause[1].cause[1]",
             },
           ],
-          "v": "corj/v0.13",
+          "v": "corj/v0.14",
         }
       `);
 
-      const reportCapped = makeCorj(caught, { maxDepth: 1 });
+      const reportCapped = makeCorj(caught, { ...LEGACY, maxDepth: 1 });
       expect(getReportObjectReportValidator()(reportCapped)).toBe(true);
       delete reportCapped.stack;
       for (const childReport of reportCapped.children!) {
@@ -785,16 +882,16 @@ describe('CorjMaker', () => {
               "path": "$.cause[1]",
             },
           ],
-          "v": "corj/v0.13",
+          "v": "corj/v0.14",
         }
       `);
     });
 
     test('children never carry v or $schema; the root does', () => {
       const caught = errorWithCause('lvl 0', new Error('lvl 1'));
-      const report = makeCorj(caught, { metadata: true });
+      const report = makeCorj(caught, { ...LEGACY, metadata: true });
       expect(getReportObjectReportValidator()(report)).toBe(true);
-      expect(report.v).toBe('corj/v0.13');
+      expect(report.v).toBe('corj/v0.14');
       expect(report.$schema).toContain('/report-object.json');
       expect(report.children![0]).not.toHaveProperty('v');
       expect(report.children![0]).not.toHaveProperty('$schema');
@@ -804,6 +901,7 @@ describe('CorjMaker', () => {
     test('children_sources appears on the root only when it is custom', () => {
       const caught = { cause: { rootCause: 'deep' } };
       const report = makeCorj(caught, {
+        ...LEGACY,
         childrenSources: ['cause', 'rootCause'],
       });
       expect(report.children_sources).toEqual(['cause', 'rootCause']);
@@ -818,7 +916,10 @@ describe('CorjMaker', () => {
     test('custom childrenSources work when cause and errors are absent', () => {
       const caught = new Error('outer');
       (caught as { rootCause?: unknown }).rootCause = new Error('inner');
-      const report = makeCorj(caught, { childrenSources: ['rootCause'] });
+      const report = makeCorj(caught, {
+        ...LEGACY,
+        childrenSources: ['rootCause'],
+      });
       expect(getReportObjectReportValidator()(report)).toBe(true);
       expect(report.children).toHaveLength(1);
       expect(report.children![0]!.path).toBe('$.rootCause');
@@ -830,7 +931,7 @@ describe('CorjMaker', () => {
       const caught = new AggregateErrorCtor([shared, shared], 'twice', {
         cause: shared,
       });
-      const report = makeCorj(caught);
+      const report = makeCorj(caught, LEGACY);
       expect(getReportObjectReportValidator()(report)).toBe(true);
       expect(report.children).toHaveLength(1);
       expect(report.children![0]).toMatchObject({
@@ -843,11 +944,11 @@ describe('CorjMaker', () => {
     test('a cycle back to the root references the root id', () => {
       const caught = new Error('self');
       (caught as { cause?: unknown }).cause = caught;
-      const report = makeCorj(caught);
+      const report = makeCorj(caught, LEGACY);
       expect(getReportObjectReportValidator()(report)).toBe(true);
       expect(report.children).toBeUndefined();
       expect(report.children_omitted).toBeUndefined();
-      const array = makeCorjArray(caught);
+      const array = makeCorjArray(caught, LEGACY);
       expect(getReportArrayReportValidator()(array)).toBe(true);
       expect(array).toHaveLength(1);
       expect(array[0]!.child_ids).toEqual(['root']);
@@ -857,10 +958,11 @@ describe('CorjMaker', () => {
       const child = new Error('child');
       const caught = errorWithCause('root', child);
       (child as { cause?: unknown }).cause = child;
-      const report = makeCorj(caught);
+      const report = makeCorj(caught, LEGACY);
       expect(report.children).toHaveLength(1);
       expect(report.children![0]!.child_ids).toEqual(['0']);
       const array = makeCorjArray(caught, {
+        ...LEGACY,
         makeReportId: ({ index }) => (index === -1 ? 'R' : `c${index}`),
       });
       expect(array[0]!.child_ids).toEqual(['c0']);
@@ -871,7 +973,7 @@ describe('CorjMaker', () => {
       const caught = new AggregateErrorCtor([], 'agg');
       caught.errors = Array(16).fill(caught);
       const started = Date.now();
-      const report = makeCorj(caught);
+      const report = makeCorj(caught, LEGACY);
       expect(Date.now() - started).toBeLessThan(500);
       expect(report.children).toBeUndefined();
       expect(report.truncated).toBeUndefined();
@@ -882,7 +984,7 @@ describe('CorjMaker', () => {
         Array.from({ length: 5 }, (_, i) => new Error(`e${i}`)),
         'wide',
       );
-      const report = makeCorj(caught, { maxChildren: 3 });
+      const report = makeCorj(caught, { ...LEGACY, maxChildren: 3 });
       expect(getReportObjectReportValidator()(report)).toBe(true);
       expect(report.children).toHaveLength(3);
       expect(report.children_omitted).toBe('max_children');
@@ -899,7 +1001,7 @@ describe('CorjMaker', () => {
         [errorWithCause('a', deep), errorWithCause('b', new Error('b.cause'))],
         'agg',
       );
-      const report = makeCorj(caught, { maxChildren: 3 });
+      const report = makeCorj(caught, { ...LEGACY, maxChildren: 3 });
       expect(report.children!.map((c) => c.path)).toEqual([
         '$.errors[0]',
         '$.errors[1]',
@@ -913,10 +1015,10 @@ describe('CorjMaker', () => {
     test('references do not count against maxChildren', () => {
       const shared = new Error('shared');
       const caught = new AggregateErrorCtor([shared, shared], 'agg');
-      const report = makeCorj(caught, { maxChildren: 1 });
+      const report = makeCorj(caught, { ...LEGACY, maxChildren: 1 });
       expect(report.children).toHaveLength(1);
       expect(report.children_omitted).toBeUndefined();
-      const array = makeCorjArray(caught, { maxChildren: 1 });
+      const array = makeCorjArray(caught, { ...LEGACY, maxChildren: 1 });
       expect(array[0]!.child_ids).toEqual(['0', '0']);
     });
 
@@ -929,13 +1031,13 @@ describe('CorjMaker', () => {
       // @ts-ignore
       caught.cause = undefined;
       expect('cause' in caught).toBe(true);
-      const report = makeCorj(caught);
+      const report = makeCorj(caught, LEGACY);
       expect(report.children).toHaveLength(1);
       expect(report.children![0]!.path).toBe('$.errors[2]');
     });
 
     test('null children are reported', () => {
-      const report = makeCorj(new AggregateErrorCtor([null], 'x'));
+      const report = makeCorj(new AggregateErrorCtor([null], 'x'), LEGACY);
       expect(getReportObjectReportValidator()(report)).toBe(true);
       expect(report.children).toEqual([
         {
@@ -972,7 +1074,8 @@ describe('CorjMaker', () => {
         as_string: null,
         as_json: null,
         stack: null,
-        v: 'corj/v0.13',
+        reporting_errors: errors.slice(0, 8).map((e) => e.context),
+        v: 'corj/v0.14',
       });
       expect(report.children).toBeUndefined();
       expect(errors.map((e) => e.context)).toContainEqual({
@@ -980,12 +1083,14 @@ describe('CorjMaker', () => {
         path: '$',
         key: 'children',
         prop: 'cause',
+        error: 'Error: has trap',
       });
       expect(errors.map((e) => e.context)).toContainEqual({
         stage: 'children',
         path: '$',
         key: 'children',
         prop: 'errors',
+        error: 'Error: has trap',
       });
       expect(errors.every((e) => e.caught === failure)).toBe(true);
     });
@@ -1010,6 +1115,7 @@ describe('CorjMaker', () => {
         path: '$.cause',
         key: 'child_ids',
         prop: 'cause',
+        error: 'Error: has trap',
       });
     });
 
@@ -1045,6 +1151,7 @@ describe('CorjMaker', () => {
           path: '$',
           key: 'children',
           prop: 'errors',
+          error: 'Error: keys trap',
         },
       });
     });
@@ -1068,6 +1175,7 @@ describe('CorjMaker', () => {
           path: '$',
           key: 'children',
           prop: '0',
+          error: 'Error: element trap',
         },
       });
     });
@@ -1077,7 +1185,10 @@ describe('CorjMaker', () => {
       errorsArray.length = 10_000;
       errorsArray[0] = new Error('first');
       errorsArray[9_999] = new Error('last');
-      const report = makeCorj({ errors: errorsArray }, { maxChildren: 2 });
+      const report = makeCorj(
+        { errors: errorsArray },
+        { ...LEGACY, maxChildren: 2 },
+      );
       expect(report.children!.map((c) => c.path)).toEqual([
         '$.errors[0]',
         '$.errors[9999]',
@@ -1086,7 +1197,7 @@ describe('CorjMaker', () => {
     });
 
     test('a primitive child has no children', () => {
-      const report = makeCorj({ cause: 'a string with a cause word' });
+      const report = makeCorj({ cause: 'a string with a cause word' }, LEGACY);
       expect(report.children).toHaveLength(1);
       expect(report.children![0]!.child_ids).toBeUndefined();
     });
@@ -1098,6 +1209,7 @@ describe('CorjMaker', () => {
       const cause = new Error('cause');
       const caught = errorWithCause('root', cause);
       const array = makeCorjArray(caught, {
+        ...LEGACY,
         makeReportId: (context) => {
           calls.push(context);
           return `id-${context.index}`;
@@ -1115,6 +1227,7 @@ describe('CorjMaker', () => {
     test('is also called for the root of an object report, but the id is not emitted', () => {
       const calls: number[] = [];
       const report = makeCorj(new Error('root'), {
+        ...LEGACY,
         makeReportId: ({ index }) => {
           calls.push(index);
           return 'x';
@@ -1138,11 +1251,21 @@ describe('CorjMaker', () => {
       expect(errors).toEqual([
         {
           caught: failure,
-          context: { stage: 'other', path: '$', key: 'id' },
+          context: {
+            stage: 'other',
+            path: '$',
+            key: 'id',
+            error: 'Error: no ids today',
+          },
         },
         {
           caught: failure,
-          context: { stage: 'other', path: '$.cause', key: 'id' },
+          context: {
+            stage: 'other',
+            path: '$.cause',
+            key: 'id',
+            error: 'Error: no ids today',
+          },
         },
       ]);
     });
@@ -1172,7 +1295,7 @@ describe('CorjMaker', () => {
           return 'Used toCorjAsString';
         },
       };
-      const report = makeCorj(caught);
+      const report = makeCorj(caught, LEGACY);
       expect(getReportObjectReportValidator()(report)).toBe(true);
       expect(report.as_string).toBe('Used toCorjAsString');
       expect(report.as_string_format).toBe('.toCorjAsString');
@@ -1188,7 +1311,7 @@ describe('CorjMaker', () => {
           },
         },
       };
-      const maker = new CorjMaker({ maxDepth: 3 });
+      const maker = new CorjMaker({ ...LEGACY, maxDepth: 3 });
       maker.makeReportObject(caught);
       expect(seen).toEqual([
         {
@@ -1221,6 +1344,7 @@ describe('CorjMaker', () => {
             path: '$',
             key: 'as_string',
             prop: 'toCorjAsString',
+            error: 'Error: Hey!',
           },
         },
       ]);
@@ -1243,7 +1367,7 @@ describe('CorjMaker', () => {
 
     test('toCorjAsString that is not a function is ignored', () => {
       for (const value of [null, 123, 'str']) {
-        const report = makeCorj({ toCorjAsString: value });
+        const report = makeCorj({ toCorjAsString: value }, LEGACY);
         expect(getReportObjectReportValidator()(report)).toBe(true);
         expect(report.as_string).toBe('[object Object]');
       }
@@ -1260,7 +1384,7 @@ describe('CorjMaker', () => {
           return { msg: 'Used toCorjAsJson' };
         },
       };
-      const report = makeCorj(caught);
+      const report = makeCorj(caught, LEGACY);
       expect(getReportObjectReportValidator()(report)).toBe(true);
       expect(report.as_json).toEqual({ msg: 'Used toCorjAsJson' });
       expect(report.as_json_format).toBe('.toCorjAsJson');
@@ -1289,6 +1413,7 @@ describe('CorjMaker', () => {
             path: '$',
             key: 'as_json',
             prop: 'toCorjAsJson',
+            error: 'Error: hey',
           },
         },
       ]);
@@ -1313,7 +1438,7 @@ describe('CorjMaker', () => {
 
     test('toCorjAsJson that is not a function is ignored', () => {
       for (const value of [null, 123]) {
-        const report = makeCorj({ toCorjAsJson: value });
+        const report = makeCorj({ toCorjAsJson: value }, LEGACY);
         expect(getReportObjectReportValidator()(report)).toBe(true);
         expect(report.as_json).toEqual({ toCorjAsJson: value });
       }
@@ -1326,7 +1451,7 @@ describe('CorjMaker', () => {
             return { big: 'x'.repeat(10_000) };
           },
         },
-        { maxReportSize: 512 },
+        { ...LEGACY, maxReportSize: 512 },
       );
       expect(report.truncated).toBe(true);
       expect(report.as_json_format).toBe('.toCorjAsJson');
@@ -1338,7 +1463,7 @@ describe('CorjMaker', () => {
     test('If circular reference is marked as child key, do not try to stringify it', () => {
       const caught = new Error(`I'm an error`);
       (caught as { errors?: unknown }).errors = caught;
-      const report = makeCorj(caught);
+      const report = makeCorj(caught, LEGACY);
       expect(getReportObjectReportValidator()(report)).toBe(true);
       // `as_json: {}` is an expected value and is omitted by default.
       expect(report.as_json).toBeUndefined();
@@ -1348,32 +1473,32 @@ describe('CorjMaker', () => {
     test('circular references inside as_json use the circular marker', () => {
       const caught: { self?: unknown; name: string } = { name: 'loop' };
       caught.self = caught;
-      const report = makeCorj(caught);
+      const report = makeCorj(caught, LEGACY);
       expect(report.as_json).toEqual({ name: 'loop', self: '[circular]' });
     });
 
     test('constructor.name is not string', () => {
-      const report = makeCorj({ constructor: { name: 123 } });
+      const report = makeCorj({ constructor: { name: 123 } }, LEGACY);
       expect(getReportObjectReportValidator()(report)).toBe(true);
       expect(report.constructor_name).toBeUndefined();
     });
 
     test('an object without a constructor', () => {
-      const report = makeCorj(Object.create(null));
+      const report = makeCorj(Object.create(null), LEGACY);
       expect(getReportObjectReportValidator()(report)).toBe(true);
       expect(report.constructor_name).toBeUndefined();
       expect(report.as_string).toBe(null);
     });
 
     test('a primitive with a property from its prototype', () => {
-      const report = makeCorj('text');
+      const report = makeCorj('text', LEGACY);
       expect(report.message).toBeUndefined();
       expect(report.constructor_name).toBe('String');
     });
   });
 
   test('makeCorjArray', () => {
-    const report = makeCorjArray(new Error(`I'm an error`));
+    const report = makeCorjArray(new Error(`I'm an error`), LEGACY);
     expect(getReportArrayReportValidator()(report)).toBe(true);
     expect(Array.isArray(report[0]!.stack)).toBe(true);
     delete report[0]!.stack;
@@ -1383,7 +1508,7 @@ describe('CorjMaker', () => {
           "id": "root",
           "level": 0,
           "path": "$",
-          "v": "corj/v0.13",
+          "v": "corj/v0.14",
         },
       ]
     `);
@@ -1392,6 +1517,7 @@ describe('CorjMaker', () => {
   test('makeReportArray row order and metadata placement', () => {
     const caught = errorWithCause('root', new Error('cause'));
     const array = makeCorjArray(caught, {
+      ...LEGACY,
       metadata: true,
       childrenSources: ['cause'],
     });
@@ -1407,16 +1533,18 @@ describe('CorjMaker', () => {
       'v',
       '$schema',
     ]);
-    expect(array[0]!.$schema).toContain('corj/v0.13/report-array.json');
+    expect(array[0]!.$schema).toContain('corj/v0.14/report-array.json');
     expect(Object.keys(array[1]!)).toEqual(['id', 'path', 'level', 'stack']);
   });
 
-  test('deprecated type aliases still resolve', () => {
+  test('the report and options type names resolve', () => {
     // Type-level check: assignment compiles.
-    const report: import('../src').CaughtObjectReportJson = makeCorj(1);
-    const child: import('../src').CaughtObjectReportJsonChild =
-      makeCorjArray(1)[0]!;
-    const options: import('../src').CorjMakerOptions = CORJ_DEFAULT_OPTIONS;
+    const report: import('../src').CorjReport = makeCorj(1, LEGACY);
+    const child: import('../src').CorjReportChild = makeCorjArray(
+      1,
+      LEGACY,
+    )[0]!;
+    const options: import('../src').CorjOptions = CORJ_DEFAULT_OPTIONS;
     expect([report, child, options]).toBeTruthy();
   });
 });

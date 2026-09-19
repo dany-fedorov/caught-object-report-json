@@ -143,13 +143,20 @@ describe('stack as an array of lines', () => {
     // The JSON serializer trips over the getter as well; the stack read itself
     // is reported exactly once.
     expect(contexts.filter((c) => c.stage === 'prop-access')).toEqual([
-      { stage: 'prop-access', path: '$', key: 'stack', prop: 'stack' },
+      {
+        stage: 'prop-access',
+        path: '$',
+        key: 'stack',
+        prop: 'stack',
+        error: 'Error: no stack for you',
+      },
     ]);
     expect(contexts.map((c) => c.key)).toEqual(['stack', 'as_json']);
     expect(contexts[1]).toEqual({
       stage: 'as_json',
       path: '$',
       key: 'as_json',
+      error: 'Error: no stack for you',
     });
   });
 
@@ -366,7 +373,7 @@ describe('stack as an array of lines', () => {
     test('a truncated stack never yields a wrong derived as_string', () => {
       const caught = new Error('x'.repeat(120));
       const complete = String(caught);
-      for (let maxReportSize = 256; maxReportSize <= 900; maxReportSize += 7) {
+      for (let maxReportSize = 512; maxReportSize <= 900; maxReportSize += 7) {
         const report = makeCorj(caught, {
           maxReportSize,
           metadata: false,

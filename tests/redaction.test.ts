@@ -825,11 +825,19 @@ function redactDigits(text: string): string {
  * it, while the rest of the report is scrubbed as usual.
  */
 describe('redact: default report ids are structural', () => {
-  /** Three levels, each message holding digits the policy has to scrub. */
+  /**
+   * Three levels, each message holding a digit the policy has to scrub.
+   *
+   * The marker around the digit is `zq~`, which cannot occur in a hex
+   * `fingerprint`, in the `occurrence_id` alphabet (`0-9A-HJKMNP-TV-Z`) or in a
+   * stack path, so a report that still contains one has kept a message the
+   * policy was meant to rewrite - and not merely rolled a random id that reads
+   * like one.
+   */
   function makeChain(): Error {
     return withCause(
-      new Error('outer 111'),
-      withCause(new Error('mid 222'), new Error('inner 333')),
+      new Error('outer zq~1'),
+      withCause(new Error('mid zq~2'), new Error('inner zq~3')),
     );
   }
 
@@ -846,9 +854,10 @@ describe('redact: default report ids are structural', () => {
       expect(children.map((child) => child.id)).toEqual(['0', '1']);
       expect(children[0]?.child_ids).toEqual(['1']);
       expect(children[1]?.child_ids).toBeUndefined();
-      // The policy is live in this very report.
-      for (const digits of ['111', '222', '333']) {
-        expect(allText(report)).not.toContain(digits);
+      // The policy is live in this very report: each marker ends in the digit
+      // a `patterns: [/\d/g]` policy has to remove.
+      for (const marker of ['zq~1', 'zq~2', 'zq~3']) {
+        expect(allText(report)).not.toContain(marker);
       }
     },
   );
@@ -861,8 +870,8 @@ describe('redact: default report ids are structural', () => {
       expect(rows[0]?.child_ids).toEqual(['0']);
       expect(rows[1]?.child_ids).toEqual(['1']);
       expect(rows[2]?.child_ids).toBeUndefined();
-      for (const digits of ['111', '222', '333']) {
-        expect(allText(rows)).not.toContain(digits);
+      for (const marker of ['zq~1', 'zq~2', 'zq~3']) {
+        expect(allText(rows)).not.toContain(marker);
       }
     },
   );

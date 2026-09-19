@@ -1191,28 +1191,46 @@ function discover(ctx: Ctx, caught: unknown): { root: Node; nodes: Node[] } {
 // ██║  ██║███████╗██║     ╚██████╔╝██║  ██║   ██║       ██║     ██║  ██║╚██████╔╝██║     ███████║
 // ╚═╝  ╚═╝╚══════╝╚═╝      ╚═════╝ ╚═╝  ╚═╝   ╚═╝       ╚═╝     ╚═╝  ╚═╝ ╚═════╝ ╚═╝     ╚══════╝
 
-function stringProp(
+/**
+ * A string field and whether it stands in for a read that never happened: a
+ * skip rule replaced it, or `inspection: 'no-invoke'` withheld it. The text
+ * alone cannot say so - a policy is free to choose any `replacement` - and a
+ * caller asking for a stack-backed fingerprint needs the difference.
+ */
+function readStringProp(
   ctx: Ctx,
   node: Node,
   key: keyof CorjReportBase,
   prop: string,
-): string | null | undefined {
+): { value: string | null | undefined; escaped: boolean } {
   const r = access(
     ctx,
     { stage: 'prop-access', path: node.path, key },
     node.obj,
     prop,
   );
-  if (r.threw) return null;
-  if (r.redacted !== undefined) return r.redacted;
-  if (r.omitted) return CORJ_OMITTED_MARKER;
-  if (typeof r.value !== 'string') return undefined;
-  return redactText(ctx, r.value, {
-    stage: 'prop-access',
-    path: `${node.path}.${prop}`,
-    key,
-    prop,
-  });
+  if (r.threw) return { value: null, escaped: false };
+  if (r.redacted !== undefined) return { value: r.redacted, escaped: true };
+  if (r.omitted) return { value: CORJ_OMITTED_MARKER, escaped: true };
+  if (typeof r.value !== 'string') return { value: undefined, escaped: false };
+  return {
+    value: redactText(ctx, r.value, {
+      stage: 'prop-access',
+      path: `${node.path}.${prop}`,
+      key,
+      prop,
+    }),
+    escaped: false,
+  };
+}
+
+function stringProp(
+  ctx: Ctx,
+  node: Node,
+  key: keyof CorjReportBase,
+  prop: string,
+): string | null | undefined {
+  return readStringProp(ctx, node, key, prop).value;
 }
 
 function makeConstructorName(ctx: Ctx, node: Node): string | null | undefined {
@@ -1513,6 +1531,8 @@ type NodeFields = {
   truncated: boolean;
   /** `stack` as it was read, before `split('\n')` and after redaction. */
   rawStack: string | null | undefined;
+  /** Set when `rawStack` stands in for a stack a skip rule or `no-invoke` kept from being read. */
+  stackEscaped: boolean;
   /** The fields a fingerprint part may name, already redacted, so it never reads the caught object again. */
   values: {
     constructor_name: string | null | undefined;
@@ -1533,7 +1553,8 @@ function makeNodeFields(ctx: Ctx, node: Node, withJson = true): NodeFields {
   }
   const constructorName = makeConstructorName(ctx, node);
   const message = stringProp(ctx, node, 'message', 'message');
-  const rawStack = stringProp(ctx, node, 'stack', 'stack');
+  const stackRead = readStringProp(ctx, node, 'stack', 'stack');
+  const rawStack = stackRead.value;
   const stack =
     typeof rawStack === 'string' && ctx.options.stackFormat === 'lines'
       ? rawStack.split('\n')
@@ -1556,6 +1577,7 @@ function makeNodeFields(ctx: Ctx, node: Node, withJson = true): NodeFields {
       };
   return {
     rawStack,
+    stackEscaped: stackRead.escaped,
     values: {
       constructor_name: constructorName,
       message,
@@ -1729,16 +1751,20 @@ function readFingerprintValue(
 
 /**
  * Whether the root's own frames back the hash, which is what `requireStack`
- * asks for. The recipe has to name `stack`, and the value hashed for it - after
- * redaction, after the header cut - has to carry frames. Everything else that
- * can stand in for a stack is text a reader could have guessed: `null` for a
- * root with none, the marker for one `no-invoke` withheld or a skip rule
- * replaced, a sentence someone assigned to `.stack`.
+ * asks for. The stack has to have been read at all, the recipe has to name
+ * `stack`, and the value hashed for it - after redaction, after the header cut
+ * - has to carry frames. Everything else that can stand in for a stack is text
+ * a reader could have guessed: `null` for a root with none, whatever a skip
+ * rule or `no-invoke` left behind, a sentence someone assigned to `.stack`.
  */
 function rootStackBacksHash(
   parts: readonly ResolvedPart[],
   rootRow: FingerprintRow,
+  rootFields: NodeFields,
 ): boolean {
+  // Whatever a skip rule or `no-invoke` left in place of the stack is the
+  // policy's text, not the root's, however much it may look like frames.
+  if (rootFields.stackEscaped) return false;
   const index = parts.findIndex(({ part }) => part === 'stack');
   if (index === -1) return false;
   const hashed = rootRow[1][index];
@@ -1776,7 +1802,9 @@ function computeFingerprint(
     ];
     const rootRow = rowOf([root, rootFields]);
     const rows: readonly FingerprintRow[] = [rootRow, ...children.map(rowOf)];
-    if (requireStack && !rootStackBacksHash(parts, rootRow)) return undefined;
+    if (requireStack && !rootStackBacksHash(parts, rootRow, rootFields)) {
+      return undefined;
+    }
     const asString = rootFields.values.as_string;
     return fingerprintOf(
       parts.map((part) => part.label),

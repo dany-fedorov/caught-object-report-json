@@ -754,6 +754,7 @@ describe('makeFingerprint({ requireStack: true })', () => {
     ).toBeUndefined();
   });
 
+  // The withheld read, not the marker's text, is what fails the rule.
   test('a stack that "no-invoke" withheld does not count as a stack', () => {
     let ran = 0;
     const caught = new Error('boom');
@@ -852,6 +853,20 @@ describe('makeFingerprint({ requireStack: true })', () => {
     );
     expect(
       scrubbed.makeFingerprint(new Error('x'), { requireStack: true }),
+    ).toBeUndefined();
+  });
+
+  test('a skipped stack is not stack-backed however the replacement looks', () => {
+    // The policy chooses the replacement, so frame-shaped text proves nothing:
+    // the read is what was skipped, and that is what the rule tests.
+    const shaped = withParts(DEFAULT_PARTS, {
+      redact: { keys: ['stack'], replacement: '    at [redacted] (/x.js:1:1)' },
+    });
+    const plain = shaped.makeFingerprint(new Error('x'));
+    expect(plain).toMatch(/^fp1_[0-9a-f]{32}$/);
+    expect(plain).toBe(shaped.makeFingerprint(new Error('y')));
+    expect(
+      shaped.makeFingerprint(new Error('x'), { requireStack: true }),
     ).toBeUndefined();
   });
 

@@ -62,6 +62,10 @@ describe('hasStackFrames', () => {
     ['a Firefox frame', 'run@file:///app/a.js:1:2\nmain@file:///app/b.js:9:1'],
     ['a Safari frame', 'global code@https://example.com/main.js:44:3'],
     ['a Firefox frame with no column', 'run@file:///app/a.js:1'],
+    ['a frame with no function name', '@file:///x.js:3:4'],
+    ['a frame at an absolute path', 'fn@/abs/path.js:1:2'],
+    ['a frame at a Windows path', 'fn@C:\\x.js:1:2'],
+    ['a frame in native code', 'foo@[native code]'],
   ])('%s is a frame', (_label, cut) => {
     expect(hasStackFrames(cut)).toBe(true);
   });
@@ -74,6 +78,13 @@ describe('hasStackFrames', () => {
     ['a message containing the word at', 'the pool closed at midnight'],
     ['an address with no line number', 'alice@example.com'],
     ['a message that only mentions a file', 'failed to open /app/a.js:1:1'],
+    ['an address with a port', 'user@host.example.com:587'],
+    ['an address followed by a number', 'see alice@example.com:4921'],
+    ['the shortest address and number', 'a@b:1'],
+    [
+      'a sentence with an address in it',
+      'smtp rejected PIN 4921 from mail@host.example.com:587',
+    ],
   ])('%s is not a frame', (_label, cut) => {
     expect(hasStackFrames(cut)).toBe(false);
   });

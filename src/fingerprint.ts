@@ -100,8 +100,15 @@ export function stackWithoutHeader(stack: string, asString: unknown): string {
 
 /** A V8 frame: `    at <something>` on its own line. */
 const V8_FRAME = /(^|\n)\s+at \S/;
-/** A SpiderMonkey or JavaScriptCore frame: `<name>@<location>:<line>[:<column>]`. */
-const AT_SIGN_FRAME = /(^|\n)[^\n@]*@[^\n]*:\d+(:\d+)?(\n|$)/;
+/**
+ * A SpiderMonkey or JavaScriptCore frame: `<name>@<location>`, where the
+ * location is a script - a URL or a file path, so it carries a `/` or a `\` -
+ * followed by `:<line>` and an optional `:<column>`, or one of the tokens the
+ * engines print for code with no script. `alice@example.com:4921` is an address
+ * and a number, not a location, and must not pass for a frame.
+ */
+const AT_SIGN_FRAME =
+  /(^|\n)[^\n@]*@(?:[^\n]*[/\\][^\n]*:\d+(?::\d+)?|\[native code\]|<anonymous>(?::\d+(?::\d+)?)?)(?=\n|$)/;
 
 /**
  * Whether a stack, cut as the `stack` part hashes it, carries at least one

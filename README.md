@@ -538,8 +538,10 @@ returns a value only when the hash is backed by the root's own stack frames: `'s
 root's stack, as the part hashes it (after redaction, after the header is cut), still carries at least one frame line.
 Everything else is `undefined` — a thrown primitive, a plain object, an error with no stack, a stack that carries no frames
 because a caller assigned a sentence to it, a stack a `redact` skip rule replaced, a stack `inspection: 'no-invoke'`
-withheld, and a recipe that does not name `'stack'`. Nothing else changes: the option never moves the `fingerprint` inside
-a report, and `makeFingerprint(caught)` without it is the same value as before. A call argument outranks the parts:
+withheld, and a recipe that does not name `'stack'`. A stack a skip rule replaced or `inspection` withheld fails the rule
+because the read was skipped, not because of how the replacement reads: a policy is free to choose frame-shaped text. The
+option is the caller's alone — it never moves the `fingerprint` a report carries, and `makeFingerprint(caught)` without it
+is unaffected. A call argument outranks the parts:
 `makeCorj(caught, options, { fingerprint: 'checkout-timeout' })`, 1 to 64 printable ASCII characters without spaces. Like
 `occurrenceId`, a call `fingerprint` that is not such a token is recorded (`stage: 'other'`, `key: 'fingerprint'`) rather
 than thrown, and the parts are hashed instead.

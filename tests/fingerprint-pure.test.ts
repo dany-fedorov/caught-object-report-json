@@ -1,5 +1,6 @@
 import {
   fingerprintOf,
+  hasStackFrames,
   resolveFingerprintParts,
   stackWithoutHeader,
 } from '../src/fingerprint';
@@ -38,6 +39,44 @@ describe('stackWithoutHeader', () => {
       );
     },
   );
+
+  test('a prefix that stops inside the header is not a header', () => {
+    // `toCorjAsString: () => 'E'` prefixes `Error: <message>`; cutting there
+    // would leave the message in what the `stack` part contributes.
+    const stack = 'Error: User 12345 not found\n    at run (/app/a.js:1:1)';
+    expect(stackWithoutHeader(stack, 'E')).toBe('    at run (/app/a.js:1:1)');
+  });
+
+  test('a partial prefix with no frame line leaves the stack alone', () => {
+    expect(stackWithoutHeader('Error: no frames here', 'E')).toBe(
+      'Error: no frames here',
+    );
+  });
+});
+
+describe('hasStackFrames', () => {
+  test.each([
+    ['a V8 frame', '    at run (/app/a.js:1:1)\n    at main (/app/b.js:2:2)'],
+    ['a V8 frame with no parentheses', '    at /app/a.js:1:1'],
+    ['a V8 frame after a first line', 'Error: x\n    at run (/app/a.js:1:1)'],
+    ['a Firefox frame', 'run@file:///app/a.js:1:2\nmain@file:///app/b.js:9:1'],
+    ['a Safari frame', 'global code@https://example.com/main.js:44:3'],
+    ['a Firefox frame with no column', 'run@file:///app/a.js:1'],
+  ])('%s is a frame', (_label, cut) => {
+    expect(hasStackFrames(cut)).toBe(true);
+  });
+
+  test.each([
+    ['a bare sentence', 'PIN 4921 rejected for alice@example.com'],
+    ['nothing at all', ''],
+    ['the redaction marker', '[redacted]'],
+    ['the no-invoke marker', '[not-inspected]'],
+    ['a message containing the word at', 'the pool closed at midnight'],
+    ['an address with no line number', 'alice@example.com'],
+    ['a message that only mentions a file', 'failed to open /app/a.js:1:1'],
+  ])('%s is not a frame', (_label, cut) => {
+    expect(hasStackFrames(cut)).toBe(false);
+  });
 });
 
 describe('resolveFingerprintParts', () => {

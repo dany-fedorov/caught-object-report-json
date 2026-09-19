@@ -830,6 +830,79 @@ describe('makeFingerprint({ requireStack: true })', () => {
     ).toThrow(TypeError);
     expect(read).toBe(0);
   });
+
+  test('a stack with no frames is a sentence, and a sentence is guessable', () => {
+    // The reviewer's case: a caller assigned text to `.stack`.
+    const leaky = (message: string) =>
+      withStack(
+        new Error('x'),
+        `PIN ${message} rejected for alice@example.com`,
+      );
+    expect(maker.makeFingerprint(leaky('4921'))).not.toBe(
+      maker.makeFingerprint(leaky('1234')),
+    );
+    expect(required(leaky('4921'))).toBeUndefined();
+  });
+
+  test('a stack a skip rule replaced has no frames left', () => {
+    const scrubbed = withParts(DEFAULT_PARTS, { redact: { keys: ['stack'] } });
+    // Every error of the same class shares this hash: nothing of the place is in it.
+    expect(scrubbed.makeFingerprint(new Error('x'))).toBe(
+      scrubbed.makeFingerprint(new Error('y')),
+    );
+    expect(
+      scrubbed.makeFingerprint(new Error('x'), { requireStack: true }),
+    ).toBeUndefined();
+  });
+
+  test('a recipe without `stack` has nothing to require', () => {
+    const byMessage = withParts(['message']);
+    expect(byMessage.makeFingerprint(new Error('x'))).toMatch(/^fp1_/);
+    expect(
+      byMessage.makeFingerprint(new Error('x'), { requireStack: true }),
+    ).toBeUndefined();
+  });
+
+  test('`{ field: "stack" }` is not the `stack` part', () => {
+    // It reads the property rather than the cut stack, so it is not the part
+    // the rule is about.
+    const byField = withParts([{ field: 'stack' }]);
+    expect(byField.makeFingerprint(new Error('x'))).toMatch(/^fp1_/);
+    expect(
+      byField.makeFingerprint(new Error('x'), { requireStack: true }),
+    ).toBeUndefined();
+  });
+
+  test('a recipe of message and stack still fingerprints an ordinary error', () => {
+    const both = withParts(['message', 'stack']);
+    const error = new Error('x');
+    const value = both.makeFingerprint(error, { requireStack: true });
+    expect(value).toMatch(/^fp1_[0-9a-f]{32}$/);
+    expect(value).toBe(both.makeReportObject(error).fingerprint);
+  });
+
+  test('a Firefox or Safari stack counts as frames', () => {
+    const firefox = withStack(
+      new Error('x'),
+      'handler@https://app.example.com/main.js:12:9\nrun@https://app.example.com/main.js:44:3',
+    );
+    expect(required(firefox)).toMatch(/^fp1_[0-9a-f]{32}$/);
+  });
+
+  test('a one-character toCorjAsString no longer leaves the message in the hash', () => {
+    // 'E' is a prefix of `Error: <message>`, so the header cut used to stop
+    // inside the header and hash the rest of it.
+    // One call site for both, so only the message could tell them apart.
+    const [one, two] = ['PIN 4921 rejected for alice@example.com', 'PIN'].map(
+      (message) =>
+        maker.makeFingerprint(
+          Object.assign(thrownAt(message), { toCorjAsString: () => 'E' }),
+          { requireStack: true },
+        ),
+    );
+    expect(one).toMatch(/^fp1_[0-9a-f]{32}$/);
+    expect(two).toBe(one);
+  });
 });
 
 function deleteStack(error: Error): Error {

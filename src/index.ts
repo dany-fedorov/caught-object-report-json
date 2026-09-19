@@ -36,8 +36,8 @@ import {
 } from './tokens';
 import {
   fingerprintOf,
+  hasStackFrames,
   resolveFingerprintParts,
-  rootFallsBackToText,
   stackWithoutHeader,
 } from './fingerprint';
 import type {
@@ -1728,12 +1728,30 @@ function readFingerprintValue(
 }
 
 /**
+ * Whether the root's own frames back the hash, which is what `requireStack`
+ * asks for. The recipe has to name `stack`, and the value hashed for it - after
+ * redaction, after the header cut - has to carry frames. Everything else that
+ * can stand in for a stack is text a reader could have guessed: `null` for a
+ * root with none, the marker for one `no-invoke` withheld or a skip rule
+ * replaced, a sentence someone assigned to `.stack`.
+ */
+function rootStackBacksHash(
+  parts: readonly ResolvedPart[],
+  rootRow: FingerprintRow,
+): boolean {
+  const index = parts.findIndex(({ part }) => part === 'stack');
+  if (index === -1) return false;
+  const hashed = rootRow[1][index];
+  return typeof hashed === 'string' && hasStackFrames(hashed);
+}
+
+/**
  * The fingerprint of one report: one row of part values per node, hashed
  * together with the recipe. The call's own argument outranks the parts.
  *
  * `requireStack` is the caller asking for a fingerprint only when the root's
- * own stack backs it: the value is withheld when the hash would fall back to
- * the root's text, and when the stack was withheld rather than read.
+ * own stack frames back it, so that publishing the value discloses nothing a
+ * reader could confirm by guessing the caught value's text.
  */
 function computeFingerprint(
   ctx: Ctx,
@@ -1749,27 +1767,16 @@ function computeFingerprint(
   // Nothing below may throw out of a report: a report without a `fingerprint`
   // is still a report, and the failure is data like any other.
   try {
-    const rows: readonly FingerprintRow[] = [
-      [root, rootFields] as const,
-      ...children,
-    ].map(
-      ([node, fields]) =>
-        [
-          node.path,
-          parts.map((part) => fingerprintValue(ctx, node, fields, part)),
-        ] as const,
-    );
-    // A thrown primitive or plain object has no stack; its string form is its identity.
-    const forceFallback = typeof rootFields.rawStack !== 'string';
-    if (
-      requireStack &&
-      // A withheld stack is a string, but it is the marker every withheld stack
-      // carries rather than this root's own frames.
-      (rootFields.rawStack === CORJ_OMITTED_MARKER ||
-        rootFallsBackToText(rows, forceFallback))
-    ) {
-      return undefined;
-    }
+    const rowOf = ([node, fields]: readonly [
+      Node,
+      NodeFields,
+    ]): FingerprintRow => [
+      node.path,
+      parts.map((part) => fingerprintValue(ctx, node, fields, part)),
+    ];
+    const rootRow = rowOf([root, rootFields]);
+    const rows: readonly FingerprintRow[] = [rootRow, ...children.map(rowOf)];
+    if (requireStack && !rootStackBacksHash(parts, rootRow)) return undefined;
     const asString = rootFields.values.as_string;
     return fingerprintOf(
       parts.map((part) => part.label),
@@ -1778,7 +1785,8 @@ function computeFingerprint(
         rootFields.values.typeof,
         asString === null ? null : cutForFingerprint(asString),
       ],
-      forceFallback,
+      // A thrown primitive or plain object has no stack; its string form is its identity.
+      typeof rootFields.rawStack !== 'string',
     );
   } catch (failure: unknown) {
     reportError(ctx, failure, {
@@ -2069,9 +2077,10 @@ export class CorjMaker {
    * `.toCorjAsJson()` or getters change it as they run can fingerprint
    * differently here than it does inside a report.
    *
-   * `requireStack` returns `undefined` instead of a fingerprint hashed from the
-   * caught value's own text, which a reader who can guess that text could
-   * confirm. For an audience that may not read the text, ask for it.
+   * `requireStack` returns a fingerprint only when `fingerprintParts` names
+   * `stack` and the root's stack still carries frames once it has been read and
+   * redacted; anything else is `undefined`, because a hash of the caught
+   * value's own text is one a reader who can guess that text can confirm.
    */
   makeFingerprint(
     caught: unknown,

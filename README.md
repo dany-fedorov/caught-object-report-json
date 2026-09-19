@@ -502,8 +502,10 @@ Parts apply to **every node**, root and children, in discovery order, and each n
 `path`, so the same error nested one level deeper fingerprints differently.
 
 The `'stack'` part excludes the node's own header, so `'message'` and `'stack'` do not hash the same text twice: when the
-stack starts with the node's `as_string`, that prefix is cut; otherwise, when the stack has a V8 frame line (`\n    at `),
-everything before the first one is cut; otherwise the stack is used whole, which is what Firefox and Safari stacks need.
+stack starts with the node's `as_string` **and that prefix ends the line** (or the whole stack), that prefix is cut;
+otherwise, when the stack has a V8 frame line (`\n    at `), everything before the first one is cut; otherwise the stack is
+used whole, which is what Firefox and Safari stacks need. The line-boundary condition matters for a short
+`.toCorjAsString()`: `'E'` is a prefix of `Error: <message>`, and cutting there would leave the message in the hash.
 
 Values are taken **after redaction and before omission and size limiting**:
 
@@ -532,9 +534,12 @@ can tell.
 
 `maker.makeFingerprint(caught)` computes the value alone — discovery and node fields, without `as_json`, the context or the
 limiter. It returns `undefined` when `fingerprintParts` is `null` or `[]`. `makeFingerprint(caught, { requireStack: true })`
-also returns `undefined` whenever the hash would be derived from the caught value's own text instead of its stack: a root
-with no string `stack`, a root whose part values are all empty, or a stack that `inspection: 'no-invoke'` withheld. Nothing
-else changes, and the option never moves the `fingerprint` inside a report. A call argument outranks the parts:
+returns a value only when the hash is backed by the root's own stack frames: `'stack'` is one of the parts, **and** the
+root's stack, as the part hashes it (after redaction, after the header is cut), still carries at least one frame line.
+Everything else is `undefined` — a thrown primitive, a plain object, an error with no stack, a stack that carries no frames
+because a caller assigned a sentence to it, a stack a `redact` skip rule replaced, a stack `inspection: 'no-invoke'`
+withheld, and a recipe that does not name `'stack'`. Nothing else changes: the option never moves the `fingerprint` inside
+a report, and `makeFingerprint(caught)` without it is the same value as before. A call argument outranks the parts:
 `makeCorj(caught, options, { fingerprint: 'checkout-timeout' })`, 1 to 64 printable ASCII characters without spaces. Like
 `occurrenceId`, a call `fingerprint` that is not such a token is recorded (`stage: 'other'`, `key: 'fingerprint'`) rather
 than thrown, and the parts are hashed instead.
@@ -543,11 +548,16 @@ Hashing cannot fail a report: a failure while computing the fingerprint is recor
 no `fingerprint` field.
 
 > **Showing a fingerprint to an untrusted audience.** Anyone who can guess the hashed values can compute the hash and
-> confirm the guess. With the default parts the hash input contains stack text with absolute paths and line numbers, which
-> an outside reader cannot reproduce — but a value with no stack is hashed from its own text, and that text is often
-> guessable: a reviewer recovered a `"PIN 4921 rejected for alice@example.com"` message from such a fingerprint in ten
-> milliseconds. Keep `'stack'` in the recipe when the fingerprint is published, and compute it with
-> `maker.makeFingerprint(caught, { requireStack: true })`, which yields nothing rather than a hash of the text.
+> confirm the guess, so what the hash input contains is what the published fingerprint discloses. A value with no stack is
+> hashed from its own text, and that text is often guessable: a reviewer recovered a
+> `"PIN 4921 rejected for alice@example.com"` message from such a fingerprint in ten milliseconds. Keep `'stack'` in the
+> recipe when the fingerprint is published, and compute it with `maker.makeFingerprint(caught, { requireStack: true })`,
+> which returns nothing at all rather than a hash a reader could confirm.
+>
+> What that leaves is a hash of real stack frames — and of **every other part in the recipe**: add `'message'` and the
+> message is in the hash input beside the frames, as confirmable as it ever was. Frames themselves are unguessable only to
+> a reader who does not know your deployed source and paths; a reader who has the bundle can enumerate call sites. The
+> option removes the case where the text *is* the hash; it does not make a fingerprint a secret.
 
 ## Context
 
@@ -1749,9 +1759,10 @@ overrides applied on top.
 
 The [fingerprint](#fingerprint) alone, without building `as_json`, a context or running the limiter. `undefined` when
 `fingerprintParts` is `null` or `[]`, or when hashing failed. The only option is `{ requireStack?: boolean }`, `false` by
-default: with `requireStack: true` the value is also `undefined` whenever the hash would be derived from the caught value's
-own text rather than its stack, see [Fingerprint](#fingerprint). An options argument of any other shape throws a
-`TypeError`.
+default: with `requireStack: true` a value comes back only when `'stack'` is one of the parts and the root's stack still
+carries frames once it has been read and redacted; a thrown primitive, a plain object, an error with no stack, a frameless,
+redacted or withheld stack, and a recipe without `'stack'` all give `undefined`, see [Fingerprint](#fingerprint). An
+options argument of any other shape throws a `TypeError`.
 
 #### `maker.makeJson(value, { root?, maxSize? }): CorjJsonView`
 

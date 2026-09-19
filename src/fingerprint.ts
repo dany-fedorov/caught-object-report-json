@@ -88,10 +88,30 @@ export function stackWithoutHeader(stack: string, asString: unknown): string {
     stack.startsWith(asString)
   ) {
     const rest = stack.slice(asString.length);
-    return rest.startsWith('\n') ? rest.slice(1) : rest;
+    // Only a whole header is a header. `toCorjAsString: () => 'E'` prefixes
+    // `Error: <message>` without being its first line, and cutting there would
+    // leave the message in what the `stack` part contributes.
+    if (rest === '') return rest;
+    if (rest.startsWith('\n')) return rest.slice(1);
   }
   const match = V8_FIRST_FRAME.exec(stack);
   return match === null ? stack : stack.slice(match.index + 1);
+}
+
+/** A V8 frame: `    at <something>` on its own line. */
+const V8_FRAME = /(^|\n)\s+at \S/;
+/** A SpiderMonkey or JavaScriptCore frame: `<name>@<location>:<line>[:<column>]`. */
+const AT_SIGN_FRAME = /(^|\n)[^\n@]*@[^\n]*:\d+(:\d+)?(\n|$)/;
+
+/**
+ * Whether a stack, cut as the `stack` part hashes it, carries at least one
+ * frame. Frames are what a reader outside the deployment cannot reproduce; a
+ * sentence someone assigned to `.stack`, a redaction marker or an empty string
+ * carries nothing they could not have guessed. The word "at" inside a message
+ * is not a frame: a frame begins its own line.
+ */
+export function hasStackFrames(cut: string): boolean {
+  return V8_FRAME.test(cut) || AT_SIGN_FRAME.test(cut);
 }
 
 export type FingerprintRow = readonly [
@@ -103,7 +123,6 @@ export type FingerprintRow = readonly [
  * Whether the root row is hashed with its `[typeof, as_string]` appended, which
  * makes the hash one of the root's own text: either the root has no stack to be
  * identified by, or every part came back empty and the text is all that is left.
- * The one definition of that decision, so a caller can ask about it beforehand.
  */
 export function rootFallsBackToText(
   rows: readonly FingerprintRow[],

@@ -709,3 +709,135 @@ describe('the fingerprint hash input is bounded and cannot throw', () => {
     }
   });
 });
+
+describe('makeFingerprint({ requireStack: true })', () => {
+  const maker = withParts(DEFAULT_PARTS);
+  const required = (caught: unknown) =>
+    maker.makeFingerprint(caught, { requireStack: true });
+
+  const stackless: readonly (readonly [string, unknown])[] = [
+    ['a thrown string', 'PIN 4921 rejected for alice@example.com'],
+    ['a thrown number', 4921],
+    ['a thrown null', null],
+    ['a plain object', { code: 'PIN_REJECTED', pin: 4921 }],
+    [
+      'an object with a custom toString',
+      { toString: () => 'PIN 4921 rejected' },
+    ],
+    ['an error whose stack was deleted', deleteStack(new Error('x'))],
+    ['an error whose stack is not a string', withStack(new Error('x'), 42)],
+  ];
+
+  test.each(stackless)(
+    '%s has no fingerprint, because its hash would be its own text',
+    (_label, caught) => {
+      expect(maker.makeFingerprint(caught)).toMatch(/^fp1_[0-9a-f]{32}$/);
+      expect(required(caught)).toBeUndefined();
+    },
+  );
+
+  test('an error with a stack keeps the fingerprint the report carries', () => {
+    const error = new Error('x');
+    const plain = maker.makeFingerprint(error);
+    expect(plain).toMatch(/^fp1_[0-9a-f]{32}$/);
+    expect(required(error)).toBe(plain);
+    expect(maker.makeReportObject(error).fingerprint).toBe(plain);
+  });
+
+  test('a recipe whose parts are all empty has no fingerprint either', () => {
+    // The root falls back to its own text here too, stack or no stack.
+    const absent = withParts([{ field: 'absent' }]);
+    const error = new Error('x');
+    expect(absent.makeFingerprint(error)).toMatch(/^fp1_[0-9a-f]{32}$/);
+    expect(
+      absent.makeFingerprint(error, { requireStack: true }),
+    ).toBeUndefined();
+  });
+
+  test('a stack that "no-invoke" withheld does not count as a stack', () => {
+    let ran = 0;
+    const caught = new Error('boom');
+    Object.defineProperty(caught, 'stack', {
+      configurable: true,
+      get() {
+        ran++;
+        return 'Error: boom\n    at secret.js:1:1';
+      },
+    });
+    const noInvoke = withParts(DEFAULT_PARTS, { inspection: 'no-invoke' });
+    expect(noInvoke.makeFingerprint(caught)).toMatch(/^fp1_[0-9a-f]{32}$/);
+    expect(
+      noInvoke.makeFingerprint(caught, { requireStack: true }),
+    ).toBeUndefined();
+    expect(ran).toBe(0);
+  });
+
+  test('false, {} and no argument at all are the same call', () => {
+    const error = new Error('x');
+    const plain = maker.makeFingerprint(error);
+    expect(maker.makeFingerprint(error, {})).toBe(plain);
+    expect(maker.makeFingerprint(error, { requireStack: false })).toBe(plain);
+    expect(
+      maker.makeFingerprint('socket closed', { requireStack: false }),
+    ).toBe(maker.makeFingerprint('socket closed'));
+  });
+
+  test('the option is the caller’s alone: reports are unchanged', () => {
+    const thrown = 'socket closed';
+    expect(required(thrown)).toBeUndefined();
+    expect(makeCorj(thrown).fingerprint).toBe(makeCorj(thrown).fingerprint);
+    expect(makeCorj(thrown).fingerprint).toBe(maker.makeFingerprint(thrown));
+    expect(makeCorjArray(thrown)[0]!.fingerprint).toBe(
+      maker.makeFingerprint(thrown),
+    );
+  });
+
+  test('an options argument that is not an object throws', () => {
+    expect(() => maker.makeFingerprint(new Error('x'), 'yes' as never)).toThrow(
+      new TypeError('makeFingerprint options must be an object'),
+    );
+    expect(() => maker.makeFingerprint(new Error('x'), [] as never)).toThrow(
+      new TypeError('makeFingerprint options must be an object'),
+    );
+  });
+
+  test('an unknown option throws', () => {
+    expect(() =>
+      maker.makeFingerprint(new Error('x'), { requireStacks: true } as never),
+    ).toThrow(
+      new TypeError(
+        'Unknown makeFingerprint option "requireStacks". Known options: requireStack',
+      ),
+    );
+  });
+
+  test('a non-boolean requireStack throws', () => {
+    expect(() =>
+      maker.makeFingerprint(new Error('x'), { requireStack: 'yes' as never }),
+    ).toThrow(new TypeError('requireStack must be a boolean'));
+  });
+
+  test('the shape is checked before anything else is read', () => {
+    let read = 0;
+    const caught = {
+      get message() {
+        read++;
+        return 'x';
+      },
+    };
+    expect(() =>
+      withParts(null).makeFingerprint(caught, { requireStack: 'yes' as never }),
+    ).toThrow(TypeError);
+    expect(read).toBe(0);
+  });
+});
+
+function deleteStack(error: Error): Error {
+  delete (error as { stack?: unknown }).stack;
+  return error;
+}
+
+function withStack(error: Error, stack: unknown): Error {
+  Object.defineProperty(error, 'stack', { configurable: true, value: stack });
+  return error;
+}

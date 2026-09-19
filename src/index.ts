@@ -37,9 +37,14 @@ import {
 import {
   fingerprintOf,
   resolveFingerprintParts,
+  rootFallsBackToText,
   stackWithoutHeader,
 } from './fingerprint';
-import type { FingerprintValue, ResolvedPart } from './fingerprint';
+import type {
+  FingerprintRow,
+  FingerprintValue,
+  ResolvedPart,
+} from './fingerprint';
 import {
   CORJ_FULL_REPORT_ARRAY_JSON_SCHEMA_LINK,
   CORJ_FULL_REPORT_OBJECT_JSON_SCHEMA_LINK,
@@ -619,6 +624,34 @@ function resolveCall(call: unknown): ResolvedCall {
     fingerprint: invalid.includes('fingerprint') ? undefined : fingerprint,
     invalid,
   };
+}
+
+const FINGERPRINT_CALL_KEYS = ['requireStack'] as const;
+
+/** The `makeFingerprint` options: configuration of one call, so a bad shape throws. */
+function resolveFingerprintCall(options: unknown): boolean {
+  if (options === undefined) return false;
+  if (
+    typeof options !== 'object' ||
+    options === null ||
+    Array.isArray(options)
+  ) {
+    throw new TypeError('makeFingerprint options must be an object');
+  }
+  for (const key of Object.keys(options)) {
+    if (!(FINGERPRINT_CALL_KEYS as readonly string[]).includes(key)) {
+      throw new TypeError(
+        `Unknown makeFingerprint option "${key}". Known options: ${FINGERPRINT_CALL_KEYS.join(
+          ', ',
+        )}`,
+      );
+    }
+  }
+  const { requireStack } = options as { requireStack?: unknown };
+  if (requireStack !== undefined && typeof requireStack !== 'boolean') {
+    throw new TypeError('requireStack must be a boolean');
+  }
+  return requireStack ?? false;
 }
 
 // ██╗  ██╗███████╗██╗     ██████╗ ███████╗██████╗ ███████╗
@@ -1697,6 +1730,10 @@ function readFingerprintValue(
 /**
  * The fingerprint of one report: one row of part values per node, hashed
  * together with the recipe. The call's own argument outranks the parts.
+ *
+ * `requireStack` is the caller asking for a fingerprint only when the root's
+ * own stack backs it: the value is withheld when the hash would fall back to
+ * the root's text, and when the stack was withheld rather than read.
  */
 function computeFingerprint(
   ctx: Ctx,
@@ -1704,6 +1741,7 @@ function computeFingerprint(
   root: Node,
   rootFields: NodeFields,
   children: readonly (readonly [Node, NodeFields])[],
+  requireStack = false,
 ): string | undefined {
   if (callFingerprint !== undefined) return callFingerprint;
   const parts = ctx.parts;
@@ -1711,13 +1749,27 @@ function computeFingerprint(
   // Nothing below may throw out of a report: a report without a `fingerprint`
   // is still a report, and the failure is data like any other.
   try {
-    const rows = [[root, rootFields] as const, ...children].map(
+    const rows: readonly FingerprintRow[] = [
+      [root, rootFields] as const,
+      ...children,
+    ].map(
       ([node, fields]) =>
         [
           node.path,
           parts.map((part) => fingerprintValue(ctx, node, fields, part)),
         ] as const,
     );
+    // A thrown primitive or plain object has no stack; its string form is its identity.
+    const forceFallback = typeof rootFields.rawStack !== 'string';
+    if (
+      requireStack &&
+      // A withheld stack is a string, but it is the marker every withheld stack
+      // carries rather than this root's own frames.
+      (rootFields.rawStack === CORJ_OMITTED_MARKER ||
+        rootFallsBackToText(rows, forceFallback))
+    ) {
+      return undefined;
+    }
     const asString = rootFields.values.as_string;
     return fingerprintOf(
       parts.map((part) => part.label),
@@ -1726,8 +1778,7 @@ function computeFingerprint(
         rootFields.values.typeof,
         asString === null ? null : cutForFingerprint(asString),
       ],
-      // A thrown primitive or plain object has no stack; its string form is its identity.
-      typeof rootFields.rawStack !== 'string',
+      forceFallback,
     );
   } catch (failure: unknown) {
     reportError(ctx, failure, {
@@ -2017,8 +2068,16 @@ export class CorjMaker {
    * context or the limiter. Building no `as_json` means a caught object whose
    * `.toCorjAsJson()` or getters change it as they run can fingerprint
    * differently here than it does inside a report.
+   *
+   * `requireStack` returns `undefined` instead of a fingerprint hashed from the
+   * caught value's own text, which a reader who can guess that text could
+   * confirm. For an audience that may not read the text, ask for it.
    */
-  makeFingerprint(caught: unknown): string | undefined {
+  makeFingerprint(
+    caught: unknown,
+    options?: { requireStack?: boolean },
+  ): string | undefined {
+    const requireStack = resolveFingerprintCall(options);
     if (this.ctx.parts === null) return undefined;
     return this.collecting(() => {
       const { root, nodes } = discover(this.ctx, caught);
@@ -2031,6 +2090,7 @@ export class CorjMaker {
         root,
         rootFields,
         nodes.map(fieldsOf),
+        requireStack,
       );
     });
   }

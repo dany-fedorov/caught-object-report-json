@@ -94,23 +94,39 @@ export function stackWithoutHeader(stack: string, asString: unknown): string {
   return match === null ? stack : stack.slice(match.index + 1);
 }
 
+export type FingerprintRow = readonly [
+  path: string,
+  values: readonly FingerprintValue[],
+];
+
+/**
+ * Whether the root row is hashed with its `[typeof, as_string]` appended, which
+ * makes the hash one of the root's own text: either the root has no stack to be
+ * identified by, or every part came back empty and the text is all that is left.
+ * The one definition of that decision, so a caller can ask about it beforehand.
+ */
+export function rootFallsBackToText(
+  rows: readonly FingerprintRow[],
+  forceFallback: boolean,
+): boolean {
+  const root = rows[0];
+  if (root === undefined) return false;
+  return (
+    forceFallback || root[1].every((value) => value === null || value === '')
+  );
+}
+
 /** Hash one canonical JSON document: the recipe version, the labels, and one row of values per node. */
 export function fingerprintOf(
   labels: readonly string[],
-  rows: readonly (readonly [
-    path: string,
-    values: readonly FingerprintValue[],
-  ])[],
+  rows: readonly FingerprintRow[],
   rootFallback: readonly [typeofValue: string, asString: string | null],
   /** Set when the root has no string stack: a thrown primitive or plain object, whose only identity is its string form. */
   forceFallback = false,
 ): string {
-  const root = rows[0];
-  const rootIsEmpty =
-    root !== undefined &&
-    root[1].every((value) => value === null || value === '');
+  const fallsBack = rootFallsBackToText(rows, forceFallback);
   const hashed = rows.map((row, index) =>
-    index === 0 && (rootIsEmpty || forceFallback)
+    index === 0 && fallsBack
       ? [row[0], row[1], rootFallback]
       : [row[0], row[1]],
   );

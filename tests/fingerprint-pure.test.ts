@@ -76,6 +76,14 @@ describe('hasStackFrames', () => {
       'an eval frame',
       '    at eval (eval at run (/app/a.js:1:1), <anonymous>:1:1)',
     ],
+    [
+      'a CRLF stack',
+      'Error: x\r\n    at run (/app/a.js:1:1)\r\n    at main (/app/b.js:2:2)\r',
+    ],
+    [
+      'a CRLF Firefox stack',
+      'run@file:///app/a.js:1:2\r\nmain@file:///b.js:9:1\r',
+    ],
   ])('%s is a frame', (_label, cut) => {
     expect(hasStackFrames(cut)).toBe(true);
   });

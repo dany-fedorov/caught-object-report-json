@@ -140,9 +140,13 @@ const AT_SIGN_FRAME =
  * and withholding a fingerprint over those would withhold nearly all of them.
  */
 export function hasStackFrames(cut: string): boolean {
-  return cut
-    .split('\n')
-    .some((line) => isV8Frame(line) || AT_SIGN_FRAME.test(line));
+  return cut.split('\n').some((raw) => {
+    // A stack that travelled through a CRLF file or pipe keeps a `\r` per line,
+    // and it ends the line after the frame's own bracket, so it comes off
+    // before either pattern looks at where the line ends.
+    const line = raw.endsWith('\r') ? raw.slice(0, -1) : raw;
+    return isV8Frame(line) || AT_SIGN_FRAME.test(line);
+  });
 }
 
 export type FingerprintRow = readonly [

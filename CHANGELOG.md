@@ -1,3 +1,70 @@
+# [11.0.0](https://github.com/dany-fedorov/caught-object-report-json/compare/v10.0.0...v11.0.0) (2026-09-19)
+
+
+* feat!: maker.makeJson with named roots and maker.scrubText; CorjRedactor is no longer exported ([b85178b](https://github.com/dany-fedorov/caught-object-report-json/commit/b85178b27d2e2ff4fd4a47efea53a9306d0181a5))
+* feat!: occurrence_id and fingerprint are on by default ([c398c2d](https://github.com/dany-fedorov/caught-object-report-json/commit/c398c2d8f73ad55dcce2b9e8c4a385a9dbd1c95f))
+* feat!: one CorjContext and one CorjStage for transforms, handlers and records ([4f5f060](https://github.com/dany-fedorov/caught-object-report-json/commit/4f5f0601464b2647a1f41c624c3eccc3488bee1d))
+* feat!: report format corj/v0.14 ([13873f9](https://github.com/dany-fedorov/caught-object-report-json/commit/13873f99cdf9207f00963e4604531fe722464295))
+* feat!: reporting errors are report data, and onError receives the same scrubbed record ([2d8f1a0](https://github.com/dany-fedorov/caught-object-report-json/commit/2d8f1a0f20c7d3e25d015c9586918d83eb1dd3c2))
+* feat!: the limiter drops context, then reporting_errors, before error content; v is fixed; the floor is 512 ([907fd49](https://github.com/dany-fedorov/caught-object-report-json/commit/907fd493782d4092f50082d6a7a36fc9a6386dea))
+
+
+### Bug Fixes
+
+* a numeric string path segment addresses an array index for skip rules ([11a9bfc](https://github.com/dany-fedorov/caught-object-report-json/commit/11a9bfc7f08e5d815aa42a4cdf3652c1ad2d454d))
+* a V8 frame line needs a location ([81f5156](https://github.com/dany-fedorov/caught-object-report-json/commit/81f5156700215c3d596abc4c5ab65675447f99a2))
+* an @-frame needs a path; a skipped stack is never stack-backed ([e2a7224](https://github.com/dany-fedorov/caught-object-report-json/commit/e2a72246fdf4c964e0f20ef51049a3c4b666b844))
+* an invalid runtime id or fingerprint is reported, not thrown ([a2f14d2](https://github.com/dany-fedorov/caught-object-report-json/commit/a2f14d284e0c0d8d2dca2377f4658b0d71b8b07b))
+* every fingerprint part value goes through the redaction policy ([4220381](https://github.com/dany-fedorov/caught-object-report-json/commit/422038173e0a3023d22f1a9e9abe57dd42d58c12))
+* fingerprint part values are redacted under their own path ([9088737](https://github.com/dany-fedorov/caught-object-report-json/commit/90887379691729e4d1488c85060d73977b812013))
+* fingerprint value mapping covers bigint and non-finite numbers; one label per entry ([8cc3e71](https://github.com/dany-fedorov/caught-object-report-json/commit/8cc3e715ae9ad67cd965c8b1f099c0118a8e415d))
+* narrow the fuzz minimal-report predicate; hand onError its own copy of the record ([15fff71](https://github.com/dany-fedorov/caught-object-report-json/commit/15fff7133ef2de61c96c2fece01c1d76f0c2dbf9))
+* requireStack demands real stack frames, and the header cut needs a whole-line match ([6f09b78](https://github.com/dany-fedorov/caught-object-report-json/commit/6f09b7843d5cb2c9b7c60a92b965cbd95eb48881))
+* the "onError threw" console line goes through the policy ([e2001d8](https://github.com/dany-fedorov/caught-object-report-json/commit/e2001d8823b7b07cfdfe8455405519ef9fb306f2))
+* the fingerprint's hash input is bounded and cannot throw ([3862c7a](https://github.com/dany-fedorov/caught-object-report-json/commit/3862c7a482375f2273695d2da4b4ee5d0268fffc))
+
+
+### Features
+
+* fingerprint from a list of parts, hashed after redaction and before limiting; maker.makeFingerprint ([128e6de](https://github.com/dany-fedorov/caught-object-report-json/commit/128e6dea4962e9c0856be647dada90ff6bb49a2f))
+* makeFingerprint({ requireStack }) returns nothing for a value whose hash would be its own text ([23462f1](https://github.com/dany-fedorov/caught-object-report-json/commit/23462f15a3aac6d01bcca0c85c44ad2844926b88))
+* occurrence_id from an ordered list of sources (field, path, function, random), or from the call ([bec632b](https://github.com/dany-fedorov/caught-object-report-json/commit/bec632b582cf6035b1be1d5fadfdd6437d3e248f))
+* per-call input and a budgeted context container rooted at $context ([528895a](https://github.com/dany-fedorov/caught-object-report-json/commit/528895a3a7c39790ac2720d305f19f745758d90f))
+
+
+### BREAKING CHANGES
+
+* bigint, `NaN` and infinite part values, and one-segment
+`{ path }` entries, hash differently than in the first `fp1` draft.
+
+Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
+* a call `occurrenceId` or `fingerprint` that fails its
+token pattern is reported instead of thrown.
+
+Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
+* two strings that differ only past 16,384 code units now
+share a fingerprint.
+
+Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
+* the report format is corj/v0.14. New root fields: occurrence_id, fingerprint, context, context_omitted, reporting_errors, reporting_errors_omitted. CorjErrorStage and CorjRedactStage are one union now (each gained members, so exhaustive switches break), and CorjRedactContext.key narrowed from string to a report field name.
+
+Co-Authored-By: Claude Opus <noreply@anthropic.com>
+* every report gains occurrence_id and fingerprint. Pass occurrenceIdSources: null and fingerprintParts: null for the 10.x shape, or pin both through the call input.
+
+Co-Authored-By: Claude Opus <noreply@anthropic.com>
+* maxReportSize must be >= 512 (was 256). v is no longer dropped to meet a budget.
+
+Co-Authored-By: Claude Opus <noreply@anthropic.com>
+* the CorjRedactor export is removed; use maker.scrubText. redact.replacement is capped at 128 characters.
+
+Co-Authored-By: Claude Opus <noreply@anthropic.com>
+* onError is called as (caught, record); record is the old context plus a scrubbed, bounded error text. Reports gain a root reporting_errors field (at most 8 rows). Closes #219.
+
+Co-Authored-By: Claude Opus <noreply@anthropic.com>
+* CaughtObjectReportJson, CaughtObjectReportJsonChild and CorjMakerOptions are removed (deprecated since 9). CorjRedactStage, CorjErrorStage, CorjRedactContext and CorjErrorContext are now deprecated aliases of CorjStage and CorjContext.
+
+Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
+
 # [10.0.0](https://github.com/dany-fedorov/caught-object-report-json/compare/v9.0.1...v10.0.0) (2026-09-18)
 
 

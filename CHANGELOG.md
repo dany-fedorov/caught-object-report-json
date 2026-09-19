@@ -1,3 +1,10 @@
+## [11.0.1](https://github.com/dany-fedorov/caught-object-report-json/compare/v11.0.0...v11.0.1) (2026-09-19)
+
+
+### Bug Fixes
+
+* no-invoke never touches the stack of an error whose name or message is an accessor ([07377bc](https://github.com/dany-fedorov/caught-object-report-json/commit/07377bc4574cbce5f127f274d8808000227016f0))
+
 # [11.0.0](https://github.com/dany-fedorov/caught-object-report-json/compare/v10.0.0...v11.0.0) (2026-09-19)
 
 

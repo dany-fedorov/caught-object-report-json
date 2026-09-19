@@ -1,6 +1,6 @@
 {
   "name": "caught-object-report-json",
-  "version": "11.0.0",
+  "version": "11.0.1",
   "description": "One JSON shape for every JavaScript error, built for logs and LLM harnesses.",
   "main": "./index.js",
   "types": "./index.d.ts",

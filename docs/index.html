@@ -843,6 +843,11 @@ bounds how much output that produces; it cannot interrupt a synchronous hook tha
 <td>replaced with <code>CORJ_OMITTED_MARKER</code></td>
 </tr>
 <tr>
+<td><code>stack</code> of a host whose <code>name</code> or <code>message</code> is a getter</td>
+<td>invoked</td>
+<td>replaced with <code>CORJ_OMITTED_MARKER</code>, without the <code>stack</code> descriptor being read</td>
+</tr>
+<tr>
 <td>a getter reached while building <code>as_json</code></td>
 <td>invoked</td>
 <td>replaced with <code>CORJ_OMITTED_MARKER</code></td>
@@ -880,10 +885,15 @@ performs a <code>[[Get]]</code> that a <code>Proxy</code> would turn into a <cod
 <p>Native errors keep their <code>stack</code> on V8 (Node, Chromium, Bun), which exposes <code>stack</code> as an own accessor property; <code>no-invoke</code>
 calls that one engine-provided getter, identified by reference, and no other accessor. Two cases withhold it instead:</p>
 <ul>
-<li>V8 formats the stack string on first read, and formatting reads <code>name</code> and <code>message</code>. If either is an accessor, calling the
-engine&#39;s getter would run the caught object&#39;s code, so <code>stack</code> becomes the marker rather than the mode breaking its promise.</li>
+<li>V8 formats the stack string on first read, and formatting reads <code>name</code> and <code>message</code>. When either is an accessor, <code>stack</code>
+is reported as the marker on <strong>every</strong> engine, whatever shape that engine gives it: on Node 18 and 20 the lazily formatted
+stack is an own <em>data</em> property, and <code>Object.getOwnPropertyDescriptor(caught, &#39;stack&#39;)</code> is itself that first read, so the
+descriptors of <code>name</code> and <code>message</code> - which are safe to read - settle the question before any <code>stack</code> descriptor is looked
+at. The same rule withholds a plain <code>stack</code> string on a host whose <code>name</code> or <code>message</code> is an accessor, in <code>as_json</code> too:
+telling the two shapes apart would mean performing the read the mode is avoiding.</li>
 <li>The getter is identified by reference, so an error from another realm (a <code>vm</code> context, an iframe) is not recognized and its
-<code>stack</code> and <code>as_string</code> are both the marker. On an engine that exposes <code>stack</code> as a data property, it is read normally.</li>
+<code>stack</code> and <code>as_string</code> are both the marker. Where <code>stack</code> is a data property and <code>name</code> and <code>message</code> are data properties
+too, its value is read off the descriptor like any other property&#39;s.</li>
 </ul>
 <p><code>Error.prepareStackTrace</code> is a global application hook rather than anything the caught object owns; if your process installs
 one it still runs during formatting, and no in-process option can prevent that.</p>

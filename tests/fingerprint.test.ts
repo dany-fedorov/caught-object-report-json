@@ -870,6 +870,28 @@ describe('makeFingerprint({ requireStack: true })', () => {
     ).toBeUndefined();
   });
 
+  test.each([
+    ['a host and a port read as a frame', { stack: 'pin@vault:4921' }],
+    [
+      'a header-only stack whose message ends in an address',
+      withStack(
+        new Error('smtp rejected PIN 4921 for user@host:587'),
+        'Error: smtp rejected PIN 4921 for user@host:587',
+      ),
+    ],
+    [
+      'a stack whose only extra line is prose',
+      withStack(
+        new Error('PIN 4921 rejected'),
+        'Error: PIN 4921 rejected\n at the gate',
+      ),
+    ],
+  ])('%s is still not a stack', (_label, caught) => {
+    // Each of these hashes text alone; a reader who guesses the text confirms it.
+    expect(maker.makeFingerprint(caught)).toMatch(/^fp1_[0-9a-f]{32}$/);
+    expect(required(caught)).toBeUndefined();
+  });
+
   test('a recipe without `stack` has nothing to require', () => {
     const byMessage = withParts(['message']);
     expect(byMessage.makeFingerprint(new Error('x'))).toMatch(/^fp1_/);

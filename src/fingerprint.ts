@@ -98,27 +98,51 @@ export function stackWithoutHeader(stack: string, asString: unknown): string {
   return match === null ? stack : stack.slice(match.index + 1);
 }
 
-/** A V8 frame: `    at <something>` on its own line. */
-const V8_FRAME = /(^|\n)\s+at \S/;
+/** `<script>:<line>:<column>` ending a line: where in code a frame points. */
+const POSITION = /[^\s(]:\d+:\d+$/;
+/** What V8 prints in place of a position for code that has no script of its own. */
+const V8_PLACELESS = /(?:^|[\s(])(?:<anonymous>|native|index \d+)$/;
+/** The head of a V8 frame line: `at ` after nothing but indentation. */
+const V8_HEAD = /^\s+at \S/;
+
 /**
- * A SpiderMonkey or JavaScriptCore frame: `<name>@<location>`, where the
- * location is a script - a URL or a file path, so it carries a `/` or a `\` -
- * followed by `:<line>` and an optional `:<column>`, or one of the tokens the
- * engines print for code with no script. `alice@example.com:4921` is an address
- * and a number, not a location, and must not pass for a frame.
+ * A V8 frame: `at <something>` alone on its line, ending in where that
+ * something is - `(/app/a.js:1:1)`, a bare `/app/a.js:1:1`, or one of the
+ * tokens V8 prints when there is no script (`(<anonymous>)`, `(native)`,
+ * `(index 0)` inside `Promise.all`). A line of prose that happens to say "at"
+ * ends in neither: ` at the gate` names no place, and the point of the test is
+ * that a reader outside the deployment cannot reproduce the place.
+ */
+function isV8Frame(line: string): boolean {
+  if (!V8_HEAD.test(line)) return false;
+  // `at eval (eval at run (/app/a.js:1:1), <anonymous>:1:1)` closes on the
+  // position, so one trailing bracket is all that has to come off.
+  const tail = line.endsWith(')') ? line.slice(0, -1) : line;
+  return POSITION.test(tail) || V8_PLACELESS.test(tail);
+}
+
+/**
+ * A SpiderMonkey or JavaScriptCore frame: `<name>@<location>` alone on its
+ * line, where the location is a script - a URL or a file path, so it carries a
+ * `/` or a `\` - followed by `:<line>` and an optional `:<column>`, or the
+ * token those engines print for native code. `alice@example.com:4921` is an
+ * address and a number, not a location, and must not pass for a frame.
  */
 const AT_SIGN_FRAME =
-  /(^|\n)[^\n@]*@(?:[^\n]*[/\\][^\n]*:\d+(?::\d+)?|\[native code\]|<anonymous>(?::\d+(?::\d+)?)?)(?=\n|$)/;
+  /^[^@]*@(?:.*[/\\].*:\d+(?::\d+)?|\[native code\]|<anonymous>(?::\d+(?::\d+)?)?)$/;
 
 /**
  * Whether a stack, cut as the `stack` part hashes it, carries at least one
  * frame. Frames are what a reader outside the deployment cannot reproduce; a
  * sentence someone assigned to `.stack`, a redaction marker or an empty string
- * carries nothing they could not have guessed. The word "at" inside a message
- * is not a frame: a frame begins its own line.
+ * carries nothing they could not have guessed. Only one line has to be a frame:
+ * a real stack also carries async separators, `[cause]` text and engine notes,
+ * and withholding a fingerprint over those would withhold nearly all of them.
  */
 export function hasStackFrames(cut: string): boolean {
-  return V8_FRAME.test(cut) || AT_SIGN_FRAME.test(cut);
+  return cut
+    .split('\n')
+    .some((line) => isV8Frame(line) || AT_SIGN_FRAME.test(line));
 }
 
 export type FingerprintRow = readonly [

@@ -66,6 +66,16 @@ describe('hasStackFrames', () => {
     ['a frame at an absolute path', 'fn@/abs/path.js:1:2'],
     ['a frame at a Windows path', 'fn@C:\\x.js:1:2'],
     ['a frame in native code', 'foo@[native code]'],
+    ['an async Promise.all frame', '    at async Promise.all (index 0)'],
+    ['a constructor frame', '    at new Foo (file:///x.mjs:3:4)'],
+    ['a Windows frame', '    at Object.<anonymous> (C:\\x\\y.js:10:5)'],
+    ['a node internal frame', '    at node:internal/process/task_queues:95:5'],
+    ['a frame with no script', '    at Array.map (<anonymous>)'],
+    ['an old V8 native frame', '    at Array.forEach (native)'],
+    [
+      'an eval frame',
+      '    at eval (eval at run (/app/a.js:1:1), <anonymous>:1:1)',
+    ],
   ])('%s is a frame', (_label, cut) => {
     expect(hasStackFrames(cut)).toBe(true);
   });
@@ -85,8 +95,78 @@ describe('hasStackFrames', () => {
       'a sentence with an address in it',
       'smtp rejected PIN 4921 from mail@host.example.com:587',
     ],
+    ['prose that says "at"', ' at the gate'],
+    ['prose that says "at" and a number', ' at 4921'],
+    ['prose that says "at" and an address', ' at alice@example.com'],
+    ['prose over several lines', 'waiting\n at the gate\n at 4921'],
+    ['a host and a port after an @', 'pin@vault:4921'],
   ])('%s is not a frame', (_label, cut) => {
     expect(hasStackFrames(cut)).toBe(false);
+  });
+
+  // Samples go stale and engines do not. These are the stacks this runtime
+  // really produces; if one of them fails, the pattern is what is wrong.
+  describe('the stacks this runtime really produces', () => {
+    const framesOf = (error: Error) =>
+      hasStackFrames(stackWithoutHeader(error.stack ?? '', String(error)));
+
+    const caught = (run: () => void): Error => {
+      try {
+        run();
+        throw new Error('the fixture did not throw');
+      } catch (failure: unknown) {
+        return failure as Error;
+      }
+    };
+
+    test('a plain error', () => {
+      expect(framesOf(new Error('x'))).toBe(true);
+    });
+
+    test('an error thrown inside Array.prototype.map', () => {
+      expect(
+        framesOf(
+          caught(() => {
+            [1].map(() => {
+              throw new Error('x');
+            });
+          }),
+        ),
+      ).toBe(true);
+    });
+
+    test('an error thrown inside eval', () => {
+      expect(framesOf(caught(() => eval('throw new Error("x")')))).toBe(true);
+    });
+
+    const rejection = async (run: () => Promise<unknown>): Promise<Error> => {
+      try {
+        await run();
+        throw new Error('the fixture did not reject');
+      } catch (failure: unknown) {
+        return failure as Error;
+      }
+    };
+
+    test('an error thrown inside Promise.all', async () => {
+      const failing = async () => {
+        throw new Error('x');
+      };
+      const error = await rejection(async () => {
+        await Promise.all([failing()]);
+      });
+      expect(error.message).toBe('x');
+      expect(framesOf(error)).toBe(true);
+    });
+
+    test('an error thrown by an async function', async () => {
+      const error = await rejection(async () => {
+        await Promise.resolve();
+        throw new Error('x');
+      });
+      expect(error.message).toBe('x');
+      expect(framesOf(error)).toBe(true);
+    });
   });
 });
 

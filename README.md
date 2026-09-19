@@ -535,7 +535,9 @@ can tell.
 `maker.makeFingerprint(caught)` computes the value alone — discovery and node fields, without `as_json`, the context or the
 limiter. It returns `undefined` when `fingerprintParts` is `null` or `[]`. `makeFingerprint(caught, { requireStack: true })`
 returns a value only when the hash is backed by the root's own stack frames: `'stack'` is one of the parts, **and** the
-root's stack, as the part hashes it (after redaction, after the header is cut), still carries at least one frame line.
+root's stack, as the part hashes it (after redaction, after the header is cut), still carries at least one frame line. A
+frame line is one that names a place — `at fn (/app/a.js:1:1)`, `at async Promise.all (index 0)`, `fn@/app/a.js:1:1` — so
+prose that merely says "at", or an address with a port, is not one.
 Everything else is `undefined` — a thrown primitive, a plain object, an error with no stack, a stack that carries no frames
 because a caller assigned a sentence to it, a stack a `redact` skip rule replaced, a stack `inspection: 'no-invoke'`
 withheld, and a recipe that does not name `'stack'`. A stack a skip rule replaced or `inspection` withheld fails the rule

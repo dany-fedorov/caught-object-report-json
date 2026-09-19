@@ -1,4 +1,8 @@
 import { configure as configureStringify } from './safe-stable-stringify';
+import {
+  hasPropertyWithoutReading,
+  lazyStackFormattingIsSafe,
+} from './lazy-stack';
 import type { JsonSizeUnit } from './json-size';
 import {
   assertSizeLimit,
@@ -808,10 +812,13 @@ type Access = {
 };
 
 /**
- * V8 installs `stack` on every error as an own accessor property. It is engine
- * code rather than anything the caught object supplied, so `no-invoke`
+ * Recent V8 installs `stack` on every error as an own accessor property. It is
+ * engine code rather than anything the caught object supplied, so `no-invoke`
  * inspection calls this exact function and nothing else that it finds behind an
- * accessor. Engines that expose `stack` as a data property never reach this.
+ * accessor. On Node 18 and 20 the same lazily formatted stack is an own *data*
+ * property instead, so this getter is not there to be recognized; reading that
+ * descriptor is what formats the stack, and {@link accessNoInvoke} settles the
+ * question before it reads one.
  *
  * Calling it is only safe when `name` and `message` are data properties: V8
  * formats the stack string lazily, and formatting performs a `[[Get]]` on both,
@@ -831,32 +838,20 @@ const NATIVE_ERROR_STACK_GETTER: (() => unknown) | undefined = (() => {
   }
 })();
 
-/** Whether `prop` resolves to a data property, so reading it runs nothing. */
-function isDataProperty(host: unknown, prop: PropertyKey): boolean {
-  let current: unknown = host;
-  while (current !== undefined && current !== null) {
-    const descriptor = Object.getOwnPropertyDescriptor(current as object, prop);
-    if (descriptor !== undefined) return 'value' in descriptor;
-    current = Object.getPrototypeOf(current as object);
-  }
-  // Absent is safe: formatting reads `undefined` and runs nothing.
-  return true;
-}
-
-/**
- * Whether materializing `host.stack` would run code the caught object supplied.
- *
- * V8 builds the stack string on first read, reading `name` and `message` to do
- * it, so an accessor on either turns the engine's own getter into a call into
- * the caught object. `Error.prepareStackTrace` is a global application hook
- * rather than anything this object owns, and is out of reach either way.
- */
-function lazyStackFormattingIsSafe(host: unknown): boolean {
-  return isDataProperty(host, 'name') && isDataProperty(host, 'message');
-}
-
 /** Walk the prototype chain for `prop` reading descriptors only; never calls a getter. */
 function accessNoInvoke(host: unknown, prop: PropertyKey): Access {
+  // `stack` is settled before any descriptor of it is read. On Node 18 and 20
+  // an error's `stack` is an own data property V8 formats lazily, and the
+  // descriptor lookup itself triggers that formatting, which performs a
+  // `[[Get]]` of `name` and `message`; an accessor on either would then run.
+  // Whether formatting is safe is answered from the descriptors of `name` and
+  // `message` alone, and presence from `hasOwnProperty`, neither of which
+  // materializes a stack.
+  if (prop === 'stack' && !lazyStackFormattingIsSafe(host)) {
+    return hasPropertyWithoutReading(host, 'stack')
+      ? { found: true, threw: false, omitted: true }
+      : { found: false, threw: false };
+  }
   let current: unknown = host;
   while (current !== undefined && current !== null) {
     const descriptor = Object.getOwnPropertyDescriptor(current as object, prop);

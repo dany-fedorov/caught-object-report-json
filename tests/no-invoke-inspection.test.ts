@@ -651,3 +651,203 @@ describe('inspection: "no-invoke" stack safety edges', () => {
     expect(String(report.stack)).toContain('Error');
   });
 });
+
+describe('inspection: "no-invoke" never reads a lazily formatted stack', () => {
+  /**
+   * Runs `produce` while every descriptor lookup of `stack` is counted.
+   *
+   * Older V8 keeps an error's `stack` in an own data property it formats on the
+   * first read, and the descriptor lookup itself is that read: the count is the
+   * engine-independent statement of what this mode may do, because on those
+   * engines one lookup is one call into `name` and `message`.
+   */
+  function countStackDescriptorReads<T>(
+    watched: unknown,
+    produce: () => T,
+  ): {
+    reads: number;
+    result: T;
+  } {
+    const real = Object.getOwnPropertyDescriptor;
+    let reads = 0;
+    const spy = jest
+      .spyOn(Object, 'getOwnPropertyDescriptor')
+      .mockImplementation((target, prop) => {
+        if (target === watched && prop === 'stack') reads += 1;
+        return real(target, prop);
+      });
+    try {
+      const result = produce();
+      return { reads, result };
+    } finally {
+      spy.mockRestore();
+    }
+  }
+
+  /** A class whose `name` lives on the prototype, the shape `class X extends Error` gives. */
+  function lazyNameError(): { ran: () => number; caught: Error } {
+    let ran = 0;
+    class Lazy extends Error {
+      override get name(): string {
+        ran += 1;
+        return 'Lazy';
+      }
+    }
+    return { ran: () => ran, caught: new Lazy('boom') };
+  }
+
+  /** The same, with `name` as an own accessor of an otherwise ordinary error. */
+  function ownLazyName(): { ran: () => number; caught: Error } {
+    let ran = 0;
+    const caught = new Error('boom');
+    Object.defineProperty(caught, 'name', {
+      configurable: true,
+      get: () => {
+        ran += 1;
+        return 'Own';
+      },
+    });
+    return { ran: () => ran, caught };
+  }
+
+  /** An error whose `message` is the accessor, the other half of the formatting input. */
+  function lazyMessageError(): { ran: () => number; caught: Error } {
+    let ran = 0;
+    class Lazy extends Error {
+      override get message(): string {
+        ran += 1;
+        return 'computed';
+      }
+    }
+    return { ran: () => ran, caught: new Lazy() };
+  }
+
+  const unsafeHosts: readonly [
+    string,
+    () => { ran: () => number; caught: Error },
+  ][] = [
+    ['a prototype accessor for name', lazyNameError],
+    ['an own accessor for name', ownLazyName],
+    ['an accessor for message', lazyMessageError],
+  ];
+
+  test.each(unsafeHosts)(
+    'a report of an error with %s reads no stack descriptor and runs nothing',
+    (_label, fixture) => {
+      const { ran, caught } = fixture();
+      const { reads, result } = countStackDescriptorReads(caught, () =>
+        noInvoke.makeReportObject(caught),
+      );
+      expect(reads).toBe(0);
+      expect(ran()).toBe(0);
+      expect(result.stack).toEqual([CORJ_OMITTED_MARKER]);
+    },
+  );
+
+  test('an engine that formats the stack while its descriptor is read runs nothing', () => {
+    const { ran, caught } = lazyNameError();
+    const real = Object.getOwnPropertyDescriptor;
+    // Node 18 and 20 exactly: the lookup formats the stack, and formatting
+    // performs a [[Get]] of `name`.
+    const spy = jest
+      .spyOn(Object, 'getOwnPropertyDescriptor')
+      .mockImplementation((target, prop) => {
+        if (target === caught && prop === 'stack') {
+          return {
+            value: `${
+              (caught as { name: string }).name
+            }: boom\n    at <anonymous>`,
+            writable: true,
+            enumerable: false,
+            configurable: true,
+          };
+        }
+        return real(target, prop);
+      });
+    let report;
+    try {
+      report = noInvoke.makeReportObject(caught);
+    } finally {
+      spy.mockRestore();
+    }
+    expect(ran()).toBe(0);
+    expect(report.stack).toEqual([CORJ_OMITTED_MARKER]);
+  });
+
+  test('makeFingerprint reads no stack descriptor of such an error', () => {
+    const { ran, caught } = lazyNameError();
+    const { reads, result } = countStackDescriptorReads(caught, () =>
+      noInvoke.makeFingerprint(caught),
+    );
+    expect(reads).toBe(0);
+    expect(ran()).toBe(0);
+    expect(result).toMatch(/^fp1_/);
+  });
+
+  test('a { field: "stack" } fingerprint part and occurrence id source read nothing either', () => {
+    const { ran, caught } = lazyNameError();
+    const maker = new CorjMaker({
+      inspection: 'no-invoke',
+      fingerprintParts: [{ field: 'stack' }],
+      occurrenceIdSources: [{ field: 'stack' }, { auto: 'random' }],
+    });
+    const { reads, result } = countStackDescriptorReads(caught, () =>
+      maker.makeReportObject(caught),
+    );
+    expect(reads).toBe(0);
+    expect(ran()).toBe(0);
+    expect(result.occurrence_id).toMatch(/^CORJ_/);
+    expect(
+      countStackDescriptorReads(caught, () => maker.makeFingerprint(caught))
+        .reads,
+    ).toBe(0);
+  });
+
+  test('an enumerable own stack is withheld from as_json as well', () => {
+    let ran = 0;
+    const caught = {
+      stack: 'Own: boom\n    at <anonymous>',
+      get name(): string {
+        ran += 1;
+        return 'Own';
+      },
+    };
+    const { reads, result } = countStackDescriptorReads(caught, () =>
+      noInvoke.makeReportObject(caught),
+    );
+    expect(reads).toBe(0);
+    expect(ran).toBe(0);
+    expect(result.stack).toEqual([CORJ_OMITTED_MARKER]);
+    expect(result.as_json).toEqual({
+      stack: CORJ_OMITTED_MARKER,
+      name: CORJ_OMITTED_MARKER,
+    });
+  });
+
+  test('a host with an accessor name and no stack at all reports no stack', () => {
+    const caught = {
+      get name(): string {
+        return 'Own';
+      },
+    };
+    const report = noInvoke.makeReportObject(caught);
+    expect(report).not.toHaveProperty('stack');
+  });
+
+  test('an ordinary error still has its real stack read', () => {
+    const ordinary = new Error('ordinary');
+    const { reads, result } = countStackDescriptorReads(ordinary, () =>
+      noInvoke.makeReportObject(ordinary),
+    );
+    expect(reads).toBeGreaterThan(0);
+    expect(String(result.stack)).toContain('Error: ordinary');
+  });
+
+  test('the same errors do run their accessors under the default inspection', () => {
+    for (const [, fixture] of unsafeHosts) {
+      const { ran, caught } = fixture();
+      byDefault.makeReportObject(caught);
+      expect(ran()).toBeGreaterThan(0);
+    }
+  });
+});

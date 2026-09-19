@@ -3,6 +3,8 @@
 // This bundled serializer is a CommonJS module.
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { measureStringSize } = require('./json-size');
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { lazyStackFormattingIsSafe } = require('./lazy-stack');
 
 /**
  * @dany-fedorov: This is a copy of https://github.com/BridgeAR/safe-stable-stringify commit 0c192c2c1e26676ba5af1f7dbe066b98d76f353f
@@ -375,6 +377,12 @@ function configure(options) {
     function readRaw(key, parent) {
       let value;
       if (skipAccessors !== undefined) {
+        // An enumerable own `stack` is settled before its descriptor is read:
+        // on older V8 the lookup itself formats a lazy stack, which performs a
+        // `[[Get]]` of `name` and `message`.
+        if (key === 'stack' && !lazyStackFormattingIsSafe(parent)) {
+          return skipAccessors;
+        }
         // Own descriptor only: `keys` came from `Object.keys(parent)`, so an
         // inherited property is never read here. A getter is not invoked.
         const descriptor = Object.getOwnPropertyDescriptor(parent, key);

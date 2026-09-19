@@ -531,7 +531,10 @@ names the recipe: if it ever changes, fingerprints from the two versions are not
 can tell.
 
 `maker.makeFingerprint(caught)` computes the value alone — discovery and node fields, without `as_json`, the context or the
-limiter. It returns `undefined` when `fingerprintParts` is `null` or `[]`. A call argument outranks the parts:
+limiter. It returns `undefined` when `fingerprintParts` is `null` or `[]`. `makeFingerprint(caught, { requireStack: true })`
+also returns `undefined` whenever the hash would be derived from the caught value's own text instead of its stack: a root
+with no string `stack`, a root whose part values are all empty, or a stack that `inspection: 'no-invoke'` withheld. Nothing
+else changes, and the option never moves the `fingerprint` inside a report. A call argument outranks the parts:
 `makeCorj(caught, options, { fingerprint: 'checkout-timeout' })`, 1 to 64 printable ASCII characters without spaces. Like
 `occurrenceId`, a call `fingerprint` that is not such a token is recorded (`stage: 'other'`, `key: 'fingerprint'`) rather
 than thrown, and the parts are hashed instead.
@@ -541,7 +544,10 @@ no `fingerprint` field.
 
 > **Showing a fingerprint to an untrusted audience.** Anyone who can guess the hashed values can compute the hash and
 > confirm the guess. With the default parts the hash input contains stack text with absolute paths and line numbers, which
-> an outside reader cannot reproduce. Keep `'stack'` in the recipe when the fingerprint is published.
+> an outside reader cannot reproduce — but a value with no stack is hashed from its own text, and that text is often
+> guessable: a reviewer recovered a `"PIN 4921 rejected for alice@example.com"` message from such a fingerprint in ten
+> milliseconds. Keep `'stack'` in the recipe when the fingerprint is published, and compute it with
+> `maker.makeFingerprint(caught, { requireStack: true })`, which yields nothing rather than a hash of the text.
 
 ## Context
 
@@ -1739,10 +1745,13 @@ Validates and freezes the options once, exposes them as `maker.options`, and pro
 `makeReportObject(caught, call?)` and `makeReportArray(caught, call?)`. `maker.with(options)` returns a new maker with the
 overrides applied on top.
 
-#### `maker.makeFingerprint(caught): string | undefined`
+#### `maker.makeFingerprint(caught, options?): string | undefined`
 
 The [fingerprint](#fingerprint) alone, without building `as_json`, a context or running the limiter. `undefined` when
-`fingerprintParts` is `null` or `[]`, or when hashing failed.
+`fingerprintParts` is `null` or `[]`, or when hashing failed. The only option is `{ requireStack?: boolean }`, `false` by
+default: with `requireStack: true` the value is also `undefined` whenever the hash would be derived from the caught value's
+own text rather than its stack, see [Fingerprint](#fingerprint). An options argument of any other shape throws a
+`TypeError`.
 
 #### `maker.makeJson(value, { root?, maxSize? }): CorjJsonView`
 

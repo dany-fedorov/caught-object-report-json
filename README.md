@@ -653,7 +653,7 @@ formatters run before the budget is allocated, so input size still affects proce
 
 ## Errors while reporting
 
-Nothing the caught object does can make `makeReport` throw. When a getter, proxy trap, `toString`, `toCorjAsJson` or the
+Nothing the caught object does can make `Corj.makeReport` throw. When a getter, proxy trap, `toString`, `toCorjAsJson` or the
 serializer throws, the affected field becomes `null` (or the affected child is skipped) and CORJ records what happened:
 
 ```typescript

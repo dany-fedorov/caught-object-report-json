@@ -3,5 +3,5 @@
 // depends on the resolution mode, which the driver asserts explicitly.
 import corj from 'caught-object-report-json';
 
-export const viaDefault = corj.makeReport(new Error('default import'));
+export const viaDefault = corj.Corj.makeReport(new Error('default import'));
 export const makerViaDefault = new corj.CorjMaker({ maxDepth: 1 });

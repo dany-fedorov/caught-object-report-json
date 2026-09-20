@@ -17,12 +17,12 @@ or choosing a recovery step, instead of handling every SDK's error shape.
 Configure report size and traversal; select and redact fields before model exposure.
 
 ```typescript
-import { makeReport } from 'caught-object-report-json';
+import { Corj } from 'caught-object-report-json';
 
 try {
   await fetchUser(id);
 } catch (caught: unknown) {
-  logger.error({ error: makeReport(caught) });
+  logger.error({ error: Corj.makeReport(caught) });
 }
 ```
 
@@ -61,6 +61,8 @@ try {
     * [Imports](#imports)
     * [Tested versions](#tested-versions)
 * [Report schema history](#report-schema-history)
+* [Upgrading from v12](#upgrading-from-v12)
+* [Upgrading from v11](#upgrading-from-v11)
 * [Upgrading from v10](#upgrading-from-v10)
 * [Upgrading from v9](#upgrading-from-v9)
 * [Upgrading from v8](#upgrading-from-v8)
@@ -132,13 +134,13 @@ npm install caught-object-report-json
 # Quick start
 
 ```typescript
-import { makeReport, makeReportArray, CorjMaker } from 'caught-object-report-json';
+import { Corj, CorjMaker } from 'caught-object-report-json';
 
 // One-off, default options.
-const report = makeReport(caught);
+const report = Corj.makeReport(caught);
 
 // Same report as a flat array: the root first, then every nested error.
-const rows = makeReportArray(caught);
+const rows = Corj.makeReportArray(caught);
 
 // Configure once, reuse everywhere.
 const corj = new CorjMaker({ maxReportSize: 16_000, metadata: false });
@@ -165,7 +167,7 @@ Everything else a plain `Error` would report holds its expected value and is lef
 [Omitted expected values](#omitted-expected-values). Configuration and per-occurrence values share one input object:
 
 ```typescript
-const withContext = makeReport(caught, {
+const withContext = Corj.makeReport(caught, {
   occurrenceId: 'req-42',
   context: { runId: 'run-1', tool: 'search' },
 });
@@ -191,7 +193,7 @@ handling from this feedback boundary—it does not infer the right arguments or 
 Keep the correction loop explicit:
 
 1. Capture the failure with `CorjMaker` and associate it with the tool call and attempt in your own envelope.
-2. Read the documented compact-field defaults or use `restoreExpectedValues`; account for missing or truncated diagnostics.
+2. Read the documented compact-field defaults or use `Corj.restoreExpectedValues`; account for missing or truncated diagnostics.
 3. Select and redact useful feedback. Treat error text as untrusted data, never as instructions or authority.
 4. Validate the proposed action, permissions, and retry safety; bound attempts and use a fallback when correction fails.
 5. Check the new result against the task's success criteria before declaring recovery.
@@ -210,7 +212,7 @@ with `npm run ts-file ./examples/example-12-agent-harness.ts` after type checkin
 
 ```typescript
 import { strict as assert } from 'node:assert';
-import { CorjMaker, restoreExpectedValues } from 'caught-object-report-json';
+import { Corj, CorjMaker } from 'caught-object-report-json';
 import type { CorjReport } from 'caught-object-report-json';
 
 type Llm = { complete(prompt: string): Promise<string> };
@@ -267,7 +269,7 @@ async function main() {
   assert.equal(nextNode(failed), 'fallback');
   if (failed.ok) throw new Error('Expected the failing fixture to fail');
 
-  const full = restoreExpectedValues(failed.error);
+  const full = Corj.restoreExpectedValues(failed.error);
   assert.equal(full.message, 'Model request failed');
   assert.equal(full.children?.[0]?.path, '$.cause');
   assert.deepEqual(full.children?.[0]?.as_json, { code: 'MODEL_UNAVAILABLE' });
@@ -343,7 +345,7 @@ listed in [Omitted expected values](#omitted-expected-values), `null` means that
 
 On the root the order is `occurrence_id`, `fingerprint`, then the fields above, then `context` and `reporting_errors`, then
 `children_sources` and the metadata fields. An object report is the root fields plus `children`. An array report
-(`makeReportArray`) is a list whose first element is the root, with `id`, `path`, `level` and `child_ids` like every other node;
+(`Corj.makeReportArray`) is a list whose first element is the root, with `id`, `path`, `level` and `child_ids` like every other node;
 the root-only fields — `occurrence_id`, `fingerprint`, `context`, `reporting_errors`, `children_sources`, `v` and `$schema` —
 stay on that first element only.
 
@@ -373,15 +375,15 @@ The expected values are exported as `CORJ_EXPECTED_VALUES`. Pass `omitExpectedVa
 back in on the consuming side:
 
 ```typescript
-import { restoreExpectedValues } from 'caught-object-report-json';
+import { Corj } from 'caught-object-report-json';
 
-const full = restoreExpectedValues(makeReport(caught));
+const full = Corj.restoreExpectedValues(Corj.makeReport(caught));
 // full.instanceof_error === true, full.typeof === 'object', full.as_json is {},
 // full.as_string is the first stack line, full.constructor_name and full.message are parsed from it,
 // full.as_string_format, full.as_json_format and full.children_sources hold their defaults.
 ```
 
-`restoreExpectedValues` accepts object and array reports, returns a copy, and produces exactly what `omitExpectedValues: false`
+`Corj.restoreExpectedValues` accepts object and array reports, returns a copy, and produces exactly what `omitExpectedValues: false`
 would have produced. It does not add `v` or `$schema`, since a missing one means metadata was disabled.
 
 ## Two report versions
@@ -389,7 +391,7 @@ would have produced. It does not add `v` or `$schema`, since a missing one means
 | `v` | Produced by | Base fields |
 | --- | --- | --- |
 | `corj/v0.15` | the default, `omitExpectedValues: true` | omitted when they hold the expected value |
-| `corj/v0.15-full` | `omitExpectedValues: false`, or `restoreExpectedValues` | always present |
+| `corj/v0.15-full` | `omitExpectedValues: false`, or `Corj.restoreExpectedValues` | always present |
 
 Each version has its own JSON Schema (see [Links](#links)); `$schema` points to the matching one.
 
@@ -428,7 +430,7 @@ agent's next turn. It is a root field, on by default.
 
 The value is resolved in this order, and the first valid one wins:
 
-1. the call's `occurrenceId`: `makeReport(caught, { ...options, occurrenceId: 'req-42' })`;
+1. the call's `occurrenceId`: `Corj.makeReport(caught, { ...options, occurrenceId: 'req-42' })`;
 2. each entry of `occurrenceIdSources`, in order;
 3. nothing, and the field is left out.
 
@@ -546,7 +548,7 @@ there is no place to hash and `undefined` is the rule working, not the option fa
 because the read was skipped, not because of how the replacement reads: a policy is free to choose frame-shaped text. The
 option is the caller's alone — it never moves the `fingerprint` a report carries, and `makeFingerprint(caught)` without it
 is unaffected. A call argument outranks the parts:
-`makeReport(caught, { ...options, fingerprint: 'checkout-timeout' })`, 1 to 64 printable ASCII characters without spaces. Like
+`Corj.makeReport(caught, { ...options, fingerprint: 'checkout-timeout' })`, 1 to 64 printable ASCII characters without spaces. Like
 `occurrenceId`, a call `fingerprint` that is not such a token is recorded (`stage: 'other'`, `reportKey: 'fingerprint'`) rather
 than thrown, and the parts are hashed instead.
 
@@ -570,7 +572,7 @@ no `fingerprint` field.
 A call may carry data of the caller's own beside the caught object — a request id, a run id, the tool that failed:
 
 ```typescript
-const report = makeReport(caught, {
+const report = Corj.makeReport(caught, {
   context: { runId: 'run-1', tool: 'search', attempt: 2 },
 });
 // report.context: { runId: 'run-1', tool: 'search', attempt: 2 }
@@ -611,7 +613,7 @@ const line = maker.scrubText(`login failed for ${user}`, { path: '$audit' });
 ## Size limit
 
 The **entire report** is limited to **100,000 UTF-8 bytes** of compact JSON by default. All fields, metadata, escaping,
-punctuation and children share that budget; for `makeReportArray` the limit applies to the complete array.
+punctuation and children share that budget; for `Corj.makeReportArray` the limit applies to the complete array.
 
 ```typescript
 const corj = new CorjMaker({ maxReportSize: 64_000, reportSizeUnit: 'utf8-bytes' });
@@ -696,7 +698,7 @@ Failures in the finishing pass — `stage: 'limit'`, and `stage: 'other'` from t
 body is assembled and the budget is spent, so they reach the **handler only** and never appear in `reporting_errors`.
 
 Only your own configuration throws: unknown option names, invalid option values and a call input of the wrong shape — not an
-object, or an unknown key — raise `TypeError` or `RangeError` from the `CorjMaker` constructor, `makeReport`, `makeReportArray`
+object, or an unknown key — raise `TypeError` or `RangeError` from the `CorjMaker` constructor, `Corj.makeReport`, `Corj.makeReportArray`
 and the maker's own methods. The call's `occurrenceId` and `fingerprint` are runtime data rather than configuration: a value
 that fails its token pattern is recorded as a reporting error and passed over, so reporting one error never throws a second
 one inside the catch block that was reporting the first.
@@ -760,7 +762,7 @@ const maker = new CorjMaker({
 across `message`, `stack` and `as_string`, so skipping one read does not remove the text from the others:
 
 ```typescript
-makeReport(new Error('boom SECRET'), { redact: { keys: ['message'] } });
+Corj.makeReport(new Error('boom SECRET'), { redact: { keys: ['message'] } });
 // message: '[redacted]'   stack[0]: 'Error: boom SECRET'
 ```
 
@@ -832,7 +834,7 @@ const maker: CorjMaker = new CorjMaker({
 drops the value, returns a non-string or throws yields the `replacement`. For a value that is not a string, use
 [`maker.makeJsonView`](#a-json-view-of-any-value), which applies the whole policy including the skip rules.
 
-`resolveCorjRedactPolicy(input)` validates a policy once, ahead of any maker, so a bad policy fails at startup rather than
+`Corj.resolveRedactPolicy(input)` validates a policy once, ahead of any maker, so a bad policy fails at startup rather than
 inside a catch block. It returns `null` for `null` and `undefined`, and accepts an already-resolved policy.
 
 ## When the policy itself fails
@@ -866,7 +868,7 @@ const caught = {
   plain: 'kept',
 };
 
-makeReport(caught, { inspection: 'no-invoke' });
+Corj.makeReport(caught, { inspection: 'no-invoke' });
 console.log(inspected); // 0
 ```
 
@@ -956,7 +958,7 @@ try {
 } catch (caught: unknown) {
   caught.heh = 123n;
   caught.heh_1 = new Number(123);
-  const report = makeReport(caught);
+  const report = Corj.makeReport(caught);
   console.log(JSON.stringify(report, null, 2));
 }
 ```
@@ -1036,7 +1038,7 @@ axiosClient.interceptors.response.use(undefined, (error) => {
   try {
     await axiosClient.get('https://reqres.in/api/users/23');
   } catch (caught: unknown) {
-    const report = makeReport(caught);
+    const report = Corj.makeReport(caught);
     console.log(JSON.stringify(report, null, 2));
   }
 })();
@@ -1116,7 +1118,7 @@ class Hostile {
 try {
   throw new Hostile();
 } catch (caught: unknown) {
-  const report = makeReport(caught, {
+  const report = Corj.makeReport(caught, {
     onReportingError: (error, context) => {
       console.log('onReportingError::', { error: String(error), context });
     },
@@ -1171,7 +1173,7 @@ and then prints from the catch block
 try {
   throw new Error(`Hi, I'm a regular Error object.`);
 } catch (caught: unknown) {
-  const report = makeReport(caught, {
+  const report = Corj.makeReport(caught, {
     metadata: { $schema: true, v: false },
   });
   console.log(JSON.stringify(report, null, 2));
@@ -1217,7 +1219,7 @@ const caught = new AggregateError(
   'AggregateError message',
   { cause: new Error('Cause Error object') },
 );
-const report = makeReport(caught, { metadata: false });
+const report = Corj.makeReport(caught, { metadata: false });
 console.log(JSON.stringify(report, null, 2));
 ```
 
@@ -1312,7 +1314,7 @@ const caught = new Error("lvl 0", {
 });
 caught.nestedError = 'lvl 1; obj 1';
 caught.extraField = 'error info';
-const report = makeReport(caught, {
+const report = Corj.makeReport(caught, {
   maxDepth: 2,
   childrenSources: ['cause', 'errors', 'nestedError'],
   metadata: false,
@@ -1586,7 +1588,7 @@ ExceptionHandler.prototype.getAllInfo = function getAllInfoExtended(
   return {
     ...errorInfoByWinston,
     error: err,
-    message: makeReport(err),
+    message: Corj.makeReport(err),
   };
 };
 
@@ -1656,7 +1658,7 @@ prints an inline version of a JSON log entry whose `message` is the report:
 <sub>(Run with `npm run ts-file ./examples/example-10-report-size-limit.ts`)</sub>
 
 ```typescript
-const report = makeReport(
+const report = Corj.makeReport(
   { code: 'FETCH_FAILED', attempts: Array(100).fill('timeout') },
   {
     maxReportSize: 512,
@@ -1728,7 +1730,7 @@ const second = new Error('second', { cause: shared });
 const root = new AggregateError([first, second], 'root');
 shared.cause = root;
 
-const rows = makeReportArray(root, { metadata: false });
+const rows = Corj.makeReportArray(root, { metadata: false });
 console.log(JSON.stringify(rows.map(({ stack, ...rest }) => rest), null, 2));
 ```
 
@@ -1752,18 +1754,18 @@ prints (stacks removed for brevity)
 
 # [API](https://dany-fedorov.github.io/caught-object-report-json/modules.html)
 
-#### `makeReport(caught, input?): CorjReport`
+#### `Corj.makeReport(caught, input?): CorjReport`
 
 `CorjMaker#makeReport` with one `CorjReportInput` bag containing configuration and per-occurrence values.
 
-#### `makeReportArray(caught, input?): CorjReportNode[]`
+#### `Corj.makeReportArray(caught, input?): CorjReportNode[]`
 
 `CorjMaker#makeReportArray` with default options and the given overrides.
 
 #### `new CorjMaker(options?)`
 
 Validates and freezes the options once, exposes them as `maker.options`, and produces reports with
-`makeReport(caught, call?)` and `makeReportArray(caught, call?)`. `maker.withOptions(options)` returns a new maker with the
+`maker.makeReport(caught, call?)` and `maker.makeReportArray(caught, call?)`. `maker.withOptions(options)` returns a new maker with the
 overrides applied on top.
 
 #### `maker.makeFingerprint(caught, options?): string | undefined`
@@ -1783,11 +1785,11 @@ The bounded, cycle-safe, redacted [JSON view](#a-json-view-of-any-value) of any 
 
 The maker's `redact` policy applied to one string of your own, with `stage: 'warning'`. The identity without a policy.
 
-#### `restoreExpectedValues(report)`
+#### `Corj.restoreExpectedValues(report)`
 
 Fills omitted expected values back in, turning a `corj/v0.15` report into its `corj/v0.15-full` form.
 
-#### `resolveCorjRedactPolicy(input)`
+#### `Corj.resolveRedactPolicy(input)`
 
 Validates a redaction policy and returns it frozen, `null` for `null` and `undefined`, and throws a `TypeError` for anything
 invalid. An already-resolved policy is accepted and returned resolved.
@@ -1831,7 +1833,7 @@ browser by accident.
 Named imports work everywhere:
 
 ```typescript
-import { makeReport, CorjMaker } from 'caught-object-report-json';
+import { Corj, CorjMaker } from 'caught-object-report-json';
 ```
 
 A default import gives you the module namespace at runtime in Node ESM, in Bun and through any bundler. For types it depends on
@@ -1873,6 +1875,59 @@ Not covered by these tests, and therefore not supported: Deno, Cloudflare Worker
 
 Each schema pins its own `v`, so a reader that validates against a schema URL moves with the format; a reader that ignores `v`
 does not have to.
+
+# Upgrading from v12
+
+13.0.0 groups the four stateless utilities under the frozen `Corj` object. `CorjMaker`, constants, and types remain named
+exports, and report formats stay `corj/v0.15` and `corj/v0.15-full`.
+
+Replace the utility imports and calls:
+
+```typescript
+// 12.x
+import {
+  makeReport,
+  makeReportArray,
+  resolveCorjRedactPolicy,
+  restoreExpectedValues,
+} from 'caught-object-report-json';
+
+const report = makeReport(caught);
+const rows = makeReportArray(caught);
+const full = restoreExpectedValues(report);
+const policy = resolveCorjRedactPolicy(input);
+```
+
+```typescript
+// 13.x
+import { Corj } from 'caught-object-report-json';
+
+const report = Corj.makeReport(caught);
+const rows = Corj.makeReportArray(caught);
+const full = Corj.restoreExpectedValues(report);
+const policy = Corj.resolveRedactPolicy(input);
+```
+
+A module namespace import needs the additional `Corj` property:
+
+```typescript
+// 12.x
+import * as corj from 'caught-object-report-json';
+corj.makeReport(caught);
+
+// 13.x
+import * as corj from 'caught-object-report-json';
+corj.Corj.makeReport(caught);
+```
+
+Migration checklist:
+
+* replace root `makeReport` with `Corj.makeReport`;
+* replace root `makeReportArray` with `Corj.makeReportArray`;
+* replace root `restoreExpectedValues` with `Corj.restoreExpectedValues`;
+* replace root `resolveCorjRedactPolicy` with `Corj.resolveRedactPolicy`;
+* keep importing `CorjMaker`, constants, and types by name;
+* remove assignments to `Corj` members; the namespace is frozen and its members are readonly.
 
 # Upgrading from v11
 

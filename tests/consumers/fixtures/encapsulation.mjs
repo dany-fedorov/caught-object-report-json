@@ -2,7 +2,7 @@
 // and `./package.json` resolve, and `import` and `require` reach one instance.
 import { createRequire } from 'node:module';
 import * as namespace from 'caught-object-report-json';
-import { makeReport, CorjMaker } from 'caught-object-report-json';
+import { Corj, CorjMaker } from 'caught-object-report-json';
 
 const require = createRequire(import.meta.url);
 const results = [];
@@ -53,10 +53,42 @@ check('./package.json still resolves', () => {
 });
 
 check('named ESM imports from the root still work', () =>
-  typeof makeReport === 'function' && typeof CorjMaker === 'function'
+  typeof Corj?.makeReport === 'function' && typeof CorjMaker === 'function'
     ? undefined
     : 'the root does not expose its named bindings through the ESM interop',
 );
+
+check('Corj is the exact frozen utility namespace', () => {
+  const keys = Object.keys(Corj).sort();
+  const expected = [
+    'makeReport',
+    'makeReportArray',
+    'resolveRedactPolicy',
+    'restoreExpectedValues',
+  ];
+  return Object.isFrozen(Corj) &&
+    JSON.stringify(keys) === JSON.stringify(expected)
+    ? undefined
+    : `unexpected Corj namespace: frozen=${Object.isFrozen(
+        Corj,
+      )} keys=${JSON.stringify(keys)}`;
+});
+
+check('legacy utility exports are absent from ESM and CommonJS', () => {
+  const required = require('caught-object-report-json');
+  const legacy = [
+    'makeReport',
+    'makeReportArray',
+    'resolveCorjRedactPolicy',
+    'restoreExpectedValues',
+  ];
+  const present = legacy.filter(
+    (name) => name in namespace || name in required,
+  );
+  return present.length === 0
+    ? undefined
+    : `legacy root exports remain: ${present.join(', ')}`;
+});
 
 check('import and require reach one module instance', () => {
   const required = require('caught-object-report-json');

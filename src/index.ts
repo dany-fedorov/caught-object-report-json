@@ -20,6 +20,7 @@ import {
   CORJ_EXPECTED_VALUES,
   markFullVersion,
   omitExpectedValues,
+  restoreExpectedValues,
 } from './expected-values';
 import { CORJ_REDACT_DROP, Redactor, resolveRedactPolicy } from './redaction';
 import type {
@@ -57,10 +58,8 @@ import {
 } from './version';
 import type { CorjSchemaLink, CorjVersion } from './version';
 
-export { CORJ_EXPECTED_VALUES, restoreExpectedValues } from './expected-values';
+export { CORJ_EXPECTED_VALUES } from './expected-values';
 export { CORJ_REDACTED_MARKER } from './redaction';
-/** Validates and freezes a redaction policy; `undefined` and `null` both mean "no policy". */
-export { resolveRedactPolicy as resolveCorjRedactPolicy } from './redaction';
 export type {
   CorjContext,
   CorjRedactPolicy,
@@ -125,7 +124,7 @@ export type CorjChildrenOmitted =
  *
  * With `omitExpectedValues` (the default) a field holding its expected value is
  * left out, see {@link CORJ_EXPECTED_VALUES}: a missing field means the expected
- * value, `null` means producing the value failed. {@link restoreExpectedValues}
+ * value, `null` means producing the value failed. {@link Corj.restoreExpectedValues}
  * fills them back in.
  */
 export type CorjReportBase = {
@@ -171,7 +170,7 @@ export type CorjReportBase = {
   $schema?: CorjSchemaLink;
 };
 
-/** Report object produced by {@link makeReport} and {@link CorjMaker.makeReport}. */
+/** Report object produced by {@link Corj.makeReport} and {@link CorjMaker.makeReport}. */
 export type CorjReport = CorjReportBase & {
   /** Every nested error found through `children_sources`, flattened breadth-first. Absent when there are none. */
   children?: CorjReportNode[];
@@ -179,7 +178,7 @@ export type CorjReport = CorjReportBase & {
 
 /**
  * One node of a flattened error tree: an element of {@link CorjReport.children},
- * or of the array produced by {@link makeReportArray} whose first element is the root.
+ * or of the array produced by {@link Corj.makeReportArray} whose first element is the root.
  */
 export type CorjReportNode = CorjReportBase & {
   /** From `makeReportId`; `"root"` for the root and the discovery index otherwise by default. */
@@ -301,7 +300,7 @@ export type CorjOptions = {
   onReportingError: CorjErrorHandler;
 };
 
-/** Options accepted by {@link CorjMaker}, {@link makeReport} and {@link makeReportArray}. Missing ones keep their defaults. */
+/** Options accepted by {@link CorjMaker}, {@link Corj.makeReport} and {@link Corj.makeReportArray}. Missing ones keep their defaults. */
 export type CorjOptionsInput = {
   [K in Exclude<keyof CorjOptions, 'metadata' | 'redact'>]?: CorjOptions[K];
 } & {
@@ -319,7 +318,7 @@ export type CorjCallInput = {
   context?: unknown;
 };
 
-/** Configuration and per-call values accepted by {@link makeReport} and {@link makeReportArray}. */
+/** Configuration and per-call values accepted by {@link Corj.makeReport} and {@link Corj.makeReportArray}. */
 export type CorjReportInput = CorjOptionsInput & CorjCallInput;
 
 //  ██████╗ ██████╗ ███╗   ██╗███████╗████████╗ █████╗ ███╗   ██╗████████╗███████╗
@@ -2260,10 +2259,7 @@ function splitReportInput(input: CorjReportInput | undefined): {
 }
 
 /** {@link CorjMaker.makeReport} with {@link CORJ_DEFAULT_OPTIONS} and the given overrides. */
-export function makeReport(
-  caught: unknown,
-  input?: CorjReportInput,
-): CorjReport {
+function makeReport(caught: unknown, input?: CorjReportInput): CorjReport {
   if (arguments.length > 2) {
     throw new TypeError('makeReport accepts caught and one input object');
   }
@@ -2272,7 +2268,7 @@ export function makeReport(
 }
 
 /** {@link CorjMaker.makeReportArray} with {@link CORJ_DEFAULT_OPTIONS} and the given overrides. */
-export function makeReportArray(
+function makeReportArray(
   caught: unknown,
   input?: CorjReportInput,
 ): CorjReportNode[] {
@@ -2282,3 +2278,15 @@ export function makeReportArray(
   const { options, call } = splitReportInput(input);
   return makerFor(options).makeReportArray(caught, call);
 }
+
+/** Stateless report utilities for one-off calls and report post-processing. */
+export const Corj = Object.freeze({
+  /** {@link CorjMaker.makeReport} with {@link CORJ_DEFAULT_OPTIONS} and the given overrides. */
+  makeReport,
+  /** {@link CorjMaker.makeReportArray} with {@link CORJ_DEFAULT_OPTIONS} and the given overrides. */
+  makeReportArray,
+  /** Restores fields omitted because they held their documented expected values. */
+  restoreExpectedValues,
+  /** Validates and freezes a redaction policy; `undefined` and `null` both mean "no policy". */
+  resolveRedactPolicy,
+});

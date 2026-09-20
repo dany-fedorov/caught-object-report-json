@@ -1,4 +1,6 @@
-import { CorjMaker, makeReport, makeReportArray } from '../src';
+import { Corj, CorjMaker } from '../src';
+
+const { makeReport, makeReportArray } = Corj;
 import {
   getReportArrayReportValidator,
   getReportObjectReportValidator,

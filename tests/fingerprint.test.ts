@@ -1,10 +1,12 @@
-import { CorjMaker, makeReport, makeReportArray } from '../src/index';
+import { Corj, CorjMaker } from '../src/index';
 import type {
   CorjFingerprintPart,
   CorjOptionsInput,
   CorjReportingError,
 } from '../src/index';
 import * as sha256 from '../src/sha256';
+
+const { makeReport, makeReportArray } = Corj;
 
 // The compile target predates `cause` and AggregateError; the runtime has both.
 const ErrorWithCause = Error as unknown as new (

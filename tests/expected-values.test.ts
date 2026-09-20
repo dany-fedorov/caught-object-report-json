@@ -1,12 +1,10 @@
 import {
+  Corj,
   CORJ_EXPECTED_VALUES,
   CORJ_VERSION,
   CORJ_VERSION_FULL,
   CorjContext,
   CorjMaker,
-  makeReport,
-  makeReportArray,
-  restoreExpectedValues,
 } from '../src';
 import * as expectedValues from '../src/expected-values';
 import {
@@ -14,6 +12,8 @@ import {
   getReportObjectReportValidator,
 } from './utils/getReportObjectReportValidator';
 import { LEGACY } from './legacy-options';
+
+const { makeReport, makeReportArray, restoreExpectedValues } = Corj;
 
 const quiet = { ...LEGACY, onReportingError: () => undefined };
 

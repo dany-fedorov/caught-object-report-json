@@ -1,16 +1,16 @@
 import type { CorjReport } from '../src';
 import {
+  Corj,
   CORJ_CIRCULAR_MARKER,
   CORJ_OMITTED_MARKER,
   CorjMaker,
-  makeReport,
-  makeReportArray,
-  restoreExpectedValues,
 } from '../src';
 import {
   getReportArrayReportValidator,
   getReportObjectReportValidator,
 } from './utils/getReportObjectReportValidator';
+
+const { makeReport, makeReportArray, restoreExpectedValues } = Corj;
 
 const noInvoke = new CorjMaker({ inspection: 'no-invoke' });
 const byDefault = new CorjMaker();
@@ -543,7 +543,7 @@ describe('inspection: "no-invoke" edge cases', () => {
         enumerable: false,
         configurable: true,
       }));
-      const report = corj.makeReport(new Error('boom'), {
+      const report = corj.Corj.makeReport(new Error('boom'), {
         inspection: 'no-invoke',
       });
       // This engine's own accessor is not recognized, so the stack is withheld.
@@ -554,7 +554,7 @@ describe('inspection: "no-invoke" edge cases', () => {
       const corj = loadWithProbe(() => {
         throw new Error('probe exploded');
       });
-      const report = corj.makeReport(new Error('boom'), {
+      const report = corj.Corj.makeReport(new Error('boom'), {
         inspection: 'no-invoke',
       });
       expect(report.stack).toEqual([corj.CORJ_OMITTED_MARKER]);

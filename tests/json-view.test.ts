@@ -1,5 +1,7 @@
-import { CorjMaker, resolveCorjRedactPolicy } from '../src/index';
+import { Corj, CorjMaker } from '../src/index';
 import * as corj from '../src/index';
+
+const { resolveRedactPolicy } = Corj;
 
 const silent = () => undefined;
 
@@ -166,17 +168,17 @@ describe('maker.scrubText', () => {
 
 describe('policy validation', () => {
   test('a replacement longer than 128 characters is rejected', () => {
-    expect(() =>
-      resolveCorjRedactPolicy({ replacement: 'x'.repeat(129) }),
-    ).toThrow('redact.replacement must be a string of at most 128 characters');
+    expect(() => resolveRedactPolicy({ replacement: 'x'.repeat(129) })).toThrow(
+      'redact.replacement must be a string of at most 128 characters',
+    );
     expect(
-      resolveCorjRedactPolicy({ replacement: 'x'.repeat(128) }),
+      resolveRedactPolicy({ replacement: 'x'.repeat(128) }),
     ).not.toBeNull();
   });
 
   test('a resolved policy is returned as is, without re-validation', () => {
-    const resolved = resolveCorjRedactPolicy({ keys: ['a'] });
-    expect(resolveCorjRedactPolicy(resolved)).toBe(resolved);
+    const resolved = resolveRedactPolicy({ keys: ['a'] });
+    expect(resolveRedactPolicy(resolved)).toBe(resolved);
   });
 
   test('CorjRedactor is no longer exported', () => {

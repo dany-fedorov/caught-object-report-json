@@ -1,4 +1,5 @@
 import {
+  Corj,
   CORJ_CIRCULAR_MARKER,
   CORJ_DEFAULT_OPTIONS,
   CORJ_EXPECTED_VALUES,
@@ -15,15 +16,14 @@ import {
   CorjOptionsInput,
   CorjReport,
   CorjReportNode,
-  makeReport,
-  makeReportArray,
-  restoreExpectedValues,
 } from '../src';
 import { TRUNCATED_MARKER } from '../src/safe-stable-stringify';
 import {
   getReportArrayReportValidator,
   getReportObjectReportValidator,
 } from './utils/getReportObjectReportValidator';
+
+const { makeReport, makeReportArray, restoreExpectedValues } = Corj;
 import { LEGACY } from './legacy-options';
 
 // The compile target predates `cause` and AggregateError; the runtime has both.

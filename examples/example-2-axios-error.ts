@@ -1,4 +1,4 @@
-import { makeReport } from '../src';
+import { Corj } from '../src';
 import axios, { AxiosError } from 'axios';
 
 const axiosClient = axios.create();
@@ -41,7 +41,7 @@ axiosClient.interceptors.response.use(undefined, (error) => {
   try {
     await axiosClient.get('https://reqres.in/api/users/23');
   } catch (caught: unknown) {
-    const report = makeReport(caught);
+    const report = Corj.makeReport(caught);
     console.log(JSON.stringify(report, null, 2));
   }
 })();

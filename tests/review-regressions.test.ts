@@ -1,11 +1,11 @@
 import {
+  Corj,
   CORJ_VERSION,
   CORJ_VERSION_FULL,
   CorjMaker,
   CorjOptions,
   CorjContext,
   CorjReportSizeUnit,
-  restoreExpectedValues,
 } from '../src';
 import * as reportSize from '../src/report-size';
 import {
@@ -13,6 +13,8 @@ import {
   getReportObjectReportValidator,
 } from './utils/getReportObjectReportValidator';
 import { LEGACY } from './legacy-options';
+
+const { restoreExpectedValues } = Corj;
 
 describe('review regressions', () => {
   afterEach(() => {

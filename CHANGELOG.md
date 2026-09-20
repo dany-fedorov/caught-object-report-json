@@ -1,3 +1,27 @@
+# 13.0.0 (2026-09-20)
+
+### BREAKING CHANGES
+
+* group the four stateless utilities under the frozen named `Corj` export; the standalone root functions are removed
+* rename `resolveCorjRedactPolicy` to `Corj.resolveRedactPolicy`
+
+### Migration
+
+```typescript
+// Before
+import { makeReport, restoreExpectedValues } from 'caught-object-report-json';
+const report = makeReport(caught);
+const full = restoreExpectedValues(report);
+
+// After
+import { Corj } from 'caught-object-report-json';
+const report = Corj.makeReport(caught);
+const full = Corj.restoreExpectedValues(report);
+```
+
+With a module namespace import, replace `corj.makeReport(caught)` with `corj.Corj.makeReport(caught)`. `CorjMaker`, constants,
+and types remain named exports. Report schemas remain `corj/v0.15` and `corj/v0.15-full`.
+
 # 12.0.0 (2026-09-21)
 
 ### BREAKING CHANGES

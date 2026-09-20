@@ -12,7 +12,16 @@
  */
 
 import { execFileSync, execSync } from 'node:child_process';
-import { cpSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  closeSync,
+  cpSync,
+  mkdtempSync,
+  openSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -59,11 +68,32 @@ const skip = (
 const keep = args.includes('--keep');
 
 function run(command, argv, options = {}) {
-  return execFileSync(command, argv, {
-    encoding: 'utf8',
-    stdio: ['ignore', 'pipe', 'pipe'],
-    ...options,
-  });
+  const capture = mkdtempSync(path.join(tmpdir(), 'corj-command-'));
+  const stdoutPath = path.join(capture, 'stdout');
+  const stderrPath = path.join(capture, 'stderr');
+  const stdoutFd = openSync(stdoutPath, 'w');
+  const stderrFd = openSync(stderrPath, 'w');
+  let failure;
+  try {
+    execFileSync(command, argv, {
+      ...options,
+      stdio: ['ignore', stdoutFd, stderrFd],
+    });
+  } catch (caught) {
+    failure = caught;
+  } finally {
+    closeSync(stdoutFd);
+    closeSync(stderrFd);
+  }
+  const stdout = readFileSync(stdoutPath, 'utf8');
+  const stderr = readFileSync(stderrPath, 'utf8');
+  rmSync(capture, { recursive: true, force: true });
+  if (failure !== undefined) {
+    failure.stdout = stdout;
+    failure.stderr = stderr;
+    throw failure;
+  }
+  return stdout;
 }
 
 /**
@@ -79,6 +109,13 @@ function runFixture(command, argv, options = {}) {
     }
     throw caught;
   }
+}
+
+function errorOutput(caught) {
+  for (const value of [caught?.stdout, caught?.stderr, caught?.message]) {
+    if (typeof value === 'string' && value.trim() !== '') return value.trim();
+  }
+  return String(caught);
 }
 
 function has(command) {
@@ -102,10 +139,21 @@ function versionOf(command, argv) {
 function packArtifact() {
   run('npm', ['run', 'prepublish-me'], { cwd: repo });
   const build = path.join(repo, 'npm-module-build');
-  const tarball = run('npm', ['pack', '--silent'], { cwd: build })
+  const stdout = run('npm', ['pack', '--silent'], { cwd: build })
     .trim()
     .split('\n')
     .pop();
+  const candidates = stdout?.endsWith('.tgz')
+    ? [stdout]
+    : readdirSync(build).filter((file) => file.endsWith('.tgz'));
+  if (candidates.length !== 1) {
+    throw new Error(
+      `npm pack produced ${candidates.length} tarballs: ${candidates.join(
+        ', ',
+      )}`,
+    );
+  }
+  const [tarball] = candidates;
   return path.join(build, tarball);
 }
 
@@ -259,7 +307,7 @@ const checks = {
           ]);
           return null;
         } catch (caught) {
-          return String(caught.stdout ?? caught.message).trim();
+          return errorOutput(caught);
         }
       };
       const results = [];
@@ -273,6 +321,55 @@ const checks = {
           name: `${moduleResolution}: named imports`,
           ok: named === null,
           error: named ?? undefined,
+        });
+
+        const removed = check(
+          'probe-removed.ts',
+          moduleResolution,
+          module,
+          false,
+        );
+        const removedNames = [
+          'makeReport',
+          'makeReportArray',
+          'resolveCorjRedactPolicy',
+          'restoreExpectedValues',
+        ];
+        const removedDiagnostics =
+          removed
+            ?.split('\n')
+            .filter((line) => /error TS(2305|2459|2724):/.test(line)) ?? [];
+        const allRemoved =
+          removedDiagnostics.length === removedNames.length &&
+          removedNames.every((name) =>
+            removedDiagnostics.some((line) => line.includes(`'${name}'`)),
+          );
+        results.push({
+          name: `${moduleResolution}: legacy utility imports are rejected`,
+          ok: allRemoved,
+          error:
+            removed === null
+              ? 'legacy utility imports still type-check'
+              : allRemoved
+              ? undefined
+              : `expected one missing/non-exported diagnostic for each legacy utility, got: ${removed}`,
+        });
+
+        const readonly = check(
+          'probe-readonly.ts',
+          moduleResolution,
+          module,
+          false,
+        );
+        results.push({
+          name: `${moduleResolution}: Corj members are readonly`,
+          ok: readonly !== null && /error TS2540:/.test(readonly),
+          error:
+            readonly === null
+              ? 'assignment to Corj.makeReport type-checked'
+              : /error TS2540:/.test(readonly)
+              ? undefined
+              : `expected a readonly-property diagnostic, got: ${readonly}`,
         });
 
         const bare = check('probe-default.ts', moduleResolution, module, false);
@@ -399,9 +496,7 @@ for (const name of selected) {
         {
           name: 'check',
           ok: false,
-          error: String(
-            caught.stdout ?? caught.stderr ?? caught.message,
-          ).trim(),
+          error: String(errorOutput(caught)).trim(),
         },
       ],
     };

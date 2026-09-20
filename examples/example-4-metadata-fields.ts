@@ -1,9 +1,9 @@
-import { makeReport } from '../src';
+import { Corj } from '../src';
 
 try {
   throw new Error(`Hi, I'm a regular Error object.`);
 } catch (caught: unknown) {
-  const report = makeReport(caught, {
+  const report = Corj.makeReport(caught, {
     metadata: { $schema: true, v: false },
   });
   console.log(JSON.stringify(report, null, 2));

@@ -120,12 +120,32 @@ describe('Assertions about package exports', function () {
         "CORJ_TRUNCATED_MARKER",
         "CORJ_VERSION",
         "CORJ_VERSION_FULL",
+        "Corj",
         "CorjMaker",
-        "makeReport",
-        "makeReportArray",
-        "resolveCorjRedactPolicy",
-        "restoreExpectedValues",
       ]
     `);
+  });
+
+  test('Corj is the exact frozen utility namespace', () => {
+    const Corj = (corj as Record<string, unknown>)['Corj'] as Record<
+      string,
+      unknown
+    >;
+
+    expect(Object.keys(Corj).sort()).toEqual([
+      'makeReport',
+      'makeReportArray',
+      'resolveRedactPolicy',
+      'restoreExpectedValues',
+    ]);
+    expect(Object.isFrozen(Corj)).toBe(true);
+    for (const name of [
+      'makeReport',
+      'makeReportArray',
+      'resolveCorjRedactPolicy',
+      'restoreExpectedValues',
+    ]) {
+      expect(name in corj).toBe(false);
+    }
   });
 });

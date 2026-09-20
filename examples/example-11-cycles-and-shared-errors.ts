@@ -1,4 +1,4 @@
-import { makeReportArray } from '../src';
+import { Corj } from '../src';
 
 // The same error object reachable through two parents, and a cycle back to the root.
 const shared = new Error('shared cause');
@@ -15,7 +15,7 @@ const root = new AggregateError([first, second], 'root');
 // @ts-ignore
 shared.cause = root;
 
-const rows = makeReportArray(root, { metadata: false });
+const rows = Corj.makeReportArray(root, { metadata: false });
 console.log(
   JSON.stringify(
     rows.map(({ stack, ...rest }) => rest),

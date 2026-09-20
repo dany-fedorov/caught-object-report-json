@@ -1,9 +1,6 @@
-import {
-  CorjMaker,
-  makeReport,
-  makeReportArray,
-  restoreExpectedValues,
-} from '../src/index';
+import { Corj, CorjMaker } from '../src/index';
+
+const { makeReport, makeReportArray, restoreExpectedValues } = Corj;
 
 // The compile target predates `cause`; the runtime has it.
 const ErrorWithCause = Error as unknown as new (

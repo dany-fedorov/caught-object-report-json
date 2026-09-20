@@ -1,5 +1,7 @@
-import { CorjMaker, makeReport, makeReportArray } from '../src/index';
+import { Corj, CorjMaker } from '../src/index';
 import type { CorjOccurrenceIdSource, CorjReportingError } from '../src/index';
+
+const { makeReport, makeReportArray } = Corj;
 
 // The compile target predates `cause`; the runtime has it.
 const ErrorWithCause = Error as unknown as new (

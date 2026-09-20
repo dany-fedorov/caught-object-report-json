@@ -1,16 +1,11 @@
-import {
-  CORJ_DEFAULT_OPTIONS,
-  CorjContext,
-  CorjMaker,
-  makeReport,
-  makeReportArray,
-  restoreExpectedValues,
-} from '../src';
+import { Corj, CORJ_DEFAULT_OPTIONS, CorjContext, CorjMaker } from '../src';
 import {
   getReportArrayReportValidator,
   getReportObjectReportValidator,
 } from './utils/getReportObjectReportValidator';
 import { LEGACY } from './legacy-options';
+
+const { makeReport, makeReportArray, restoreExpectedValues } = Corj;
 
 // The test tsconfig targets a lib without ES2022 error features.
 const AggregateErrorCtor: new (

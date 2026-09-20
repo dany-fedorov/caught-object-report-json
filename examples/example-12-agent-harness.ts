@@ -1,5 +1,5 @@
 import { strict as assert } from 'node:assert';
-import { CorjMaker, restoreExpectedValues } from '../src';
+import { Corj, CorjMaker } from '../src';
 import type { CorjReport } from '../src';
 
 type Llm = { complete(prompt: string): Promise<string> };
@@ -56,7 +56,7 @@ async function main() {
   assert.equal(nextNode(failed), 'fallback');
   if (failed.ok) throw new Error('Expected the failing fixture to fail');
 
-  const full = restoreExpectedValues(failed.error);
+  const full = Corj.restoreExpectedValues(failed.error);
   assert.equal(full.message, 'Model request failed');
   assert.equal(full.children?.[0]?.path, '$.cause');
   assert.deepEqual(full.children?.[0]?.as_json, { code: 'MODEL_UNAVAILABLE' });

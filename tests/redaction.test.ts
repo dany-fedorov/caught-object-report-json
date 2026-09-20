@@ -1,17 +1,17 @@
 import type { CorjContext, CorjRedactPolicyInput } from '../src';
 import {
+  Corj,
   CORJ_OMITTED_MARKER,
   CORJ_REDACTED_MARKER,
   CorjMaker,
-  makeReport,
-  resolveCorjRedactPolicy,
-  restoreExpectedValues,
 } from '../src';
 import * as reportSize from '../src/report-size';
 import {
   getReportArrayReportValidator,
   getReportObjectReportValidator,
 } from './utils/getReportObjectReportValidator';
+
+const { makeReport, resolveRedactPolicy, restoreExpectedValues } = Corj;
 
 /** The one string that must never survive a policy that excludes it. */
 const SECRET = 'sk-live-MARKER-0123456789';
@@ -952,27 +952,27 @@ describe("redact: scrubbing a consumer's own text and the policy resolver", () =
     });
   });
 
-  test('resolveCorjRedactPolicy returns null for null and for undefined', () => {
-    expect(resolveCorjRedactPolicy(null)).toBeNull();
-    expect(resolveCorjRedactPolicy(undefined)).toBeNull();
+  test('resolveRedactPolicy returns null for null and for undefined', () => {
+    expect(resolveRedactPolicy(null)).toBeNull();
+    expect(resolveRedactPolicy(undefined)).toBeNull();
   });
 
-  test('resolveCorjRedactPolicy rejects a pattern that is not global', () => {
-    expect(() =>
-      resolveCorjRedactPolicy({ patterns: [/sk-live-\w+/] }),
-    ).toThrow(TypeError);
-    expect(() =>
-      resolveCorjRedactPolicy({ patterns: [/sk-live-\w+/] }),
-    ).toThrow(/redact\.patterns must all be global/);
+  test('resolveRedactPolicy rejects a pattern that is not global', () => {
+    expect(() => resolveRedactPolicy({ patterns: [/sk-live-\w+/] })).toThrow(
+      TypeError,
+    );
+    expect(() => resolveRedactPolicy({ patterns: [/sk-live-\w+/] })).toThrow(
+      /redact\.patterns must all be global/,
+    );
   });
 
-  test('resolveCorjRedactPolicy accepts an already-resolved policy', () => {
-    const once = resolveCorjRedactPolicy({
+  test('resolveRedactPolicy accepts an already-resolved policy', () => {
+    const once = resolveRedactPolicy({
       keys: ['token'],
       patterns: [/sk-live-\w+/g],
       replacement: '[hidden]',
     })!;
-    const twice = resolveCorjRedactPolicy(once)!;
+    const twice = resolveRedactPolicy(once)!;
     expect(twice).toEqual(once);
     expect(Object.isFrozen(twice)).toBe(true);
     expect(

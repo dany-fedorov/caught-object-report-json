@@ -1,6 +1,8 @@
-import { CorjMaker, makeReport } from '../src/index';
+import { Corj, CorjMaker } from '../src/index';
 import type { CorjReportingError } from '../src/index';
 import * as reportSize from '../src/report-size';
+
+const { makeReport } = Corj;
 
 // The compile target predates AggregateError; the runtime has it.
 const AggregateErrorCtor = (

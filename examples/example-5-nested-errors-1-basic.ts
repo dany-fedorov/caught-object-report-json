@@ -1,4 +1,4 @@
-import { makeReport } from '../src';
+import { Corj } from '../src';
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
@@ -10,5 +10,5 @@ const caught = new AggregateError(
   'AggregateError message',
   { cause: new Error('Cause Error object') },
 );
-const report = makeReport(caught, { metadata: false });
+const report = Corj.makeReport(caught, { metadata: false });
 console.log(JSON.stringify(report, null, 2));

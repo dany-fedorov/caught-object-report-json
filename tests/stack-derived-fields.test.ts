@@ -1,4 +1,5 @@
 import {
+  Corj,
   CORJ_FULL_REPORT_ARRAY_JSON_SCHEMA_LINK,
   CORJ_FULL_REPORT_OBJECT_JSON_SCHEMA_LINK,
   CORJ_REPORT_ARRAY_JSON_SCHEMA_LINK,
@@ -6,9 +7,6 @@ import {
   CORJ_VERSION,
   CORJ_VERSION_FULL,
   CorjMaker,
-  makeReport,
-  makeReportArray,
-  restoreExpectedValues,
 } from '../src';
 import {
   markFullVersion,
@@ -20,6 +18,8 @@ import {
   getReportArrayReportValidator,
   getReportObjectReportValidator,
 } from './utils/getReportObjectReportValidator';
+
+const { makeReport, makeReportArray, restoreExpectedValues } = Corj;
 import { LEGACY } from './legacy-options';
 
 const marker = '[truncated]';

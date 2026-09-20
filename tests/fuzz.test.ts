@@ -1,4 +1,5 @@
 import {
+  Corj,
   CORJ_DEFAULT_OPTIONS,
   CORJ_TRUNCATED_MARKER,
   CorjMaker,
@@ -6,15 +7,14 @@ import {
   CorjReport,
   CorjReportNode,
   CorjReportSizeUnit,
-  makeReport,
-  makeReportArray,
-  restoreExpectedValues,
 } from '../src';
 import {
   getReportArrayReportValidator,
   getReportObjectReportValidator,
 } from './utils/getReportObjectReportValidator';
 import { LEGACY } from './legacy-options';
+
+const { makeReport, makeReportArray, restoreExpectedValues } = Corj;
 
 // Deterministic pseudo-random generator so a failure can be replayed by seed.
 function rng(seed: number) {

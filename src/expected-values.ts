@@ -1,4 +1,4 @@
-import type { CorjReport, CorjReportBase, CorjReportChild } from './index';
+import type { CorjReport, CorjReportBase, CorjReportNode } from './index';
 import {
   CORJ_FULL_REPORT_ARRAY_JSON_SCHEMA_LINK,
   CORJ_FULL_REPORT_OBJECT_JSON_SCHEMA_LINK,
@@ -30,7 +30,7 @@ export const CORJ_EXPECTED_VALUES = Object.freeze({
   children_sources: Object.freeze(['cause', 'errors']),
 } as const);
 
-type Report = CorjReport | CorjReportChild[];
+type Report = CorjReport | CorjReportNode[];
 type Node = CorjReportBase;
 
 export function firstStackLine(

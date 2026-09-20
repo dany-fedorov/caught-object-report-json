@@ -4,7 +4,7 @@ import path from 'node:path';
 
 const ajv = new Ajv();
 
-const VERSIONS = { compact: 'v0.14', full: 'v0.14-full' } as const;
+const VERSIONS = { compact: 'v0.15', full: 'v0.15-full' } as const;
 export type SchemaKind = keyof typeof VERSIONS;
 
 for (const [kind, version] of Object.entries(VERSIONS)) {

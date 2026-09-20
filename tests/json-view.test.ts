@@ -3,9 +3,12 @@ import * as corj from '../src/index';
 
 const silent = () => undefined;
 
-describe('maker.makeJson', () => {
+describe('maker.makeJsonView', () => {
   test('returns the bounded JSON form of any value', () => {
-    const view = new CorjMaker().makeJson({ runId: 'run-1', nested: { n: 1 } });
+    const view = new CorjMaker().makeJsonView({
+      runId: 'run-1',
+      nested: { n: 1 },
+    });
     expect(view).toEqual({
       value: { runId: 'run-1', nested: { n: 1 } },
       truncated: false,
@@ -14,12 +17,12 @@ describe('maker.makeJson', () => {
   });
 
   test('does not hide children sources: a view has no children', () => {
-    const view = new CorjMaker().makeJson({ cause: 'kept', errors: [1] });
+    const view = new CorjMaker().makeJsonView({ cause: 'kept', errors: [1] });
     expect(view.value).toEqual({ cause: 'kept', errors: [1] });
   });
 
   test('maxSize bounds the view and reports truncation', () => {
-    const view = new CorjMaker().makeJson(
+    const view = new CorjMaker().makeJsonView(
       { big: 'x'.repeat(5000) },
       { maxSize: 256 },
     );
@@ -29,17 +32,17 @@ describe('maker.makeJson', () => {
 
   test('a named root is where paths start, so rules can tell documents apart', () => {
     const maker = new CorjMaker({
-      onError: silent,
+      onReportingError: silent,
       redact: { paths: ['$context.user.email'] },
     });
-    const inContext = maker.makeJson(
+    const inContext = maker.makeJsonView(
       { user: { email: 'a@b.c', name: 'A' } },
       { root: '$context' },
     );
     expect(inContext.value).toEqual({
       user: { email: '[redacted]', name: 'A' },
     });
-    const elsewhere = maker.makeJson(
+    const elsewhere = maker.makeJsonView(
       { user: { email: 'a@b.c' } },
       { root: '$public' },
     );
@@ -49,11 +52,11 @@ describe('maker.makeJson', () => {
   test('a rule rooted at the caught value does not reach a named root', () => {
     const maker = new CorjMaker({ redact: { paths: ['$.password'] } });
     expect(
-      maker.makeJson({ password: 'p' }, { root: '$context' }).value,
+      maker.makeJsonView({ password: 'p' }, { root: '$context' }).value,
     ).toEqual({
       password: 'p',
     });
-    expect(maker.makeJson({ password: 'p' }).value).toEqual({
+    expect(maker.makeJsonView({ password: 'p' }).value).toEqual({
       password: '[redacted]',
     });
   });
@@ -66,9 +69,12 @@ describe('maker.makeJson', () => {
         throw new Error('nope');
       },
     });
-    const view = new CorjMaker({ onError: silent }).makeJson(hostile, {
-      root: '$context',
-    });
+    const view = new CorjMaker({ onReportingError: silent }).makeJsonView(
+      hostile,
+      {
+        root: '$context',
+      },
+    );
     expect(view.errors.length).toBeGreaterThan(0);
     expect(view.errors[0]!.path.startsWith('$context')).toBe(true);
   });
@@ -76,16 +82,20 @@ describe('maker.makeJson', () => {
   test.each([['context'], ['$'.repeat(2)], ['$.a'], ['$a.b'], ['$1a'], ['']])(
     'rejects the root %j',
     (root) => {
-      expect(() => new CorjMaker().makeJson({}, { root })).toThrow(TypeError);
+      expect(() => new CorjMaker().makeJsonView({}, { root })).toThrow(
+        TypeError,
+      );
     },
   );
 
   test.each([[255], [1.5], [Number.NaN]])('rejects maxSize %p', (maxSize) => {
-    expect(() => new CorjMaker().makeJson({}, { maxSize })).toThrow(RangeError);
+    expect(() => new CorjMaker().makeJsonView({}, { maxSize })).toThrow(
+      RangeError,
+    );
   });
 
   test('maxSize: null removes the view bound', () => {
-    const view = new CorjMaker({ maxReportSize: 512 }).makeJson(
+    const view = new CorjMaker({ maxReportSize: 512 }).makeJsonView(
       { big: 'x'.repeat(5000) },
       { maxSize: null },
     );
@@ -102,7 +112,7 @@ describe('maker.makeJson', () => {
         return 1;
       },
     });
-    const view = new CorjMaker({ inspection: 'no-invoke' }).makeJson(value);
+    const view = new CorjMaker({ inspection: 'no-invoke' }).makeJsonView(value);
     expect(ran).toBe(0);
     expect(view.value).toEqual({ lazy: '[not-inspected]' });
   });
@@ -130,20 +140,20 @@ describe('maker.scrubText', () => {
         },
       },
     });
-    maker.scrubText('text', { path: '$public.message', key: 'message' });
+    maker.scrubText('text', { path: '$public.message', reportKey: 'message' });
     expect(seen).toEqual([
       {
         stage: 'warning',
         path: '$public.message',
-        key: 'message',
-        prop: undefined,
+        reportKey: 'message',
+        sourceProperty: undefined,
       },
     ]);
   });
 
   test('a throwing policy fails closed to the replacement', () => {
     const maker = new CorjMaker({
-      onError: silent,
+      onReportingError: silent,
       redact: {
         transform: () => {
           throw new Error('bug');
@@ -177,7 +187,7 @@ describe('policy validation', () => {
 describe('the edges of the view API', () => {
   test('a root that is not a string is rejected', () => {
     expect(() =>
-      new CorjMaker().makeJson({}, { root: 7 as unknown as string }),
+      new CorjMaker().makeJsonView({}, { root: 7 as unknown as string }),
     ).toThrow(TypeError);
   });
 
@@ -190,8 +200,8 @@ describe('the edges of the view API', () => {
   test('a second unbounded view is still unbounded, cache or not', () => {
     const maker = new CorjMaker({ maxReportSize: 512 });
     const big = { big: 'x'.repeat(5000) };
-    expect(maker.makeJson(big, { maxSize: null }).truncated).toBe(false);
-    expect(maker.makeJson(big, { maxSize: null }).truncated).toBe(false);
+    expect(maker.makeJsonView(big, { maxSize: null }).truncated).toBe(false);
+    expect(maker.makeJsonView(big, { maxSize: null }).truncated).toBe(false);
   });
 
   test('an unbounded view still obeys inspection: no-invoke', () => {
@@ -204,9 +214,12 @@ describe('the edges of the view API', () => {
         return 1;
       },
     });
-    const view = new CorjMaker({ inspection: 'no-invoke' }).makeJson(value, {
-      maxSize: null,
-    });
+    const view = new CorjMaker({ inspection: 'no-invoke' }).makeJsonView(
+      value,
+      {
+        maxSize: null,
+      },
+    );
     expect(ran).toBe(0);
     expect(view.value).toEqual({ lazy: '[not-inspected]' });
   });
@@ -214,21 +227,21 @@ describe('the edges of the view API', () => {
   test('an unbounded view marks a cycle instead of chasing it', () => {
     const value: { self?: unknown; n: number } = { n: 1 };
     value.self = value;
-    const view = new CorjMaker().makeJson(value, { maxSize: null });
+    const view = new CorjMaker().makeJsonView(value, { maxSize: null });
     expect(view.value).toEqual({ n: 1, self: '[circular]' });
     expect(view.truncated).toBe(false);
   });
 
   test('a value with no JSON form comes back as null', () => {
-    expect(new CorjMaker().makeJson(() => undefined).value).toBeNull();
+    expect(new CorjMaker().makeJsonView(() => undefined).value).toBeNull();
   });
 
   test('the caught value keeps its own .toCorjAsJson in a named root', () => {
     const value = {
       toCorjAsJson: () => ({ own: true }),
     };
-    expect(new CorjMaker().makeJson(value, { root: '$context' }).value).toEqual(
-      { own: true },
-    );
+    expect(
+      new CorjMaker().makeJsonView(value, { root: '$context' }).value,
+    ).toEqual({ own: true });
   });
 });

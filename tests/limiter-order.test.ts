@@ -1,10 +1,10 @@
 import {
   CorjMaker,
-  makeCorj,
-  makeCorjArray,
+  makeReport,
+  makeReportArray,
   CORJ_VERSION_FULL,
 } from '../src/index';
-import type { CorjReport, CorjReportChild } from '../src/index';
+import type { CorjReport, CorjReportNode } from '../src/index';
 import { makeMinimalReport } from '../src/report-size';
 
 const ErrorWithCause = Error as unknown as new (
@@ -44,17 +44,15 @@ describe('limiter drop order', () => {
 
   test('context goes first, whole, and the report says so', () => {
     const big = { blob: 'c'.repeat(3000) };
-    const roomy = makeCorj(
-      noisy(),
-      { onError: silent, maxReportSize: 100_000 },
-      { context: big },
-    );
+    const roomy = makeReport(noisy(), {
+      ...{ onReportingError: silent, maxReportSize: 100_000 },
+      ...{ context: big },
+    });
     expect(roomy.context).toEqual(big);
-    const tight = makeCorj(
-      noisy(),
-      { onError: silent, maxReportSize: 2500 },
-      { context: big },
-    );
+    const tight = makeReport(noisy(), {
+      ...{ onReportingError: silent, maxReportSize: 2500 },
+      ...{ context: big },
+    });
     expect(tight).not.toHaveProperty('context');
     expect(tight.context_omitted).toBe('max_size');
     expect(tight.truncated).toBe(true);
@@ -63,11 +61,10 @@ describe('limiter drop order', () => {
 
     const caught = new ErrorWithCause('outer', { cause: noisy() });
     caught.stack = 'Error: outer\n    at fixed (file.js:1:1)';
-    const rows = makeCorjArray(
-      caught,
-      { onError: silent, maxReportSize: 2500 },
-      { context: big },
-    );
+    const rows = makeReportArray(caught, {
+      ...{ onReportingError: silent, maxReportSize: 2500 },
+      ...{ context: big },
+    });
     const [rootRow, ...tailRows] = rows;
     expect(tailRows).toHaveLength(1);
     expect(rootRow).toMatchObject({
@@ -79,21 +76,21 @@ describe('limiter drop order', () => {
     });
     expect(rootRow).not.toHaveProperty('context');
     expect(tailRows).toEqual(
-      makeCorjArray(caught, { onError: silent, maxReportSize: 100_000 }).slice(
-        1,
-      ),
+      makeReportArray(caught, {
+        onReportingError: silent,
+        maxReportSize: 100_000,
+      }).slice(1),
     );
     expect(bytes(rows)).toBeLessThanOrEqual(2500);
   });
 
   test('reporting_errors go second, and the report says so', () => {
-    const report = makeCorj(
-      noisy(),
-      { onError: silent, maxReportSize: 600 },
-      {
+    const report = makeReport(noisy(), {
+      ...{ onReportingError: silent, maxReportSize: 600 },
+      ...{
         context: { blob: 'c'.repeat(3000) },
       },
-    );
+    });
     expect(report.context_omitted).toBe('max_size');
     expect(report).not.toHaveProperty('reporting_errors');
     expect(report.reporting_errors_omitted).toBe('max_size');
@@ -101,40 +98,38 @@ describe('limiter drop order', () => {
   });
 
   test('context goes before any error content is trimmed, however small it is', () => {
-    const report = makeCorj(
-      new Error('m'.repeat(5000)),
-      { maxReportSize: 1024 },
-      {
+    const report = makeReport(new Error('m'.repeat(5000)), {
+      ...{ maxReportSize: 1024 },
+      ...{
         context: { runId: 'run-1' },
       },
-    );
+    });
     expect(report.truncated).toBe(true);
     expect(report).not.toHaveProperty('context');
     expect(report.context_omitted).toBe('max_size');
   });
 
   test('a report that fits keeps its context untouched', () => {
-    const report = makeCorj(
-      new Error('small'),
-      { maxReportSize: 100_000 },
-      {
+    const report = makeReport(new Error('small'), {
+      ...{ maxReportSize: 100_000 },
+      ...{
         context: { runId: 'run-1' },
       },
-    );
+    });
     expect(report.context).toEqual({ runId: 'run-1' });
     expect(report).not.toHaveProperty('context_omitted');
   });
 
   test('v survives the tightest budget', () => {
-    const report = makeCorj(new Error('m'.repeat(5000)), {
+    const report = makeReport(new Error('m'.repeat(5000)), {
       maxReportSize: 512,
     });
-    expect(report.v).toBe(makeCorj(new Error('x')).v);
+    expect(report.v).toBe(makeReport(new Error('x')).v);
   });
 
   test('v is still absent when metadata turned it off', () => {
     expect(
-      makeCorj(new Error('m'.repeat(5000)), {
+      makeReport(new Error('m'.repeat(5000)), {
         maxReportSize: 512,
         metadata: false,
       }),
@@ -160,7 +155,7 @@ describe('limiter drop order', () => {
     const asArray = makeMinimalReport([
       { id: 'root', path: '$', level: 0, ...worstRoot },
       child,
-    ] as CorjReportChild[]);
+    ] as CorjReportNode[]);
     for (const minimal of [asObject, asArray[0]!]) {
       expect(minimal).toMatchObject({
         occurrence_id: '!'.repeat(128),
@@ -192,7 +187,7 @@ describe('limiter drop order', () => {
   test('the largest fixed fields survive the floor, in both shapes', () => {
     const huge = new AggregateErrorCtor([new Error('child')], 'm'.repeat(5000));
     const options = {
-      onError: silent,
+      onReportingError: silent,
       maxReportSize: 512,
       metadata: true,
       omitExpectedValues: false,
@@ -202,8 +197,8 @@ describe('limiter drop order', () => {
       occurrenceId: '!'.repeat(128),
       fingerprint: '~'.repeat(64),
     };
-    for (const make of [makeCorj, makeCorjArray] as const) {
-      const made = make(huge, options, call);
+    for (const make of [makeReport, makeReportArray] as const) {
+      const made = make(huge, { ...options, ...call });
       const root = (Array.isArray(made) ? made[0] : made) as CorjReport;
       expect(root.truncated).toBe(true);
       expect(root.occurrence_id).toBe(call.occurrenceId);

@@ -1,8 +1,8 @@
-import { CORJ_DEFAULT_OPTIONS, makeCorj } from '../src/index';
+import { CORJ_DEFAULT_OPTIONS, makeReport } from '../src/index';
 
 describe('defaults', () => {
   test('a report carries an id and a fingerprint out of the box', () => {
-    const report = makeCorj(new Error('x'));
+    const report = makeReport(new Error('x'));
     expect(report.occurrence_id).toMatch(/^CORJ_[0-9A-HJKMNP-TV-Z]{26}$/);
     expect(report.fingerprint).toMatch(/^fp1_[0-9a-f]{32}$/);
   });
@@ -23,12 +23,12 @@ describe('defaults', () => {
 
   test('a test that needs a deterministic report turns both off, or pins them', () => {
     expect(
-      makeCorj(new Error('x'), {
+      makeReport(new Error('x'), {
         occurrenceIdSources: null,
         fingerprintParts: null,
       }),
     ).not.toHaveProperty('occurrence_id');
-    const pinned = makeCorj(new Error('x'), undefined, {
+    const pinned = makeReport(new Error('x'), {
       occurrenceId: 'test-id',
       fingerprint: 'test-fp',
     });

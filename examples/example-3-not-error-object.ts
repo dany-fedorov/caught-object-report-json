@@ -1,4 +1,4 @@
-import { makeCorj } from '../src';
+import { makeReport } from '../src';
 
 class Hostile {
   get message(): string {
@@ -9,9 +9,9 @@ class Hostile {
 try {
   throw new Hostile();
 } catch (caught: unknown) {
-  const report = makeCorj(caught, {
-    onError: (error, context) => {
-      console.log('onError::', { error: String(error), context });
+  const report = makeReport(caught, {
+    onReportingError: (error, context) => {
+      console.log('onReportingError::', { error: String(error), context });
     },
   });
   console.log(JSON.stringify(report, null, 2));

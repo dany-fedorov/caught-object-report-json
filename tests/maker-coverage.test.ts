@@ -1,4 +1,4 @@
-import { CorjErrorContext, CorjMaker } from '../src';
+import { CorjContext, CorjMaker } from '../src';
 import {
   getReportArrayReportValidator,
   getReportObjectReportValidator,
@@ -30,15 +30,15 @@ describe('maker option and failure boundaries', () => {
     const maker = new CorjMaker(input);
     const readsAtConstruction = reads;
     expect(readsAtConstruction).toBeGreaterThan(0);
-    maker.makeReportObject({ cause: { cause: 'deep' } });
+    maker.makeReport({ cause: { cause: 'deep' } });
     maker.makeReportArray({ cause: { cause: 'deep' } });
     expect(reads).toBe(readsAtConstruction);
     expect(maker.options.maxDepth).toBe(1);
   });
 
-  test('with() without changes keeps every option', () => {
+  test('withOptions() without changes keeps every option', () => {
     const maker = new CorjMaker({ ...LEGACY, maxDepth: 0, metadata: false });
-    const report = maker.with({}).makeReportObject({ cause: 'child' });
+    const report = maker.withOptions({}).makeReport({ cause: 'child' });
     expect(report).toEqual({
       instanceof_error: false,
       constructor_name: 'Object',
@@ -47,9 +47,9 @@ describe('maker option and failure boundaries', () => {
     });
   });
 
-  test('with() can lift a limit again', () => {
+  test('withOptions() can lift a limit again', () => {
     const maker = new CorjMaker({ ...LEGACY, maxDepth: 0 });
-    const report = maker.with({ maxDepth: 5 }).makeReportObject({
+    const report = maker.withOptions({ maxDepth: 5 }).makeReport({
       cause: 'child',
     });
     expect(report).not.toHaveProperty('children_omitted');
@@ -65,7 +65,7 @@ describe('maker option and failure boundaries', () => {
         as_json: 'child',
       },
     ]);
-    expect(maker.makeReportObject({ cause: 'child' })).toMatchObject({
+    expect(maker.makeReport({ cause: 'child' })).toMatchObject({
       children_omitted: 'max_depth',
     });
   });
@@ -84,7 +84,7 @@ describe('maker option and failure boundaries', () => {
       },
     );
 
-    const report = new CorjMaker(LEGACY).makeReportObject({
+    const report = new CorjMaker(LEGACY).makeReport({
       message: 'outer',
       cause: child,
     });
@@ -119,7 +119,7 @@ describe('maker option and failure boundaries', () => {
     '$format reports contain prototype failures (nested: $nested)',
     ({ format, nested }) => {
       const failure = new Error('prototype unavailable');
-      const caughtDuring: { caught: unknown; context: CorjErrorContext }[] = [];
+      const caughtDuring: { caught: unknown; context: CorjContext }[] = [];
       const problematic = new Proxy(
         {},
         {
@@ -132,7 +132,7 @@ describe('maker option and failure boundaries', () => {
         ...LEGACY,
         maxReportSize: 512,
         metadata: false,
-        onError: (caught, context) => {
+        onReportingError: (caught, context) => {
           caughtDuring.push({ caught, context });
         },
       });
@@ -150,13 +150,13 @@ describe('maker option and failure boundaries', () => {
         {
           stage: 'other',
           path,
-          key: 'instanceof_error',
+          reportKey: 'instanceof_error',
           error: 'Error: prototype unavailable',
         },
       ];
 
       if (format === 'object') {
-        const report = maker.makeReportObject(caught);
+        const report = maker.makeReport(caught);
         expect(getReportObjectReportValidator()(report)).toBe(true);
         expect(
           Buffer.byteLength(JSON.stringify(report), 'utf8'),
@@ -219,7 +219,7 @@ describe('maker option and failure boundaries', () => {
           context: {
             stage: 'other',
             path,
-            key: 'instanceof_error',
+            reportKey: 'instanceof_error',
             error: 'Error: prototype unavailable',
           },
         },

@@ -53,24 +53,27 @@ export function randomOccurrenceId(caught: unknown): string {
 
 const MAX_PATH_SEGMENTS = 16;
 
-/** Validates a `{ field }` or `{ path }` entry. `where` names it in the message, e.g. `occurrenceIdSources[0]`. */
+/** Validates a `{ sourceProperty }` or `{ path }` entry. `where` names it in the message, e.g. `occurrenceIdSources[0]`. */
 export function validateSourceEntry(entry: unknown, where: string): void {
   const record = entry as Record<string, unknown>;
   for (const key of Object.keys(record)) {
-    if (key !== 'field' && key !== 'path' && key !== 'inspection') {
+    if (key !== 'sourceProperty' && key !== 'path' && key !== 'inspection') {
       throw new TypeError(`${where} has an unknown key "${key}"`);
     }
   }
-  const hasField = record['field'] !== undefined;
+  const hasField = record['sourceProperty'] !== undefined;
   const hasPath = record['path'] !== undefined;
   if (hasField === hasPath) {
-    throw new TypeError(`${where} must have exactly one of field or path`);
+    throw new TypeError(
+      `${where} must have exactly one of sourceProperty or path`,
+    );
   }
   if (
     hasField &&
-    (typeof record['field'] !== 'string' || record['field'] === '')
+    (typeof record['sourceProperty'] !== 'string' ||
+      record['sourceProperty'] === '')
   ) {
-    throw new TypeError(`${where}.field must be a nonempty string`);
+    throw new TypeError(`${where}.sourceProperty must be a nonempty string`);
   }
   if (hasPath) {
     const path = record['path'];

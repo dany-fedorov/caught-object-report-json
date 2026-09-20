@@ -1,4 +1,4 @@
-import { CorjMaker, makeCorj, makeCorjArray } from '../src';
+import { CorjMaker, makeReport, makeReportArray } from '../src';
 import {
   getReportArrayReportValidator,
   getReportObjectReportValidator,
@@ -13,7 +13,7 @@ describe('whole report size limit', () => {
     (caught as Error & { cause?: Error }).cause = new Error(
       '😀'.repeat(50_000),
     );
-    const report = makeCorj(caught);
+    const report = makeReport(caught);
     expect(byteSize(report)).toBeLessThanOrEqual(100_000);
     expect(report).toHaveProperty('truncated', true);
     expect(report.message).toContain('[truncated]');
@@ -21,7 +21,7 @@ describe('whole report size limit', () => {
   });
 
   test('configures a small budget and retains schema-valid partial output', () => {
-    const report = makeCorj(
+    const report = makeReport(
       { code: 'FETCH_FAILED', attempts: Array(100).fill('timeout') },
       { maxReportSize: 512 },
     );
@@ -33,11 +33,11 @@ describe('whole report size limit', () => {
 
   test('supports UTF-16 code units as an alternative to UTF-8 bytes', () => {
     const caught = '😀'.repeat(500);
-    const utf8 = makeCorj(caught, {
+    const utf8 = makeReport(caught, {
       maxReportSize: 512,
       reportSizeUnit: 'utf8-bytes',
     });
-    const utf16 = makeCorj(caught, {
+    const utf16 = makeReport(caught, {
       maxReportSize: 512,
       reportSizeUnit: 'utf16-code-units',
     });
@@ -51,16 +51,16 @@ describe('whole report size limit', () => {
 
   test('preserves fitting reports exactly and can disable the size limit', () => {
     const caught = { message: 'unchanged', payload: 'a'.repeat(500) };
-    const unlimited = makeCorj(caught, {
+    const unlimited = makeReport(caught, {
       maxReportSize: null,
     });
-    const exact = makeCorj(caught, {
+    const exact = makeReport(caught, {
       maxReportSize: byteSize(unlimited),
     });
     expect(exact).toEqual(unlimited);
     expect(exact).not.toHaveProperty('truncated');
     const huge = 'x'.repeat(120_000);
-    const report = makeCorj(huge, {
+    const report = makeReport(huge, {
       maxReportSize: null,
     });
     expect(report.as_json).toBe(huge);
@@ -75,7 +75,7 @@ describe('whole report size limit', () => {
         cause: { message: 'nested ' + i },
       })),
     };
-    const report = makeCorjArray(caught, {
+    const report = makeReportArray(caught, {
       maxReportSize: 1_024,
     });
     expect(byteSize(report)).toBeLessThanOrEqual(1_024);
@@ -105,7 +105,7 @@ describe('whole report size limit', () => {
         cause: { message: 'nested ' + i },
       })),
     };
-    const report = makeCorj(caught, {
+    const report = makeReport(caught, {
       maxReportSize: 1_024,
     });
     expect(byteSize(report)).toBeLessThanOrEqual(1_024);
@@ -127,14 +127,14 @@ describe('whole report size limit', () => {
       stack: 'y'.repeat(5_000),
       cause: { message: 'child' },
     };
-    const object = maker.makeReportObject(caught);
+    const object = maker.makeReport(caught);
     const array = maker.makeReportArray(caught);
     expect(byteSize(object)).toBeLessThanOrEqual(512);
     expect(byteSize(array)).toBeLessThanOrEqual(512);
     expect(
-      byteSize(maker.with({ maxReportSize: 2_048 }).makeReportObject(caught)),
+      byteSize(maker.withOptions({ maxReportSize: 2_048 }).makeReport(caught)),
     ).toBeGreaterThan(512);
-    expect(byteSize(maker.makeReportObject(caught))).toBeLessThanOrEqual(512);
+    expect(byteSize(maker.makeReport(caught))).toBeLessThanOrEqual(512);
     expect(caught.message).toHaveLength(5_000);
     expect(caught.stack).toHaveLength(5_000);
   });
@@ -147,7 +147,7 @@ describe('whole report size limit', () => {
       childrenSources: ['cause', 'x'.repeat(1_000)],
     });
     const caught = { message: 'x'.repeat(1_000), cause: { message: 'child' } };
-    const object = maker.makeReportObject(caught);
+    const object = maker.makeReport(caught);
     const array = maker.makeReportArray(caught);
     expect(byteSize(object)).toBeLessThanOrEqual(512);
     expect(byteSize(array)).toBeLessThanOrEqual(512);
@@ -170,7 +170,7 @@ describe('whole report size limit', () => {
 
   test('preserves schema validity when an existing depth omission cannot fit', () => {
     const huge = 'x'.repeat(1_000);
-    const report = makeCorj(
+    const report = makeReport(
       {
         constructor: { name: huge },
         message: huge,

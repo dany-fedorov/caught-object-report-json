@@ -72,8 +72,8 @@ describe('tokens', () => {
   });
 
   test.each([
-    [{ field: '' }, 'x[0].field must be a nonempty string'],
-    [{ field: 1 }, 'x[0].field must be a nonempty string'],
+    [{ sourceProperty: '' }, 'x[0].sourceProperty must be a nonempty string'],
+    [{ sourceProperty: 1 }, 'x[0].sourceProperty must be a nonempty string'],
     [
       { path: [] },
       'x[0].path must be an array of 1 to 16 strings or nonnegative integers',
@@ -87,21 +87,23 @@ describe('tokens', () => {
       'x[0].path must be an array of 1 to 16 strings or nonnegative integers',
     ],
     [
-      { field: 'a', path: ['a'] },
-      'x[0] must have exactly one of field or path',
+      { sourceProperty: 'a', path: ['a'] },
+      'x[0] must have exactly one of sourceProperty or path',
     ],
     [
-      { field: 'a', inspection: 'strict' },
+      { sourceProperty: 'a', inspection: 'strict' },
       'x[0].inspection must be "default" or "no-invoke"',
     ],
-    [{ field: 'a', extra: 1 }, 'x[0] has an unknown key "extra"'],
-    [{}, 'x[0] must have exactly one of field or path'],
+    [{ sourceProperty: 'a', extra: 1 }, 'x[0] has an unknown key "extra"'],
+    [{}, 'x[0] must have exactly one of sourceProperty or path'],
   ])('validateSourceEntry rejects %j', (entry, message) => {
     expect(() => validateSourceEntry(entry, 'x[0]')).toThrow(message);
   });
 
   test('validateSourceEntry accepts both forms, with and without inspection', () => {
-    expect(() => validateSourceEntry({ field: 'id' }, 'x[0]')).not.toThrow();
+    expect(() =>
+      validateSourceEntry({ sourceProperty: 'id' }, 'x[0]'),
+    ).not.toThrow();
     expect(() =>
       validateSourceEntry(
         { path: ['a', 0, 'b'], inspection: 'no-invoke' },

@@ -1,8 +1,8 @@
 import {
   CORJ_VERSION,
   CORJ_VERSION_FULL,
-  makeCorj,
-  makeCorjArray,
+  makeReport,
+  makeReportArray,
   restoreExpectedValues,
 } from '../src/index';
 import {
@@ -29,22 +29,28 @@ function everything() {
   return error;
 }
 
-describe('corj/v0.14', () => {
+describe('corj/v0.15', () => {
   test('the version constants', () => {
-    expect(CORJ_VERSION).toBe('corj/v0.14');
-    expect(CORJ_VERSION_FULL).toBe('corj/v0.14-full');
+    expect(CORJ_VERSION).toBe('corj/v0.15');
+    expect(CORJ_VERSION_FULL).toBe('corj/v0.15-full');
   });
 
   test('a report using every new field validates, compact and full, object and array', () => {
     const call = { context: { runId: 'run-1' } };
-    const compact = makeCorj(everything(), { onError: silent }, call);
+    const compact = makeReport(everything(), {
+      ...{ onReportingError: silent },
+      ...call,
+    });
     expect(compact.reporting_errors).toBeDefined();
     const validateObject = getReportObjectReportValidator('compact');
     expect(validateObject(compact)).toBe(true);
     expect(
       getReportObjectReportValidator('full')(restoreExpectedValues(compact)),
     ).toBe(true);
-    const rows = makeCorjArray(everything(), { onError: silent }, call);
+    const rows = makeReportArray(everything(), {
+      ...{ onReportingError: silent },
+      ...call,
+    });
     expect(getReportArrayReportValidator('compact')(rows)).toBe(true);
     expect(
       getReportArrayReportValidator('full')(restoreExpectedValues(rows)),
@@ -52,11 +58,10 @@ describe('corj/v0.14', () => {
   });
 
   test('a trimmed report with both omission flags validates', () => {
-    const report = makeCorj(
-      everything(),
-      { onError: silent, maxReportSize: 600 },
-      { context: { blob: 'c'.repeat(3000) } },
-    );
+    const report = makeReport(everything(), {
+      ...{ onReportingError: silent, maxReportSize: 600 },
+      ...{ context: { blob: 'c'.repeat(3000) } },
+    });
     expect(report.context_omitted).toBe('max_size');
     expect(getReportObjectReportValidator('compact')(report)).toBe(true);
   });
@@ -72,7 +77,7 @@ describe('corj/v0.14', () => {
       },
     ],
   ])('the schema rejects %j', (patch) => {
-    const report = { ...makeCorj(new Error('x')), ...patch };
+    const report = { ...makeReport(new Error('x')), ...patch };
     expect(getReportObjectReportValidator('compact')(report)).toBe(false);
   });
 });

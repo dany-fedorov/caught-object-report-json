@@ -1,4 +1,4 @@
-import { CorjMaker, makeCorj } from '../src/index';
+import { CorjMaker, makeReport } from '../src/index';
 import type { CorjReportingError } from '../src/index';
 import * as reportSize from '../src/report-size';
 
@@ -31,29 +31,31 @@ describe('reporting errors as data', () => {
     jest.restoreAllMocks();
   });
 
-  test('a failure is written into the report and handed to onError as the same record', () => {
+  test('a failure is written into the report and handed to onReportingError as the same record', () => {
     const seen: [unknown, CorjReportingError][] = [];
-    const report = makeCorj(throwingGetter('getter blew up'), {
-      onError: (caught, record) => seen.push([caught, record]),
+    const report = makeReport(throwingGetter('getter blew up'), {
+      onReportingError: (caught, record) => seen.push([caught, record]),
     });
     expect(report.reporting_errors).toBeDefined();
-    const row = report.reporting_errors!.find((r) => r.prop === 'message')!;
+    const row = report.reporting_errors!.find(
+      (r) => r.sourceProperty === 'message',
+    )!;
     expect(row).toEqual({
       stage: 'prop-access',
       path: '$',
-      key: 'message',
-      prop: 'message',
+      reportKey: 'message',
+      sourceProperty: 'message',
       error: 'Error: getter blew up',
     });
-    const handed = seen.find(([, r]) => r.prop === 'message')!;
+    const handed = seen.find(([, r]) => r.sourceProperty === 'message')!;
     expect(handed[1]).toEqual(row);
     expect(handed[0]).toBeInstanceOf(Error); // the raw thrown value, for sinks such as Sentry
   });
 
   test('a clean report has no reporting_errors field', () => {
-    expect(makeCorj(new Error('fine'), { onError: silent })).not.toHaveProperty(
-      'reporting_errors',
-    );
+    expect(
+      makeReport(new Error('fine'), { onReportingError: silent }),
+    ).not.toHaveProperty('reporting_errors');
   });
 
   test('at most 8 records are kept; the handler still sees every failure', () => {
@@ -62,8 +64,8 @@ describe('reporting errors as data', () => {
       throwingGetter(`boom ${i}`),
     );
     let calls = 0;
-    const report = makeCorj(new AggregateErrorCtor(children, 'many'), {
-      onError: () => calls++,
+    const report = makeReport(new AggregateErrorCtor(children, 'many'), {
+      onReportingError: () => calls++,
     });
     expect(report.reporting_errors).toHaveLength(8);
     expect(calls).toBeGreaterThan(8);
@@ -72,11 +74,13 @@ describe('reporting errors as data', () => {
   test('text is scrubbed before it is cut to 256 characters', () => {
     const secret = 'sk-abcdefghij';
     const padding = 'x'.repeat(250);
-    const report = makeCorj(throwingGetter(`${padding}${secret}`), {
-      onError: silent,
+    const report = makeReport(throwingGetter(`${padding}${secret}`), {
+      onReportingError: silent,
       redact: { patterns: [/sk-[a-z]{10}/g] },
     });
-    const row = report.reporting_errors!.find((r) => r.prop === 'message')!;
+    const row = report.reporting_errors!.find(
+      (r) => r.sourceProperty === 'message',
+    )!;
     expect(row.error).toHaveLength(256);
     expect(row.error).not.toContain('sk-');
     expect(JSON.stringify(report)).not.toContain('sk-abc');
@@ -89,19 +93,19 @@ describe('reporting errors as data', () => {
         throw new Error('nope');
       },
     });
-    const report = makeCorj(hostile, {
-      onError: silent,
+    const report = makeReport(hostile, {
+      onReportingError: silent,
       childrenSources: ['link_sk-abcdefghij'],
       redact: { patterns: [/sk-[a-z]{10}/g] },
     });
     const row = report.reporting_errors!.find((r) => r.stage === 'children')!;
-    expect(row.prop).toBe('link_[redacted]');
+    expect(row.sourceProperty).toBe('link_[redacted]');
     expect(JSON.stringify(report.reporting_errors)).not.toContain('sk-abc');
   });
 
   test('a redact-stage record withholds the thrown message entirely', () => {
-    const report = makeCorj(new Error('plain'), {
-      onError: silent,
+    const report = makeReport(new Error('plain'), {
+      onReportingError: silent,
       redact: {
         transform: () => {
           throw new Error('policy failed on SECRET-VALUE');
@@ -115,28 +119,28 @@ describe('reporting errors as data', () => {
   });
 
   test('records are per call: a shared maker does not leak one report into the next', () => {
-    const maker = new CorjMaker({ onError: silent });
+    const maker = new CorjMaker({ onReportingError: silent });
     expect(
-      maker.makeReportObject(throwingGetter('first')).reporting_errors,
+      maker.makeReport(throwingGetter('first')).reporting_errors,
     ).toBeDefined();
-    expect(maker.makeReportObject(new Error('clean'))).not.toHaveProperty(
+    expect(maker.makeReport(new Error('clean'))).not.toHaveProperty(
       'reporting_errors',
     );
   });
 
   test('a caught object that re-enters the same maker keeps both record lists apart', () => {
-    const maker = new CorjMaker({ onError: silent });
-    let inner: ReturnType<typeof maker.makeReportObject> | undefined;
+    const maker = new CorjMaker({ onReportingError: silent });
+    let inner: ReturnType<typeof maker.makeReport> | undefined;
     const outer = {
       toCorjAsJson() {
-        inner = maker.makeReportObject(new Error('inner is clean'));
+        inner = maker.makeReport(new Error('inner is clean'));
         throw new Error('outer hook failed');
       },
     };
-    const report = maker.makeReportObject(outer);
+    const report = maker.makeReport(outer);
     expect(inner).not.toHaveProperty('reporting_errors');
     expect(
-      report.reporting_errors!.some((r) => r.prop === 'toCorjAsJson'),
+      report.reporting_errors!.some((r) => r.sourceProperty === 'toCorjAsJson'),
     ).toBe(true);
   });
 
@@ -145,12 +149,12 @@ describe('reporting errors as data', () => {
       .spyOn(console, 'warn')
       .mockImplementation(() => undefined);
     try {
-      makeCorj(throwingGetter('leak sk-abcdefghij'), {
+      makeReport(throwingGetter('leak sk-abcdefghij'), {
         redact: { patterns: [/sk-[a-z]{10}/g] },
       });
       const printed = warn.mock.calls.map((call) => String(call[0])).join('\n');
       expect(printed).toContain('stage=prop-access');
-      expect(printed).toContain('prop=message');
+      expect(printed).toContain('sourceProperty=message');
       expect(printed).not.toContain('sk-abc');
     } finally {
       warn.mockRestore();
@@ -163,8 +167,8 @@ describe('reporting errors as data', () => {
       throw failure;
     });
     const seen: CorjReportingError[] = [];
-    const report = makeCorj(throwingGetter('getter blew up'), {
-      onError: (_caught, record) => seen.push(record),
+    const report = makeReport(throwingGetter('getter blew up'), {
+      onReportingError: (_caught, record) => seen.push(record),
     });
     expect(seen).toContainEqual({
       stage: 'limit',
@@ -177,13 +181,15 @@ describe('reporting errors as data', () => {
   });
 
   test('a handler that rewrites its record cannot rewrite the report', () => {
-    const report = makeCorj(throwingGetter('getter blew up'), {
-      onError: (_caught, record) => {
+    const report = makeReport(throwingGetter('getter blew up'), {
+      onReportingError: (_caught, record) => {
         record.error = 'tampered';
         record.path = '$.tampered';
       },
     });
-    const row = report.reporting_errors!.find((r) => r.prop === 'message')!;
+    const row = report.reporting_errors!.find(
+      (r) => r.sourceProperty === 'message',
+    )!;
     expect(row.error).toBe('Error: getter blew up');
     expect(row.path).toBe('$');
     expect(JSON.stringify(report)).not.toContain('tampered');
@@ -194,8 +200,8 @@ describe('reporting errors as data', () => {
       .spyOn(console, 'warn')
       .mockImplementation(() => undefined);
     try {
-      const report = makeCorj(throwingGetter('x'), {
-        onError: () => {
+      const report = makeReport(throwingGetter('x'), {
+        onReportingError: () => {
           throw new Error('handler bug');
         },
       });

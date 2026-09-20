@@ -17,12 +17,12 @@ or choosing a recovery step, instead of handling every SDK's error shape.
 Configure report size and traversal; select and redact fields before model exposure.
 
 ```typescript
-import { makeCorj } from 'caught-object-report-json';
+import { makeReport } from 'caught-object-report-json';
 
 try {
   await fetchUser(id);
 } catch (caught: unknown) {
-  logger.error({ error: makeCorj(caught) });
+  logger.error({ error: makeReport(caught) });
 }
 ```
 
@@ -87,7 +87,7 @@ including recovery from many property-access and serialization errors.
   caller. A shared `CorjMaker` gives independently developed components one diagnostic contract. Configure depth, child count,
   and report size to limit diagnostic volume; compact reports omit predictable fields. The host selects relevance and redacts
   content before model exposure; byte limits do not measure tokens.
-- **Types and fixtures for failure-path checks.** Use `CorjReport`, `CorjReportChild`, and typed options to check report consumers, then exercise
+- **Types and fixtures for failure-path checks.** Use `CorjReport`, `CorjReportNode`, and typed options to check report consumers, then exercise
   the same boundary with deterministic failures. Test error capture, selected feedback, and recovery routing without calling a model;
   use live-model evals to assess the quality of proposed corrections.
 - **Metadata for programmable diagnostics.** Version and JSON Schema metadata identify the report format. Flat child reports,
@@ -110,7 +110,7 @@ shared report schema, nested-cause representation and configurable size limits w
 `caught-object-report-json` provides these reporting contracts:
 
 - recovers from many property-access and serialization failures, and reports those secondary failures both in the report
-  itself (`reporting_errors`) and through `onError`;
+  itself (`reporting_errors`) and through `onReportingError`;
 - flattens nested errors into one array you can query with JSONPath-like tools, with cycles and shared errors reported once;
 - keeps the whole report under a size limit while keeping it valid JSON with a known shape;
 - omits what is predictable, so a plain `Error` costs one stack array beside its id, fingerprint and version tag;
@@ -132,18 +132,18 @@ npm install caught-object-report-json
 # Quick start
 
 ```typescript
-import { makeCorj, makeCorjArray, CorjMaker } from 'caught-object-report-json';
+import { makeReport, makeReportArray, CorjMaker } from 'caught-object-report-json';
 
 // One-off, default options.
-const report = makeCorj(caught);
+const report = makeReport(caught);
 
 // Same report as a flat array: the root first, then every nested error.
-const rows = makeCorjArray(caught);
+const rows = makeReportArray(caught);
 
 // Configure once, reuse everywhere.
 const corj = new CorjMaker({ maxReportSize: 16_000, metadata: false });
-const smaller = corj.makeReportObject(caught);
-const derived = corj.with({ maxDepth: 1 }); // a new maker, the original is unchanged
+const smaller = corj.makeReport(caught);
+const derived = corj.withOptions({ maxDepth: 1 }); // a new maker, the original is unchanged
 ```
 
 For a plain `Error` the default report is an id, a fingerprint, the stack and the version:
@@ -157,15 +157,15 @@ For a plain `Error` the default report is an id, a fingerprint, the stack and th
     "    at Object.<anonymous> (/home/user/work-dir/app.ts:2:9)",
     "    at Module._compile (node:internal/modules/cjs/loader:1120:14)"
   ],
-  "v": "corj/v0.14"
+  "v": "corj/v0.15"
 }
 ```
 
 Everything else a plain `Error` would report holds its expected value and is left out; see
-[Omitted expected values](#omitted-expected-values). Per-occurrence input is the third argument:
+[Omitted expected values](#omitted-expected-values). Configuration and per-occurrence values share one input object:
 
 ```typescript
-const withContext = makeCorj(caught, undefined, {
+const withContext = makeReport(caught, {
   occurrenceId: 'req-42',
   context: { runId: 'run-1', tool: 'search' },
 });
@@ -234,7 +234,7 @@ async function runNode<T>(
   try {
     return { node, ok: true, value: await operation() };
   } catch (caught: unknown) {
-    return { node, ok: false, error: corj.makeReportObject(caught) };
+    return { node, ok: false, error: corj.makeReport(caught) };
   }
 }
 
@@ -271,8 +271,8 @@ async function main() {
   assert.equal(full.message, 'Model request failed');
   assert.equal(full.children?.[0]?.path, '$.cause');
   assert.deepEqual(full.children?.[0]?.as_json, { code: 'MODEL_UNAVAILABLE' });
-  assert.equal(failed.error.v, 'corj/v0.14');
-  assert.ok(failed.error.$schema?.endsWith('/corj/v0.14/report-object.json'));
+  assert.equal(failed.error.v, 'corj/v0.15');
+  assert.ok(failed.error.$schema?.endsWith('/corj/v0.15/report-object.json'));
   assert.ok(Buffer.byteLength(JSON.stringify(failed.error), 'utf8') <= 4096);
 
   const oversized = await runNode('answer', async () => {
@@ -295,7 +295,7 @@ void main().catch((error) => {
 ```
 
 The model adapters are fixtures; the assertions test the harness boundary, not LLM output quality. In a real harness, wrap
-your model or tool call with `runNode` and keep graph state, retries, and execution policy in the host. CORJ's `onError` callback
+your model or tool call with `runNode` and keep graph state, retries, and execution policy in the host. CORJ's `onReportingError` callback
 reports problems encountered while building a report, not the original model or tool failure.
 
 CORJ's flattened **error graph** describes `cause` and `errors` relationships, including shared errors and cycles. Its report
@@ -338,12 +338,12 @@ listed in [Omitted expected values](#omitted-expected-values), `null` means that
 | `children_sources` | `string[]` | Root only. The properties children were collected from. Omitted when `["cause", "errors"]`. |
 | `as_string_format` | `"String" \| ".toCorjAsString" \| "derived"` | How `as_string` was produced. `"derived"` means it was rebuilt from property descriptors, see [`inspection`](#reporting-without-running-the-caught-object). Omitted when `"String"`. |
 | `as_json_format` | `"safe-stable-stringify-with-length-limit" \| ".toCorjAsJson"` | How `as_json` was produced. Omitted when the default. |
-| `v` | `"corj/v0.14" \| "corj/v0.14-full"` | Root only. Report version, on by default (`metadata` option). |
+| `v` | `"corj/v0.15" \| "corj/v0.15-full"` | Root only. Report version, on by default (`metadata` option). |
 | `$schema` | URL | Root only. JSON Schema of this report, off by default (`metadata` option). |
 
 On the root the order is `occurrence_id`, `fingerprint`, then the fields above, then `context` and `reporting_errors`, then
 `children_sources` and the metadata fields. An object report is the root fields plus `children`. An array report
-(`makeCorjArray`) is a list whose first element is the root, with `id`, `path`, `level` and `child_ids` like every other node;
+(`makeReportArray`) is a list whose first element is the root, with `id`, `path`, `level` and `child_ids` like every other node;
 the root-only fields — `occurrence_id`, `fingerprint`, `context`, `reporting_errors`, `children_sources`, `v` and `$schema` —
 stay on that first element only.
 
@@ -375,7 +375,7 @@ back in on the consuming side:
 ```typescript
 import { restoreExpectedValues } from 'caught-object-report-json';
 
-const full = restoreExpectedValues(makeCorj(caught));
+const full = restoreExpectedValues(makeReport(caught));
 // full.instanceof_error === true, full.typeof === 'object', full.as_json is {},
 // full.as_string is the first stack line, full.constructor_name and full.message are parsed from it,
 // full.as_string_format, full.as_json_format and full.children_sources hold their defaults.
@@ -388,8 +388,8 @@ would have produced. It does not add `v` or `$schema`, since a missing one means
 
 | `v` | Produced by | Base fields |
 | --- | --- | --- |
-| `corj/v0.14` | the default, `omitExpectedValues: true` | omitted when they hold the expected value |
-| `corj/v0.14-full` | `omitExpectedValues: false`, or `restoreExpectedValues` | always present |
+| `corj/v0.15` | the default, `omitExpectedValues: true` | omitted when they hold the expected value |
+| `corj/v0.15-full` | `omitExpectedValues: false`, or `restoreExpectedValues` | always present |
 
 Each version has its own JSON Schema (see [Links](#links)); `$schema` points to the matching one.
 
@@ -428,7 +428,7 @@ agent's next turn. It is a root field, on by default.
 
 The value is resolved in this order, and the first valid one wins:
 
-1. the call's `occurrenceId`: `makeCorj(caught, options, { occurrenceId: 'req-42' })`;
+1. the call's `occurrenceId`: `makeReport(caught, { ...options, occurrenceId: 'req-42' })`;
 2. each entry of `occurrenceIdSources`, in order;
 3. nothing, and the field is left out.
 
@@ -437,7 +437,7 @@ else is passed over in silence: a missing id is not a reporting failure.
 
 The call's own `occurrenceId` is checked the same way. It is per-occurrence runtime data — a request id off the wire — so a
 value that is not a valid id does **not** throw: it is recorded as a reporting error (`stage: 'other'`,
-`key: 'occurrence_id'`, never quoting the value) and resolution continues with the sources. Only the *shape* of a call
+`reportKey: 'occurrence_id'`, never quoting the value) and resolution continues with the sources. Only the *shape* of a call
 input is your own configuration and still throws: something that is not an object, or an unknown key.
 
 `occurrenceIdSources` takes four kinds of entry:
@@ -445,7 +445,7 @@ input is your own configuration and still throws: something that is not an objec
 ```typescript
 const maker = new CorjMaker({
   occurrenceIdSources: [
-    { field: 'requestId' }, // one property of the caught object
+    { sourceProperty: 'requestId' }, // one property of the caught object
     { path: ['response', 'headers', 'x-request-id'] }, // a path of 1 to 16 segments from it
     ({ caught }) => (caught as { id?: string }).id, // a function, given { index: -1, level: 0, path: '$', caught }
     { auto: 'random' }, // a generated id; this one always succeeds
@@ -459,7 +459,7 @@ const maker = new CorjMaker({
   segment of a path, not only the last. An entry may carry its own `inspection`; `inspection: 'default'` on an entry under a
   global `no-invoke` runs caught code for that read. An element of an array is addressed as `$.ids[0]` whether you write the
   segment as `0` or as `'0'`, so one `paths` rule covers both spellings.
-- A function entry that throws is recorded as a reporting error (`stage: 'other'`, `key: 'occurrence_id'`) and resolution
+- A function entry that throws is recorded as a reporting error (`stage: 'other'`, `reportKey: 'occurrence_id'`) and resolution
   continues with the next entry.
 - `{ auto: 'random' }` yields `CORJ_` plus 26 Crockford base32 characters, from `globalThis.crypto.getRandomValues` when it
   is available and `Math.random` otherwise. Because it always produces an id, an entry after it can never be reached and is
@@ -488,10 +488,10 @@ them.
 | --- | --- |
 | `'constructor_name'`, `'message'`, `'as_string'`, `'typeof'` | that report field of the node |
 | `'stack'` | the node's stack without its own header (see below) |
-| `{ field }`, `{ path }` | a value read from the node, with an optional per-entry `inspection` |
+| `{ sourceProperty }`, `{ path }` | a value read from the node, with an optional per-entry `inspection` |
 | a function | `(context: { index, level, path, caught }) => unknown`, called once per node |
 
-`{ path: ['a'] }` is the one-segment case of `{ field: 'a' }`: the same read, the same label, the same hash — and listing
+`{ path: ['a'] }` is the one-segment case of `{ sourceProperty: 'a' }`: the same read, the same label, the same hash — and listing
 both is rejected as a repeated part.
 
 `as_json` is deliberately not a part: it carries timestamps and per-occurrence ids, which would make every occurrence a new
@@ -546,8 +546,8 @@ there is no place to hash and `undefined` is the rule working, not the option fa
 because the read was skipped, not because of how the replacement reads: a policy is free to choose frame-shaped text. The
 option is the caller's alone — it never moves the `fingerprint` a report carries, and `makeFingerprint(caught)` without it
 is unaffected. A call argument outranks the parts:
-`makeCorj(caught, options, { fingerprint: 'checkout-timeout' })`, 1 to 64 printable ASCII characters without spaces. Like
-`occurrenceId`, a call `fingerprint` that is not such a token is recorded (`stage: 'other'`, `key: 'fingerprint'`) rather
+`makeReport(caught, { ...options, fingerprint: 'checkout-timeout' })`, 1 to 64 printable ASCII characters without spaces. Like
+`occurrenceId`, a call `fingerprint` that is not such a token is recorded (`stage: 'other'`, `reportKey: 'fingerprint'`) rather
 than thrown, and the parts are hashed instead.
 
 Hashing cannot fail a report: a failure while computing the fingerprint is recorded the same way and the report simply has
@@ -570,7 +570,7 @@ no `fingerprint` field.
 A call may carry data of the caller's own beside the caught object — a request id, a run id, the tool that failed:
 
 ```typescript
-const report = makeCorj(caught, undefined, {
+const report = makeReport(caught, {
   context: { runId: 'run-1', tool: 'search', attempt: 2 },
 });
 // report.context: { runId: 'run-1', tool: 'search', attempt: 2 }
@@ -591,13 +591,13 @@ The pipeline behind `as_json` is available on its own, under the maker's `inspec
 ```typescript
 const maker = new CorjMaker({ redact: { keys: ['password'] } });
 
-const view = maker.makeJson(payload, { root: '$request', maxSize: 4096 });
+const view = maker.makeJsonView(payload, { root: '$request', maxSize: 4096 });
 // { value: <JSON or null>, truncated: boolean, errors: CorjReportingError[] }
 
 const line = maker.scrubText(`login failed for ${user}`, { path: '$audit' });
 ```
 
-- `makeJson(value, { root?, maxSize? })` returns `{ value, truncated, errors }`. `value` is `null` when the value has no
+- `makeJsonView(value, { root?, maxSize? })` returns `{ value, truncated, errors }`. `value` is `null` when the value has no
   JSON form or producing it threw; `errors` holds up to 8 failures met on the way, and never touches a report's own list.
 - `root` is `'$'` (the default) or a named document root matching `/^\$[A-Za-z_][A-Za-z0-9_]*$/`, such as `'$context'` or
   `'$request'`. A property path always continues with `.` or `[`, so a named root can never collide with a path into the
@@ -605,13 +605,13 @@ const line = maker.scrubText(`login failed for ${user}`, { path: '$audit' });
 - `maxSize` defaults to the maker's `maxReportSize`; it is a safe integer of at least 256, or `null` for no bound. The floor
   is below the report's 512 because a single value has no minimal report to fit, only itself.
 - Unlike a report node's `as_json`, a view does not hide the `childrenSources` properties: a view has no children.
-- `scrubText(text, { path?, key?, prop? })` applies the policy's scrub rules to one string CORJ never sees, with
+- `scrubText(text, { path?, reportKey?, sourceProperty? })` applies the policy's scrub rules to one string CORJ never sees, with
   `stage: 'warning'`. Without a policy it returns the text unchanged.
 
 ## Size limit
 
 The **entire report** is limited to **100,000 UTF-8 bytes** of compact JSON by default. All fields, metadata, escaping,
-punctuation and children share that budget; for `makeCorjArray` the limit applies to the complete array.
+punctuation and children share that budget; for `makeReportArray` the limit applies to the complete array.
 
 ```typescript
 const corj = new CorjMaker({ maxReportSize: 64_000, reportSizeUnit: 'utf8-bytes' });
@@ -651,7 +651,7 @@ formatters run before the budget is allocated, so input size still affects proce
 
 ## Errors while reporting
 
-Nothing the caught object does can make `makeCorj` throw. When a getter, proxy trap, `toString`, `toCorjAsJson` or the
+Nothing the caught object does can make `makeReport` throw. When a getter, proxy trap, `toString`, `toCorjAsJson` or the
 serializer throws, the affected field becomes `null` (or the affected child is skipped) and CORJ records what happened:
 
 ```typescript
@@ -666,11 +666,11 @@ type CorjContext = {
     | 'warning'
     | 'other';
   path: string; // JSONPath of the value; '$' is the caught root, '$context' the call's context
-  key?: CorjReportKey; // report field being produced, when known
-  prop?: string; // property of the caught object being read, when known
+  reportKey?: CorjReportKey; // report field being produced, when known
+  sourceProperty?: string; // property of the caught object being read, when known
 };
 type CorjReportingError = CorjContext & { error: string };
-type CorjErrorHandler = (caught: unknown, record: CorjReportingError) => void;
+type CorjErrorHandler = (reportingFailure: unknown, record: CorjReportingError) => void;
 ```
 
 Every record goes to two places:
@@ -678,16 +678,16 @@ Every record goes to two places:
 - the root field **`reporting_errors`**, so the report explains its own gaps: a reader who sees `message: null` finds the
   reason in the same JSON, without access to the process's stderr. At most 8 rows are kept; later failures still reach the
   handler.
-- **`onError(caught, record)`**, which also gets the raw caught object, for sinks such as Sentry. The handler receives a
+- **`onReportingError(reportingFailure, record)`**, which gets the raw value thrown while reporting, for sinks such as Sentry. The handler receives a
   shallow **copy** of the record, so a handler that rewrites its argument cannot rewrite the report's row. The default
-  handler prints one `console.warn` line per failure; pass `onError: () => {}` to silence it, or your own handler to route
+  handler prints one `console.warn` line per failure; pass `onReportingError: () => {}` to silence it, or your own handler to route
   failures into your logs.
 
 Records are collected **per call**, not per maker, so a getter that re-enters the same shared maker does not mix its
 failures into the outer report.
 
 `record.error` is the thrown value as text, **scrubbed by the `redact` policy before it is cut** to 256 characters, so a
-secret straddling the cut cannot survive the cut. `path` and `prop` go through the policy as well. A `stage: 'redact'`
+secret straddling the cut cannot survive the cut. `path` and `sourceProperty` go through the policy as well. A `stage: 'redact'`
 record — the policy itself threw — carries the policy's `replacement` as its `error` instead of the thrown message, which
 could quote the very content the policy was protecting; its `path` may be the replacement too, because a policy that has
 just failed is not consulted again.
@@ -696,7 +696,7 @@ Failures in the finishing pass — `stage: 'limit'`, and `stage: 'other'` from t
 body is assembled and the budget is spent, so they reach the **handler only** and never appear in `reporting_errors`.
 
 Only your own configuration throws: unknown option names, invalid option values and a call input of the wrong shape — not an
-object, or an unknown key — raise `TypeError` or `RangeError` from the `CorjMaker` constructor, `makeCorj`, `makeCorjArray`
+object, or an unknown key — raise `TypeError` or `RangeError` from the `CorjMaker` constructor, `makeReport`, `makeReportArray`
 and the maker's own methods. The call's `occurrenceId` and `fingerprint` are runtime data rather than configuration: a value
 that fails its token pattern is recorded as a reporting error and passed over, so reporting one error never throws a second
 one inside the catch block that was reporting the first.
@@ -721,11 +721,11 @@ Every option is optional; missing ones keep their defaults. `CORJ_DEFAULT_OPTION
 | `occurrenceIdSources` | `[{ auto: 'random' }]` | Where `occurrence_id` comes from; an ordered list, first valid id wins. `null` or `[]` omits the field, see [Occurrence id](#occurrence-id). |
 | `fingerprintParts` | `['constructor_name', 'stack']` | What `fingerprint` is hashed from; every part contributes. `null` or `[]` omits the field, see [Fingerprint](#fingerprint). |
 | `makeReportId` | `'root'` / discovery index | `(context: { index, level, path, caught }) => string`, called once per node; `index` is `-1` for the root. |
-| `onError` | `console.warn` | `(caught, record) => void`, called for every failure, including the ones `reporting_errors` could not keep, see [Errors while reporting](#errors-while-reporting). |
+| `onReportingError` | `console.warn` | `(reportingFailure, record) => void`, called for every failure, including the ones `reporting_errors` could not keep, see [Errors while reporting](#errors-while-reporting). |
 
 A caught object can take over its own representation by implementing `toCorjAsString(): string` and/or
 `toCorjAsJson(): unknown`. Both are called with `this` bound to the object and one argument `{ path, options }`. A method that
-throws is reported through `onError` and the default format is used; a method that returns an unusable value (a non-string, or a
+throws is reported through `onReportingError` and the default format is used; a method that returns an unusable value (a non-string, or a
 value without a JSON form) falls back silently. The formats used are recorded in `as_string_format` and `as_json_format`.
 
 # Redacting what the report emits
@@ -743,7 +743,7 @@ const maker = new CorjMaker({
     paths: ['$.cause.config.headers'],
     patterns: [/sk-live-[A-Za-z0-9]+/g],
     replacement: '[redacted]',
-    transform: (value, { prop }) => (prop === 'url' ? '[url]' : value),
+    transform: (value, { sourceProperty }) => (sourceProperty === 'url' ? '[url]' : value),
   },
 });
 ```
@@ -760,14 +760,14 @@ const maker = new CorjMaker({
 across `message`, `stack` and `as_string`, so skipping one read does not remove the text from the others:
 
 ```typescript
-makeCorj(new Error('boom SECRET'), { redact: { keys: ['message'] } });
+makeReport(new Error('boom SECRET'), { redact: { keys: ['message'] } });
 // message: '[redacted]'   stack[0]: 'Error: boom SECRET'
 ```
 
 The caught object's own `toString`, and V8's stack formatting, read `message` themselves; no policy can stop code CORJ did not
 call. Add `inspection: 'no-invoke'` if the getter must also never run.
 
-The `transform` context is `{ stage, path, key, prop }`, where `stage` is `'prop-access'`, `'as_string'`, `'as_json'` or
+The `transform` context is `{ stage, path, reportKey, sourceProperty }`, where `stage` is `'prop-access'`, `'as_string'`, `'as_json'` or
 `'warning'`. (`'children'` reaches only the skip rules, never `transform`: a children source is excluded before it is read or
 not at all.)
 
@@ -780,14 +780,14 @@ not at all.)
   the same text collide;
 - the output of a caught object's own `toCorjAsString()` and `toCorjAsJson()`;
 - every child report, not only the root;
-- the call's `context`, as a document of its own rooted at `$context`, and every value a `makeJson` view produces under its
+- the call's `context`, as a document of its own rooted at `$context`, and every value a `makeJsonView` view produces under its
   own named root;
 - every value a `fingerprintParts` entry reads, whatever its type: a number or a boolean is as identifying as a string, and
   the fingerprint is meant to be published. Each value is offered under **its own path** — `$.details` for
-  `{ field: 'details' }`, `$.details.token` for what is inside it, `$.cause.details` on a child — so a `paths` rule or a
+  `{ sourceProperty: 'details' }`, `$.details.token` for what is inside it, `$.cause.details` on a child — so a `paths` rule or a
   path-keyed `transform` that rewrites it in `as_json` rewrites the same value in the hash input;
-- the line the default `onError` prints about a failure, which is otherwise built from the caught object's own text. A
-  **custom** `onError` receives the caught object unchanged and must apply its own policy.
+- the line the default `onReportingError` prints about a failure, which is otherwise built from the caught object's own text. A
+  **custom** `onReportingError` receives the caught object unchanged and must apply its own policy.
 
 A children source the policy excludes is not followed: the node gets `children_omitted: "redacted"` instead of a child report.
 Report schema, cycle handling and the `maxReportSize` budget are unaffected — redaction runs before the size limit is applied.
@@ -796,7 +796,7 @@ Two property names that scrub to the same text collapse into one key in `as_json
 Because `keys` matches a property *name* wherever it appears, a broad name has a broad reach: `keys: ['name']` also blanks
 `constructor_name`, which is read as `constructor.name`.
 
-Since `corj/v0.14`, `paths` rules also see `$context...` and any named root a `makeJson` view uses, so an unanchored `RegExp`
+Since `corj/v0.14`, `paths` rules also see `$context...` and any named root a `makeJsonView` view uses, so an unanchored `RegExp`
 such as `/\.headers$/` starts matching there too. It fails safe — more is redacted, not less — but to keep a rule on the
 caught value alone, anchor it with `^\$\.`:
 
@@ -811,7 +811,7 @@ would break `child_ids`.
 
 ## Applying the policy to your own text
 
-A **custom** `onError` receives the caught object unchanged, and anything you log next to a report is text CORJ never sees.
+A **custom** `onReportingError` receives the caught object unchanged, and anything you log next to a report is text CORJ never sees.
 `maker.scrubText` applies the maker's own policy to one such string: it always returns a string, and without a policy it
 returns the text unchanged.
 
@@ -820,7 +820,7 @@ import { CorjMaker } from 'caught-object-report-json';
 
 const maker: CorjMaker = new CorjMaker({
   redact: { patterns: [/sk-live-[A-Za-z0-9]+/g] },
-  onError: (caught, { stage, path }) => {
+  onReportingError: (caught, { stage, path }) => {
     const line = `corj ${stage} failed at ${path}: ${String(caught)}`;
     // `stage: 'warning'` is the redaction stage for text a handler prints.
     logger.warn(maker.scrubText(line, { path }));
@@ -828,9 +828,9 @@ const maker: CorjMaker = new CorjMaker({
 });
 ```
 
-`scrubText(text, { path?, key?, prop? })` runs `patterns` and then `transform` with `stage: 'warning'`. A `transform` that
+`scrubText(text, { path?, reportKey?, sourceProperty? })` runs `patterns` and then `transform` with `stage: 'warning'`. A `transform` that
 drops the value, returns a non-string or throws yields the `replacement`. For a value that is not a string, use
-[`maker.makeJson`](#a-json-view-of-any-value), which applies the whole policy including the skip rules.
+[`maker.makeJsonView`](#a-json-view-of-any-value), which applies the whole policy including the skip rules.
 
 `resolveCorjRedactPolicy(input)` validates a policy once, ahead of any maker, so a bad policy fails at startup rather than
 inside a catch block. It returns `null` for `null` and `undefined`, and accepts an already-resolved policy.
@@ -838,7 +838,7 @@ inside a catch block. It returns `null` for `null` and `undefined`, and accepts 
 ## When the policy itself fails
 
 A throwing matcher or `transform` fails closed: the value it was asked about becomes the replacement rather than passing
-through. The failure is reported through `onError` with `stage: 'redact'`, once per value, so a `transform` that always throws
+through. The failure is reported through `onReportingError` with `stage: 'redact'`, once per value, so a `transform` that always throws
 reports several. Reporting a failure does not consult the same policy again, so such a policy cannot recurse.
 
 ## What a policy cannot do
@@ -866,7 +866,7 @@ const caught = {
   plain: 'kept',
 };
 
-makeCorj(caught, { inspection: 'no-invoke' });
+makeReport(caught, { inspection: 'no-invoke' });
 console.log(inspected); // 0
 ```
 
@@ -882,7 +882,7 @@ produces
   "as_string": "[object Object]",
   "as_json": { "message": "[not-inspected]", "plain": "kept" },
   "as_string_format": "derived",
-  "v": "corj/v0.14"
+  "v": "corj/v0.15"
 }
 ```
 
@@ -956,7 +956,7 @@ try {
 } catch (caught: unknown) {
   caught.heh = 123n;
   caught.heh_1 = new Number(123);
-  const report = makeCorj(caught);
+  const report = makeReport(caught);
   console.log(JSON.stringify(report, null, 2));
 }
 ```
@@ -984,7 +984,7 @@ prints
     "    at wrapModuleLoad (node:internal/modules/cjs/loader:261:19)",
     "    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)"
   ],
-  "v": "corj/v0.14"
+  "v": "corj/v0.15"
 }
 ```
 
@@ -1036,7 +1036,7 @@ axiosClient.interceptors.response.use(undefined, (error) => {
   try {
     await axiosClient.get('https://reqres.in/api/users/23');
   } catch (caught: unknown) {
-    const report = makeCorj(caught);
+    const report = makeReport(caught);
     console.log(JSON.stringify(report, null, 2));
   }
 })();
@@ -1095,14 +1095,14 @@ prints
     "    at /home/user/work-dir/caught-object-report-json/examples/example-2-axios-error.ts:35:27",
     "    at processTicksAndRejections (node:internal/process/task_queues:95:5)"
   ],
-  "v": "corj/v0.14"
+  "v": "corj/v0.15"
 }
 ```
 
 ## 3. [Errors while reporting](https://github.com/dany-fedorov/caught-object-report-json/blob/main/examples/example-3-not-error-object.ts)
 
 A caught object whose `message` getter throws. The field becomes `null`, the rest of the report is produced, the failure is
-kept in `reporting_errors`, and `onError` receives the same record.
+kept in `reporting_errors`, and `onReportingError` receives the same record.
 
 <sub>(Run with `npm run ts-file ./examples/example-3-not-error-object.ts`)</sub>
 
@@ -1116,19 +1116,19 @@ class Hostile {
 try {
   throw new Hostile();
 } catch (caught: unknown) {
-  const report = makeCorj(caught, {
-    onError: (error, context) => {
-      console.log('onError::', { error: String(error), context });
+  const report = makeReport(caught, {
+    onReportingError: (error, context) => {
+      console.log('onReportingError::', { error: String(error), context });
     },
   });
   console.log(JSON.stringify(report, null, 2));
 }
 ```
 
-prints from the `onError` callback
+prints from the `onReportingError` callback
 
 ```
-onError:: {
+onReportingError:: {
   error: 'Error: message getter threw',
   context: {
     stage: 'prop-access',
@@ -1154,12 +1154,12 @@ and then prints from the catch block
     {
       "stage": "prop-access",
       "path": "$",
-      "key": "message",
-      "prop": "message",
+      "reportKey": "message",
+      "sourceProperty": "message",
       "error": "Error: message getter threw"
     }
   ],
-  "v": "corj/v0.14"
+  "v": "corj/v0.15"
 }
 ```
 
@@ -1171,7 +1171,7 @@ and then prints from the catch block
 try {
   throw new Error(`Hi, I'm a regular Error object.`);
 } catch (caught: unknown) {
-  const report = makeCorj(caught, {
+  const report = makeReport(caught, {
     metadata: { $schema: true, v: false },
   });
   console.log(JSON.stringify(report, null, 2));
@@ -1197,7 +1197,7 @@ prints
     "    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)",
     "    at phase4 (/home/user/work-dir/caught-object-report-json/node_modules/ts-node/src/bin.ts:649:14)"
   ],
-  "$schema": "https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.14/report-object.json"
+  "$schema": "https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.15/report-object.json"
 }
 ```
 
@@ -1217,7 +1217,7 @@ const caught = new AggregateError(
   'AggregateError message',
   { cause: new Error('Cause Error object') },
 );
-const report = makeCorj(caught, { metadata: false });
+const report = makeReport(caught, { metadata: false });
 console.log(JSON.stringify(report, null, 2));
 ```
 
@@ -1312,7 +1312,7 @@ const caught = new Error("lvl 0", {
 });
 caught.nestedError = 'lvl 1; obj 1';
 caught.extraField = 'error info';
-const report = makeCorj(caught, {
+const report = makeReport(caught, {
   maxDepth: 2,
   childrenSources: ['cause', 'errors', 'nestedError'],
   metadata: false,
@@ -1431,7 +1431,7 @@ const corj = new CorjMaker({ metadata: false });
 try {
   throw new Error(`Hi, I'm a regular Error object.`);
 } catch (caught: unknown) {
-  const report = corj.makeReportObject(caught);
+  const report = corj.makeReport(caught);
   console.log(JSON.stringify(report, null, 2));
 }
 ```
@@ -1586,7 +1586,7 @@ ExceptionHandler.prototype.getAllInfo = function getAllInfoExtended(
   return {
     ...errorInfoByWinston,
     error: err,
-    message: makeCorj(err),
+    message: makeReport(err),
   };
 };
 
@@ -1644,7 +1644,7 @@ prints an inline version of a JSON log entry whose `message` is the report:
         "as_json": null
       }
     ],
-    "v": "corj/v0.14"
+    "v": "corj/v0.15"
   },
   "os": { "loadavg": [1.04, 1.3, 1.16], "uptime": 262285.15 },
   "process": { "pid": 88513, "version": "v20.1.0" }
@@ -1656,7 +1656,7 @@ prints an inline version of a JSON log entry whose `message` is the report:
 <sub>(Run with `npm run ts-file ./examples/example-10-report-size-limit.ts`)</sub>
 
 ```typescript
-const report = makeCorj(
+const report = makeReport(
   { code: 'FETCH_FAILED', attempts: Array(100).fill('timeout') },
   {
     maxReportSize: 512,
@@ -1728,7 +1728,7 @@ const second = new Error('second', { cause: shared });
 const root = new AggregateError([first, second], 'root');
 shared.cause = root;
 
-const rows = makeCorjArray(root, { metadata: false });
+const rows = makeReportArray(root, { metadata: false });
 console.log(JSON.stringify(rows.map(({ stack, ...rest }) => rest), null, 2));
 ```
 
@@ -1752,19 +1752,18 @@ prints (stacks removed for brevity)
 
 # [API](https://dany-fedorov.github.io/caught-object-report-json/modules.html)
 
-#### `makeCorj(caught, options?, call?): CorjReport`
+#### `makeReport(caught, input?): CorjReport`
 
-`CorjMaker#makeReportObject` with default options and the given overrides. `call` is the per-occurrence input
-`{ occurrenceId?, fingerprint?, context? }`.
+`CorjMaker#makeReport` with one `CorjReportInput` bag containing configuration and per-occurrence values.
 
-#### `makeCorjArray(caught, options?, call?): CorjReportChild[]`
+#### `makeReportArray(caught, input?): CorjReportNode[]`
 
 `CorjMaker#makeReportArray` with default options and the given overrides.
 
 #### `new CorjMaker(options?)`
 
 Validates and freezes the options once, exposes them as `maker.options`, and produces reports with
-`makeReportObject(caught, call?)` and `makeReportArray(caught, call?)`. `maker.with(options)` returns a new maker with the
+`makeReport(caught, call?)` and `makeReportArray(caught, call?)`. `maker.withOptions(options)` returns a new maker with the
 overrides applied on top.
 
 #### `maker.makeFingerprint(caught, options?): string | undefined`
@@ -1776,17 +1775,17 @@ carries frames once it has been read and redacted; a thrown primitive, a plain o
 redacted or withheld stack, and a recipe without `'stack'` all give `undefined`, see [Fingerprint](#fingerprint). An
 options argument of any other shape throws a `TypeError`.
 
-#### `maker.makeJson(value, { root?, maxSize? }): CorjJsonView`
+#### `maker.makeJsonView(value, { root?, maxSize? }): CorjJsonView`
 
 The bounded, cycle-safe, redacted [JSON view](#a-json-view-of-any-value) of any value: `{ value, truncated, errors }`.
 
-#### `maker.scrubText(text, { path?, key?, prop? }): string`
+#### `maker.scrubText(text, { path?, reportKey?, sourceProperty? }): string`
 
 The maker's `redact` policy applied to one string of your own, with `stage: 'warning'`. The identity without a policy.
 
 #### `restoreExpectedValues(report)`
 
-Fills omitted expected values back in, turning a `corj/v0.14` report into its `corj/v0.14-full` form.
+Fills omitted expected values back in, turning a `corj/v0.15` report into its `corj/v0.15-full` form.
 
 #### `resolveCorjRedactPolicy(input)`
 
@@ -1795,14 +1794,12 @@ invalid. An already-resolved policy is accepted and returned resolved.
 
 #### Types
 
-`CorjReport`, `CorjReportChild`, `CorjReportBase`, `CorjOptions`, `CorjOptionsInput`, `CorjCallInput`, `CorjContext`,
+`CorjReport`, `CorjReportNode`, `CorjReportBase`, `CorjOptions`, `CorjOptionsInput`, `CorjCallInput`, `CorjReportInput`, `CorjContext`,
 `CorjStage`, `CorjReportKey`, `CorjReportingError`, `CorjErrorHandler`, `CorjJsonView`, `CorjSourceEntry`,
 `CorjEntryFunction`, `CorjOccurrenceIdSource`, `CorjFingerprintPart`, `CorjChildrenOmitted`, `CorjJsonValue`,
 `CorjJsonPrimitive`, `CorjJsonObject`, `CorjJsonArray`, `CorjVersion`, `CorjSchemaLink`, `CorjReportSizeUnit`,
 `CorjStackFormat`, `CorjMetadata`, `CorjReportIdContext`, `CorjAsStringFormat`, `CorjAsJsonFormat`, `CorjTypeof`,
 `CorjInspection`, `CorjRedactPolicy`, `CorjRedactPolicyInput`, `CorjRedactTransform`.
-`CorjErrorStage`, `CorjRedactStage`, `CorjErrorContext` and `CorjRedactContext` remain as deprecated aliases of `CorjStage`
-and `CorjContext`.
 
 #### Constants
 
@@ -1834,7 +1831,7 @@ browser by accident.
 Named imports work everywhere:
 
 ```typescript
-import { makeCorj, CorjMaker } from 'caught-object-report-json';
+import { makeReport, CorjMaker } from 'caught-object-report-json';
 ```
 
 A default import gives you the module namespace at runtime in Node ESM, in Bun and through any bundler. For types it depends on
@@ -1869,12 +1866,24 @@ Not covered by these tests, and therefore not supported: Deno, Cloudflare Worker
 
 | Version | Change |
 | --- | --- |
+| `corj/v0.15` | Shipped with 12.0.0: reporting-error rows renamed `key` to `reportKey` and `prop` to `sourceProperty`. |
 | `corj/v0.14` | Shipped with 11.0.0: the root gained `occurrence_id`, `fingerprint`, `context`, `context_omitted`, `reporting_errors` and `reporting_errors_omitted`. The first two are on by default. |
 | `corj/v0.13` | Shipped with 10.0.0: `as_string_format` gained `"derived"`; `children_omitted` gained `"not_inspected"` and `"redacted"`. Both appear only when `inspection` or `redact` is configured. |
 | `corj/v0.12` | Shipped with 9.0.0: shorter API, bounded child discovery, omitted expected values. |
 
 Each schema pins its own `v`, so a reader that validates against a schema URL moves with the format; a reader that ignores `v`
 does not have to.
+
+# Upgrading from v11
+
+12.0.0 uses descriptive API names and moves reports to `corj/v0.15` (`corj/v0.15-full` for the full form). Replace
+`makeCorj` / `makeCorjArray` with `makeReport` / `makeReportArray`; replace maker methods `makeReportObject`, `makeJson`, and
+`with` with `makeReport`, `makeJsonView`, and `withOptions`. Free calls now accept one merged `CorjReportInput` bag:
+`makeReport(caught, { maxDepth: 2, context })`. The third positional argument is rejected.
+
+Rename `CorjReportChild` to `CorjReportNode`, `onError` to `onReportingError`, token source `{ field }` to
+`{ sourceProperty }`, and callback/reporting-error fields `key` / `prop` to `reportKey` / `sourceProperty`. The old names and
+deprecated context aliases are no longer exported. Fingerprints retain their `fp1_` meaning across the source-entry rename.
 
 # Upgrading from v10
 
@@ -1928,29 +1937,29 @@ every 9.x call is identical apart from `v`.
 
 # Upgrading from v8
 
-9.0.0 renamed the API and every release since has kept those names, so a v8 codebase moves to 11.0.0 in one step. Reports
-use schema `corj/v0.14`; read [Upgrading from v10](#upgrading-from-v10) as well. The runtime rejects the old option names
+The API has changed since v8, so a v8 codebase moves to 12.0.0 in one step. Reports use schema `corj/v0.15`; read
+[Upgrading from v10](#upgrading-from-v10) and [Upgrading from v11](#upgrading-from-v11) as well. The runtime rejects old names
 with a `TypeError` that lists the valid ones.
 
-| v8 | 11.0.0 |
+| v8 | 12.0.0 |
 | --- | --- |
-| `makeCaughtObjectReportJson`, `bakeCorj` | `makeCorj` |
-| `makeCaughtObjectReportJsonArray`, `bakeCorjArray` | `makeCorjArray` |
+| `makeCaughtObjectReportJson`, `bakeCorj` | `makeReport` |
+| `makeCaughtObjectReportJsonArray`, `bakeCorjArray` | `makeReportArray` |
 | `CorjMaker.withDefaults(options)`, `new CorjMaker(fullOptions)` | `new CorjMaker(options)` |
-| `maker.cloneWith(options)` | `maker.with(options)` |
-| `maker.makeReportObjectEntries`, `maker.makeReportArrayEntries` | removed; `Object.entries(maker.makeReportObject(caught))` keeps the same order |
+| `maker.cloneWith(options)` | `maker.withOptions(options)` |
+| `maker.makeReportEntries`, `maker.makeReportArrayEntries` | removed; `Object.entries(maker.makeReport(caught))` keeps the same order |
 | `CORJ_MAKER_DEFAULT_OPTIONS` | `CORJ_DEFAULT_OPTIONS` |
 | `maxChildrenLevel` | `maxDepth`; also new `maxChildren` (default `100`) |
 | `parseStackToArray: true/false` | `stackFormat: 'lines' / 'string'` |
 | `metadataFields`, `childrenMetadataFields` | `metadata: boolean \| { v?, $schema? }`, root only. `as_string_format`, `as_json_format` and `children_sources` are no longer metadata: they appear whenever they hold a non-default value |
 | `asJsonFormatsToApply`, `asStringFormatsToApply`, `CORJ_AS_*_FORMAT_*` | removed; `toCorjAsJson` / `toCorjAsString` are always tried first |
-| `onCaughtMaking(caught, { reason, ... })`, `printWarningsOnUnhandledErrors` | `onError(caught, { stage, path, key?, prop?, error })`, and the same rows in `reporting_errors`; silence with `onError: () => {}` |
+| `onCaughtMaking(caught, { reason, ... })`, `printWarningsOnUnhandledErrors` | `onReportingError(reportingFailure, { stage, path, reportKey?, sourceProperty?, error })`, and the same rows in `reporting_errors`; silence with `onReportingError: () => {}` |
 | `children` on child nodes and on the array root (ID lists) | `child_ids` |
 | `children_omitted_reason` (free text), `CORJ_NESTED_OMITTED_REASONS` | `children_omitted: 'max_depth' \| 'max_children' \| 'max_size'` |
 | `[caught-object-report-json: Truncated]`, `[caught-object-report-json: Circular]` | `[truncated]`, `[circular]` (`CORJ_TRUNCATED_MARKER`, `CORJ_CIRCULAR_MARKER`) |
 | `null` entries allowed in `children` | never produced |
 | a repeated object reported once per occurrence, cycles expanded to `maxChildrenLevel` | reported once, then referenced by `id` in `child_ids` |
-| the v8 type names for the report, a child report and the options | `CorjReport`, `CorjReportChild`, `CorjOptions`; the v8 aliases were removed in 11.0.0 |
+| the v8 type names for the report, a child report and the options | `CorjReport`, `CorjReportNode`, `CorjOptions`; the v8 aliases were removed in 11.0.0 |
 
 # Links
 
@@ -1966,6 +1975,18 @@ https://www.npmjs.com/package/caught-object-report-json
 
 https://deno.land/x/caught_object_report_json (mirrored, not covered by the
 [consumption tests](#supported-runtimes))
+
+##### CORJ JSON Schema - corj/v0.15
+
+- Definitions - https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.15/definitions.json
+- Report Object - https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.15/report-object.json
+- Report Array - https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.15/report-array.json
+
+##### CORJ JSON Schema - corj/v0.15-full
+
+- Definitions - https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.15-full/definitions.json
+- Report Object - https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.15-full/report-object.json
+- Report Array - https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.15-full/report-array.json
 
 ##### CORJ JSON Schema - corj/v0.14
 

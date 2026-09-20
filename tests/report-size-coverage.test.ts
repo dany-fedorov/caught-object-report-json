@@ -1,4 +1,4 @@
-import { CORJ_DEFAULT_OPTIONS, CorjReportChild, CorjOptions } from '../src';
+import { CORJ_DEFAULT_OPTIONS, CorjReportNode, CorjOptions } from '../src';
 import { limitReportSize } from '../src/report-size';
 import type { Stringify } from '../src/report-size';
 import { configure } from '../src/safe-stable-stringify';
@@ -58,7 +58,7 @@ describe('report size defaults and minimal fallback', () => {
   ])(
     'bounds an oversized custom root ID (array=$array, children=$withChildren)',
     ({ array, withChildren }) => {
-      const root: CorjReportChild = {
+      const root: CorjReportNode = {
         id: 'custom-id'.repeat(1_000),
         path: '$',
         level: 0,

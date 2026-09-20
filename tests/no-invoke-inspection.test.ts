@@ -3,8 +3,8 @@ import {
   CORJ_CIRCULAR_MARKER,
   CORJ_OMITTED_MARKER,
   CorjMaker,
-  makeCorj,
-  makeCorjArray,
+  makeReport,
+  makeReportArray,
   restoreExpectedValues,
 } from '../src';
 import {
@@ -17,7 +17,7 @@ const byDefault = new CorjMaker();
 
 /** A `no-invoke` report with every omitted-for-being-expected field filled back in. */
 function fullNoInvokeReport(caught: unknown): CorjReport {
-  return restoreExpectedValues(noInvoke.makeReportObject(caught));
+  return restoreExpectedValues(noInvoke.makeReport(caught));
 }
 
 /**
@@ -64,13 +64,13 @@ describe('inspection: "no-invoke"', () => {
   describe('no code on the caught object runs', () => {
     test('getters, setters and every formatting hook are left alone', () => {
       const { calls, caught } = makeSpyFixture();
-      noInvoke.makeReportObject(caught);
+      noInvoke.makeReport(caught);
       expect(calls).toEqual([]);
     });
 
     test('the same fixture does run its code under the default inspection', () => {
       const { calls, caught } = makeSpyFixture();
-      byDefault.makeReportObject(caught);
+      byDefault.makeReport(caught);
       expect(calls).toContain('get message');
       expect(calls).toContain('toCorjAsString');
       expect(calls).toContain('toCorjAsJson');
@@ -78,7 +78,7 @@ describe('inspection: "no-invoke"', () => {
 
     test('no value produced by a hook reaches the report', () => {
       const { caught } = makeSpyFixture();
-      const json = JSON.stringify(noInvoke.makeReportObject(caught));
+      const json = JSON.stringify(noInvoke.makeReport(caught));
       for (const marker of [
         'secret message',
         'secret detail',
@@ -93,7 +93,7 @@ describe('inspection: "no-invoke"', () => {
     });
 
     test('a getter that throws is never reached, so nothing is warned about', () => {
-      const onError = jest.fn();
+      const onReportingError = jest.fn();
       const caught = {
         get boom(): string {
           throw new Error('getter exploded');
@@ -101,39 +101,39 @@ describe('inspection: "no-invoke"', () => {
       };
       const report = new CorjMaker({
         inspection: 'no-invoke',
-        onError,
-      }).makeReportObject(caught);
-      expect(onError).not.toHaveBeenCalled();
+        onReportingError,
+      }).makeReport(caught);
+      expect(onReportingError).not.toHaveBeenCalled();
       expect(report.as_json).toEqual({ boom: CORJ_OMITTED_MARKER });
     });
 
-    test('an accessor is read as a descriptor, not invoked, through makeCorj too', () => {
+    test('an accessor is read as a descriptor, not invoked, through makeReport too', () => {
       const { calls, caught } = makeSpyFixture();
-      makeCorj(caught, { inspection: 'no-invoke' });
-      makeCorjArray(caught, { inspection: 'no-invoke' });
+      makeReport(caught, { inspection: 'no-invoke' });
+      makeReportArray(caught, { inspection: 'no-invoke' });
       expect(calls).toEqual([]);
     });
   });
 
   describe('omitted content is distinguishable from missing content', () => {
     test('an accessor-backed message is the marker, an absent one is absent', () => {
-      const withAccessor = noInvoke.makeReportObject({
+      const withAccessor = noInvoke.makeReport({
         get message() {
           return 'hidden';
         },
       });
-      const withoutMessage = noInvoke.makeReportObject({ other: 1 });
+      const withoutMessage = noInvoke.makeReport({ other: 1 });
       expect(withAccessor.message).toBe(CORJ_OMITTED_MARKER);
       expect(withoutMessage).not.toHaveProperty('message');
     });
 
     test('a data-property message is reported verbatim', () => {
-      const report = noInvoke.makeReportObject({ message: 'plain value' });
+      const report = noInvoke.makeReport({ message: 'plain value' });
       expect(report.message).toBe('plain value');
     });
 
     test('the marker is not the failure marker: null still means producing a value threw', () => {
-      const report = noInvoke.makeReportObject({
+      const report = noInvoke.makeReport({
         get message() {
           return 'hidden';
         },
@@ -143,7 +143,7 @@ describe('inspection: "no-invoke"', () => {
     });
 
     test('an accessor property inside as_json is marked, a data property is kept', () => {
-      const report = noInvoke.makeReportObject({
+      const report = noInvoke.makeReport({
         plain: 'kept',
         get computed() {
           return 'hidden';
@@ -156,7 +156,7 @@ describe('inspection: "no-invoke"', () => {
     });
 
     test('an accessor-backed children source marks the node instead of inventing a child', () => {
-      const report = noInvoke.makeReportObject({
+      const report = noInvoke.makeReport({
         get cause() {
           return new Error('hidden cause');
         },
@@ -172,12 +172,12 @@ describe('inspection: "no-invoke"', () => {
         configurable: true,
         get: () => new Error('hidden element'),
       });
-      const report = noInvoke.makeReportObject({ errors });
+      const report = noInvoke.makeReport({ errors });
       expect(report.children_omitted).toBe('not_inspected');
     });
 
     test('a data-property cause is still reported as a child', () => {
-      const report = noInvoke.makeReportObject({
+      const report = noInvoke.makeReport({
         message: 'outer',
         cause: { message: 'inner' },
       });
@@ -266,7 +266,7 @@ describe('inspection: "no-invoke"', () => {
       const inner = new Error('inner');
       const outer = new Error('outer');
       (outer as { cause?: unknown }).cause = inner;
-      const report = noInvoke.makeReportObject(outer);
+      const report = noInvoke.makeReport(outer);
       expect(report.children).toHaveLength(1);
       expect(report.children![0]!.path).toBe('$.cause');
       expect(String(report.children![0]!.stack)).toContain('inner');
@@ -275,7 +275,7 @@ describe('inspection: "no-invoke"', () => {
     test('cycles inside as_json become the circular marker', () => {
       const caught: Record<string, unknown> = { name: 'cyclic' };
       caught['self'] = caught;
-      const report = noInvoke.makeReportObject(caught);
+      const report = noInvoke.makeReport(caught);
       expect(report.as_json).toEqual({
         name: 'cyclic',
         self: CORJ_CIRCULAR_MARKER,
@@ -287,7 +287,7 @@ describe('inspection: "no-invoke"', () => {
       const report = new CorjMaker({
         inspection: 'no-invoke',
         maxReportSize: 1_024,
-      }).makeReportObject(caught);
+      }).makeReport(caught);
       expect(
         Buffer.byteLength(JSON.stringify(report), 'utf8'),
       ).toBeLessThanOrEqual(1_024);
@@ -306,7 +306,7 @@ describe('inspection: "no-invoke"', () => {
         },
         plain: 1,
       };
-      expect(validateObject(noInvoke.makeReportObject(caught))).toBe(true);
+      expect(validateObject(noInvoke.makeReport(caught))).toBe(true);
       expect(validateArray(noInvoke.makeReportArray(caught))).toBe(true);
     });
   });
@@ -327,7 +327,7 @@ describe('inspection: "no-invoke"', () => {
           },
         },
       );
-      const report = noInvoke.makeReportObject(caught);
+      const report = noInvoke.makeReport(caught);
       expect(traps.some((t) => t.startsWith('getOwnPropertyDescriptor:'))).toBe(
         true,
       );
@@ -345,8 +345,8 @@ describe('inspection: "no-invoke"', () => {
     test('reports agree with a maker that never names the option', () => {
       const caught = new Error('unchanged');
       expect(
-        new CorjMaker({ inspection: 'default' }).makeReportObject(caught),
-      ).toEqual(byDefault.makeReportObject(caught));
+        new CorjMaker({ inspection: 'default' }).makeReport(caught),
+      ).toEqual(byDefault.makeReport(caught));
     });
 
     test('an invalid inspection value is rejected', () => {
@@ -355,9 +355,9 @@ describe('inspection: "no-invoke"', () => {
       ).toThrow(/inspection must be "default" or "no-invoke"/);
     });
 
-    test('with() layers the mode onto an existing maker', () => {
+    test('withOptions() layers the mode onto an existing maker', () => {
       const { calls, caught } = makeSpyFixture();
-      byDefault.with({ inspection: 'no-invoke' }).makeReportObject(caught);
+      byDefault.withOptions({ inspection: 'no-invoke' }).makeReport(caught);
       expect(calls).toEqual([]);
     });
   });
@@ -369,12 +369,12 @@ describe('inspection: "no-invoke" edge cases', () => {
   });
 
   test('an own property explicitly set to undefined counts as absent', () => {
-    const report = noInvoke.makeReportObject({ message: undefined, a: 1 });
+    const report = noInvoke.makeReport({ message: undefined, a: 1 });
     expect(report).not.toHaveProperty('message');
   });
 
   test('two accessor-backed children sources mark the node once', () => {
-    const report = noInvoke.makeReportObject({
+    const report = noInvoke.makeReport({
       get cause() {
         return new Error('hidden');
       },
@@ -391,7 +391,7 @@ describe('inspection: "no-invoke" edge cases', () => {
       configurable: true,
       get: () => Object,
     });
-    expect(noInvoke.makeReportObject(caught).constructor_name).toBe(
+    expect(noInvoke.makeReport(caught).constructor_name).toBe(
       CORJ_OMITTED_MARKER,
     );
   });
@@ -402,14 +402,14 @@ describe('inspection: "no-invoke" edge cases', () => {
       configurable: true,
       get: () => 'Hidden',
     });
-    expect(noInvoke.makeReportObject({ constructor }).constructor_name).toBe(
+    expect(noInvoke.makeReport({ constructor }).constructor_name).toBe(
       CORJ_OMITTED_MARKER,
     );
   });
 
   test('a non-string constructor name is left out', () => {
     expect(
-      noInvoke.makeReportObject({ constructor: { name: 123 } }),
+      noInvoke.makeReport({ constructor: { name: 123 } }),
     ).not.toHaveProperty('constructor_name');
   });
 
@@ -486,7 +486,7 @@ describe('inspection: "no-invoke" edge cases', () => {
   });
 
   test('a throwing getOwnPropertyDescriptor trap is reported, not propagated', () => {
-    const onError = jest.fn();
+    const onReportingError = jest.fn();
     const caught = new Proxy(
       {},
       {
@@ -500,12 +500,12 @@ describe('inspection: "no-invoke" edge cases', () => {
     );
     const report = new CorjMaker({
       inspection: 'no-invoke',
-      onError,
-    }).makeReportObject(caught);
+      onReportingError,
+    }).makeReport(caught);
     expect(report.as_string).toBeNull();
-    expect(onError).toHaveBeenCalledWith(
+    expect(onReportingError).toHaveBeenCalledWith(
       expect.any(Error),
-      expect.objectContaining({ stage: 'as_string', key: 'as_string' }),
+      expect.objectContaining({ stage: 'as_string', reportKey: 'as_string' }),
     );
   });
 
@@ -543,7 +543,7 @@ describe('inspection: "no-invoke" edge cases', () => {
         enumerable: false,
         configurable: true,
       }));
-      const report = corj.makeCorj(new Error('boom'), {
+      const report = corj.makeReport(new Error('boom'), {
         inspection: 'no-invoke',
       });
       // This engine's own accessor is not recognized, so the stack is withheld.
@@ -554,7 +554,7 @@ describe('inspection: "no-invoke" edge cases', () => {
       const corj = loadWithProbe(() => {
         throw new Error('probe exploded');
       });
-      const report = corj.makeCorj(new Error('boom'), {
+      const report = corj.makeReport(new Error('boom'), {
         inspection: 'no-invoke',
       });
       expect(report.stack).toEqual([corj.CORJ_OMITTED_MARKER]);
@@ -576,7 +576,7 @@ describe('inspection: "no-invoke" leaks found in review', () => {
       }
     }
     // The stack must not have been materialized before the report runs.
-    const report = noInvoke.makeReportObject(new LazyError());
+    const report = noInvoke.makeReport(new LazyError());
     expect(calls).toEqual([]);
     expect(report.stack).toEqual([CORJ_OMITTED_MARKER]);
     expect(JSON.stringify(report)).not.toContain('computed-secret');
@@ -604,7 +604,7 @@ describe('inspection: "no-invoke" leaks found in review', () => {
     (_prop, extra) => {
       const caught = new Error('boom');
       Object.defineProperties(caught, Object.getOwnPropertyDescriptors(extra));
-      const report = noInvoke.makeReportObject(caught);
+      const report = noInvoke.makeReport(caught);
       expect(report.stack).toEqual([CORJ_OMITTED_MARKER]);
     },
   );
@@ -617,12 +617,12 @@ describe('inspection: "no-invoke" leaks found in review', () => {
         return 'computed';
       }
     }
-    byDefault.makeReportObject(new LazyError());
+    byDefault.makeReport(new LazyError());
     expect(calls.length).toBeGreaterThan(0);
   });
 
   test('an ordinary error still keeps its stack', () => {
-    const report = noInvoke.makeReportObject(new Error('ordinary'));
+    const report = noInvoke.makeReport(new Error('ordinary'));
     expect(String(report.stack)).toContain('Error: ordinary');
   });
 
@@ -634,8 +634,8 @@ describe('inspection: "no-invoke" leaks found in review', () => {
         return Reflect.get(target, prop, receiver);
       },
     });
-    noInvoke.makeReportObject(caught);
-    noInvoke.makeReportObject({ list: caught });
+    noInvoke.makeReport(caught);
+    noInvoke.makeReport({ list: caught });
     expect(traps).toEqual([]);
   });
 });
@@ -646,7 +646,7 @@ describe('inspection: "no-invoke" stack safety edges', () => {
     // With the prototype gone, `name` and `message` resolve nowhere, so stack
     // formatting reads `undefined` for both and runs nothing.
     Object.setPrototypeOf(caught, null);
-    const report = noInvoke.makeReportObject(caught);
+    const report = noInvoke.makeReport(caught);
     expect(report.stack).not.toEqual([CORJ_OMITTED_MARKER]);
     expect(String(report.stack)).toContain('Error');
   });
@@ -736,7 +736,7 @@ describe('inspection: "no-invoke" never reads a lazily formatted stack', () => {
     (_label, fixture) => {
       const { ran, caught } = fixture();
       const { reads, result } = countStackDescriptorReads(caught, () =>
-        noInvoke.makeReportObject(caught),
+        noInvoke.makeReport(caught),
       );
       expect(reads).toBe(0);
       expect(ran()).toBe(0);
@@ -766,7 +766,7 @@ describe('inspection: "no-invoke" never reads a lazily formatted stack', () => {
       });
     let report;
     try {
-      report = noInvoke.makeReportObject(caught);
+      report = noInvoke.makeReport(caught);
     } finally {
       spy.mockRestore();
     }
@@ -784,15 +784,15 @@ describe('inspection: "no-invoke" never reads a lazily formatted stack', () => {
     expect(result).toMatch(/^fp1_/);
   });
 
-  test('a { field: "stack" } fingerprint part and occurrence id source read nothing either', () => {
+  test('a { sourceProperty: "stack" } fingerprint part and occurrence id source read nothing either', () => {
     const { ran, caught } = lazyNameError();
     const maker = new CorjMaker({
       inspection: 'no-invoke',
-      fingerprintParts: [{ field: 'stack' }],
-      occurrenceIdSources: [{ field: 'stack' }, { auto: 'random' }],
+      fingerprintParts: [{ sourceProperty: 'stack' }],
+      occurrenceIdSources: [{ sourceProperty: 'stack' }, { auto: 'random' }],
     });
     const { reads, result } = countStackDescriptorReads(caught, () =>
-      maker.makeReportObject(caught),
+      maker.makeReport(caught),
     );
     expect(reads).toBe(0);
     expect(ran()).toBe(0);
@@ -813,7 +813,7 @@ describe('inspection: "no-invoke" never reads a lazily formatted stack', () => {
       },
     };
     const { reads, result } = countStackDescriptorReads(caught, () =>
-      noInvoke.makeReportObject(caught),
+      noInvoke.makeReport(caught),
     );
     expect(reads).toBe(0);
     expect(ran).toBe(0);
@@ -830,14 +830,14 @@ describe('inspection: "no-invoke" never reads a lazily formatted stack', () => {
         return 'Own';
       },
     };
-    const report = noInvoke.makeReportObject(caught);
+    const report = noInvoke.makeReport(caught);
     expect(report).not.toHaveProperty('stack');
   });
 
   test('an ordinary error still has its real stack read', () => {
     const ordinary = new Error('ordinary');
     const { reads, result } = countStackDescriptorReads(ordinary, () =>
-      noInvoke.makeReportObject(ordinary),
+      noInvoke.makeReport(ordinary),
     );
     expect(reads).toBeGreaterThan(0);
     expect(String(result.stack)).toContain('Error: ordinary');
@@ -846,7 +846,7 @@ describe('inspection: "no-invoke" never reads a lazily formatted stack', () => {
   test('the same errors do run their accessors under the default inspection', () => {
     for (const [, fixture] of unsafeHosts) {
       const { ran, caught } = fixture();
-      byDefault.makeReportObject(caught);
+      byDefault.makeReport(caught);
       expect(ran()).toBeGreaterThan(0);
     }
   });

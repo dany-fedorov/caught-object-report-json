@@ -5,8 +5,8 @@ import {
   CORJ_DEFAULT_OPTIONS,
   CORJ_OMITTED_MARKER,
   CORJ_REDACTED_MARKER,
-  makeCorj,
-  makeCorjArray,
+  makeReport,
+  makeReportArray,
   resolveCorjRedactPolicy,
   restoreExpectedValues,
 } from 'caught-object-report-json';
@@ -16,7 +16,8 @@ import type {
   CorjOptionsInput,
   CorjRedactPolicyInput,
   CorjReport,
-  CorjReportChild,
+  CorjReportInput,
+  CorjReportNode,
 } from 'caught-object-report-json';
 
 const inspection: CorjInspection = 'no-invoke';
@@ -29,7 +30,11 @@ const redact: CorjRedactPolicyInput = {
 };
 const options: CorjOptionsInput = { inspection, redact, maxDepth: 2 };
 
-const warning: CorjContext = { stage: 'warning', path: '$', key: 'message' };
+const warning: CorjContext = {
+  stage: 'warning',
+  path: '$',
+  reportKey: 'message',
+};
 
 const resolved = resolveCorjRedactPolicy(redact);
 const scrubbed: string =
@@ -37,15 +42,16 @@ const scrubbed: string =
     ? 'no policy'
     : new CorjMaker({ redact: resolved }).scrubText('sk-live-AAA', warning);
 
-const report: CorjReport = makeCorj(new Error('typed'), options);
-const rows: CorjReportChild[] = makeCorjArray(new Error('typed'), options);
-const maker = new CorjMaker(options).with({ maxChildren: 3 });
+const input: CorjReportInput = { ...options, context: { runId: 'typed' } };
+const report: CorjReport = makeReport(new Error('typed'), input);
+const rows: CorjReportNode[] = makeReportArray(new Error('typed'), options);
+const maker = new CorjMaker(options).withOptions({ maxChildren: 3 });
 
 export const surface = {
   report,
   rows,
   full: restoreExpectedValues(report),
-  fromMaker: maker.makeReportObject('caught'),
+  fromMaker: maker.makeReport('caught'),
   defaults: CORJ_DEFAULT_OPTIONS.inspection,
   markers: [CORJ_OMITTED_MARKER, CORJ_REDACTED_MARKER],
   scrubbed,

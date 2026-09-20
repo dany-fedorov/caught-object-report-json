@@ -1,5 +1,5 @@
 import {
-  CorjReportChild,
+  CorjReportNode,
   CorjMaker,
   CorjOptions,
   CorjOptionsInput,
@@ -74,7 +74,7 @@ function measure(value: unknown, unit: CorjReportSizeUnit) {
 }
 
 /** Every child link points at a retained node or at the root. */
-function assertReferences(rows: CorjReportChild[], rootId: string) {
+function assertReferences(rows: CorjReportNode[], rootId: string) {
   const ids = new Set(rows.map((row) => row.id));
   expect(ids.size).toBe(rows.length);
   ids.add(rootId);
@@ -96,19 +96,19 @@ describe('whole-report invariants', () => {
         ...(metadata === undefined ? {} : { metadata }),
         maxDepth: seed % 3,
         stackFormat: seed % 2 === 0 ? 'lines' : 'string',
-        onError: () => undefined,
+        onReportingError: () => undefined,
         makeReportId: ({ index }: { index: number }) =>
           `report-${seed}-${index}`,
       };
       const maker = new CorjMaker(options);
       const optionsBefore = { ...maker.options };
-      const unlimitedMaker = maker.with({ maxReportSize: null });
+      const unlimitedMaker = maker.withOptions({ maxReportSize: null });
       const report = array
         ? maker.makeReportArray(caught)
-        : maker.makeReportObject(caught);
+        : maker.makeReport(caught);
       const unlimited = array
         ? unlimitedMaker.makeReportArray(caught)
-        : unlimitedMaker.makeReportObject(caught);
+        : unlimitedMaker.makeReport(caught);
 
       expect(JSON.parse(JSON.stringify(report))).toStrictEqual(report);
       expect(JSON.parse(JSON.stringify(unlimited))).toStrictEqual(unlimited);
@@ -154,16 +154,16 @@ describe('whole-report invariants', () => {
       const caught = { message: 'Ж😀'.repeat(100), payload: '界'.repeat(200) };
       const unlimited = new CorjMaker({
         maxReportSize: null,
-      }).makeReportObject(caught);
+      }).makeReport(caught);
       const size = measure(unlimited, reportSizeUnit);
       const maker = new CorjMaker({
         maxReportSize: size,
         reportSizeUnit,
       });
-      expect(maker.makeReportObject(caught)).toEqual(unlimited);
+      expect(maker.makeReport(caught)).toEqual(unlimited);
       const smaller = maker
-        .with({ maxReportSize: size - 1 })
-        .makeReportObject(caught);
+        .withOptions({ maxReportSize: size - 1 })
+        .makeReport(caught);
       expect(measure(smaller, reportSizeUnit)).toBeLessThanOrEqual(size - 1);
       expect(smaller.truncated).toBe(true);
       expect(getReportObjectReportValidator()(smaller)).toBe(true);
@@ -175,7 +175,7 @@ describe('whole-report invariants', () => {
     (metadata) => {
       const maker = new CorjMaker({ metadata });
       const caught = { message: 'root', cause: { message: 'child' } };
-      const clone = maker.with({
+      const clone = maker.withOptions({
         maxReportSize: 10_000,
         reportSizeUnit: 'utf16-code-units',
       });
@@ -183,9 +183,7 @@ describe('whole-report invariants', () => {
         v: metadata,
         $schema: metadata,
       });
-      expect(clone.makeReportObject(caught)).toEqual(
-        maker.makeReportObject(caught),
-      );
+      expect(clone.makeReport(caught)).toEqual(maker.makeReport(caught));
     },
   );
 
@@ -211,8 +209,8 @@ describe('whole-report invariants', () => {
     const errors: unknown[] = [];
     const report = new CorjMaker({
       maxReportSize: 512,
-      onError: (error) => errors.push(error),
-    }).makeReportObject(caught);
+      onReportingError: (error) => errors.push(error),
+    }).makeReport(caught);
     expect(measure(report, 'utf8-bytes')).toBeLessThanOrEqual(512);
     expect(report.truncated).toBe(true);
     expect({ jsonCalls, stringCalls, payloadReads }).toEqual({
@@ -226,8 +224,8 @@ describe('whole-report invariants', () => {
   test('does not infer truncation from marker text supplied by the caller', () => {
     const marker = '[truncated]';
     const maker = new CorjMaker({ maxReportSize: 4_096 });
-    expect(maker.makeReportObject('x'.repeat(5_000)).truncated).toBe(true);
-    const report = maker.makeReportObject({
+    expect(maker.makeReport('x'.repeat(5_000)).truncated).toBe(true);
+    const report = maker.makeReport({
       message: marker,
       nested: { '...': marker },
     });
@@ -248,7 +246,7 @@ describe('whole-report invariants', () => {
       const caught = { cause: { ['x'.repeat(2_000)]: 1 } };
       const report = array
         ? maker.makeReportArray(caught)
-        : maker.makeReportObject(caught);
+        : maker.makeReport(caught);
       const root = Array.isArray(report) ? report[0]! : report;
       const child = Array.isArray(report) ? report[1]! : report.children![0]!;
       expect(measure(report, 'utf8-bytes')).toBeLessThan(1_000);
@@ -269,7 +267,7 @@ describe('whole-report invariants', () => {
       })),
     };
     const unlimited = maker
-      .with({ maxReportSize: null })
+      .withOptions({ maxReportSize: null })
       .makeReportArray(caught);
     const report = maker.makeReportArray(caught);
     expect(report.length).toBeGreaterThan(1);

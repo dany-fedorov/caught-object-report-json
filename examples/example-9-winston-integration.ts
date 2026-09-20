@@ -1,4 +1,4 @@
-import { makeCorj } from '../src';
+import { makeReport } from '../src';
 import { createLogger, transports, ExceptionHandler } from 'winston';
 
 const origGetAllInfo = ExceptionHandler.prototype.getAllInfo;
@@ -14,7 +14,7 @@ ExceptionHandler.prototype.getAllInfo = function getAllInfoExtended(
   return {
     ...errorInfoByWinston,
     error: err,
-    message: makeCorj(err),
+    message: makeReport(err),
   };
 };
 

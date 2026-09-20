@@ -24,10 +24,8 @@ import {
 import { CORJ_REDACT_DROP, Redactor, resolveRedactPolicy } from './redaction';
 import type {
   CorjContext,
-  CorjRedactContext,
   CorjRedactPolicy,
   CorjRedactPolicyInput,
-  CorjRedactStage,
   CorjRedactTransform,
   CorjReportKey,
   CorjStage,
@@ -65,10 +63,8 @@ export { CORJ_REDACTED_MARKER } from './redaction';
 export { resolveRedactPolicy as resolveCorjRedactPolicy } from './redaction';
 export type {
   CorjContext,
-  CorjRedactContext,
   CorjRedactPolicy,
   CorjRedactPolicyInput,
-  CorjRedactStage,
   CorjRedactTransform,
   CorjReportKey,
   CorjStage,
@@ -175,17 +171,17 @@ export type CorjReportBase = {
   $schema?: CorjSchemaLink;
 };
 
-/** Report object produced by {@link makeCorj} and {@link CorjMaker.makeReportObject}. */
+/** Report object produced by {@link makeReport} and {@link CorjMaker.makeReport}. */
 export type CorjReport = CorjReportBase & {
   /** Every nested error found through `children_sources`, flattened breadth-first. Absent when there are none. */
-  children?: CorjReportChild[];
+  children?: CorjReportNode[];
 };
 
 /**
  * One node of a flattened error tree: an element of {@link CorjReport.children},
- * or of the array produced by {@link makeCorjArray} whose first element is the root.
+ * or of the array produced by {@link makeReportArray} whose first element is the root.
  */
-export type CorjReportChild = CorjReportBase & {
+export type CorjReportNode = CorjReportBase & {
   /** From `makeReportId`; `"root"` for the root and the discovery index otherwise by default. */
   id: string;
   /** JSONPath from the root caught object, e.g. `$.cause.errors[0]`. */
@@ -228,7 +224,7 @@ export type CorjReportIdContext = {
  * maker's own for this read alone.
  */
 export type CorjSourceEntry =
-  | { field: string; inspection?: CorjInspection }
+  | { sourceProperty: string; inspection?: CorjInspection }
   | { path: readonly (string | number)[]; inspection?: CorjInspection };
 /** A source that computes a token itself. It is given the root's id context. */
 export type CorjEntryFunction = (context: CorjReportIdContext) => unknown;
@@ -252,16 +248,11 @@ export type CorjFingerprintPart =
   | CorjSourceEntry
   | CorjEntryFunction;
 
-/** @deprecated Use {@link CorjStage}. */
-export type CorjErrorStage = CorjStage;
-/** @deprecated Use {@link CorjContext}. */
-export type CorjErrorContext = CorjContext;
-
 /** One failure met while a report was produced: where it happened, plus a scrubbed, bounded description. */
 export type CorjReportingError = CorjContext & { error: string };
 
 /**
- * The JSON form of one value on its own, as {@link CorjMaker.makeJson} returns
+ * The JSON form of one value on its own, as {@link CorjMaker.makeJsonView} returns
  * it: the value a report would have put in `as_json`, whether it was cut to fit
  * the size bound, and the failures met while producing it.
  */
@@ -271,8 +262,9 @@ export type CorjJsonView = {
   errors: CorjReportingError[];
 };
 
+/** Receives the raw reporting failure and the scrubbed, bounded row stored in the report. */
 export type CorjErrorHandler = (
-  caught: unknown,
+  reportingFailure: unknown,
   record: CorjReportingError,
 ) => void;
 
@@ -305,11 +297,11 @@ export type CorjOptions = {
   fingerprintParts: readonly CorjFingerprintPart[] | null;
   /** Produces the `id` of a node. Called once per discovered node. */
   makeReportId: (context: CorjReportIdContext) => string;
-  /** Called as `(caught, record)` when something throws while the report is produced. Defaults to `console.warn`. */
-  onError: CorjErrorHandler;
+  /** Called as `(reportingFailure, record)` when reporting throws. The first argument is raw and may contain sensitive data; the row is scrubbed and bounded. */
+  onReportingError: CorjErrorHandler;
 };
 
-/** Options accepted by {@link CorjMaker}, {@link makeCorj} and {@link makeCorjArray}. Missing ones keep their defaults. */
+/** Options accepted by {@link CorjMaker}, {@link makeReport} and {@link makeReportArray}. Missing ones keep their defaults. */
 export type CorjOptionsInput = {
   [K in Exclude<keyof CorjOptions, 'metadata' | 'redact'>]?: CorjOptions[K];
 } & {
@@ -326,6 +318,9 @@ export type CorjCallInput = {
   /** Anything the caller wants beside the caught object. Reported at the root, rooted at `$context`. */
   context?: unknown;
 };
+
+/** Configuration and per-call values accepted by {@link makeReport} and {@link makeReportArray}. */
+export type CorjReportInput = CorjOptionsInput & CorjCallInput;
 
 //  ██████╗ ██████╗ ███╗   ██╗███████╗████████╗ █████╗ ███╗   ██╗████████╗███████╗
 // ██╔════╝██╔═══██╗████╗  ██║██╔════╝╚══██╔══╝██╔══██╗████╗  ██║╚══██╔══╝██╔════╝
@@ -351,12 +346,17 @@ function describeValue(value: unknown): string {
   }
 }
 
-function defaultOnError(_caught: unknown, record: CorjReportingError): void {
+function defaultOnReportingError(
+  _reportingFailure: unknown,
+  record: CorjReportingError,
+): void {
   const where = [
     `stage=${record.stage}`,
     `path=${record.path}`,
-    record.key === undefined ? null : `field=${record.key}`,
-    record.prop === undefined ? null : `prop=${record.prop}`,
+    record.reportKey === undefined ? null : `field=${record.reportKey}`,
+    record.sourceProperty === undefined
+      ? null
+      : `sourceProperty=${record.sourceProperty}`,
   ]
     .filter(Boolean)
     .join(' ');
@@ -396,7 +396,7 @@ export const CORJ_DEFAULT_OPTIONS: CorjOptions = Object.freeze({
   occurrenceIdSources: DEFAULT_OCCURRENCE_ID_SOURCES,
   fingerprintParts: DEFAULT_FINGERPRINT_PARTS,
   makeReportId: defaultMakeReportId,
-  onError: defaultOnError,
+  onReportingError: defaultOnReportingError,
 });
 
 const OPTION_KEYS: readonly (keyof CorjOptions)[] = Object.freeze([
@@ -414,7 +414,7 @@ const OPTION_KEYS: readonly (keyof CorjOptions)[] = Object.freeze([
   'occurrenceIdSources',
   'fingerprintParts',
   'makeReportId',
-  'onError',
+  'onReportingError',
 ]);
 
 /**
@@ -470,10 +470,12 @@ function resolveOptions(
     }
   }
   const pick = <K extends Exclude<keyof CorjOptions, 'metadata' | 'redact'>>(
-    key: K,
+    reportKey: K,
   ): CorjOptions[K] =>
-    (input[key] === undefined ? base[key] : input[key]) as CorjOptions[K];
-  // A resolved policy is itself a valid policy input, so `with()` can layer one
+    (input[reportKey] === undefined
+      ? base[reportKey]
+      : input[reportKey]) as CorjOptions[K];
+  // A resolved policy is itself a valid policy input, so `withOptions()` can layer one
   // maker's options onto another.
   const redact = resolveRedactPolicy(
     input.redact === undefined ? base.redact : input.redact,
@@ -516,7 +518,7 @@ function resolveOptions(
     occurrenceIdSources: pick('occurrenceIdSources'),
     fingerprintParts: pick('fingerprintParts'),
     makeReportId: pick('makeReportId'),
-    onError: pick('onError'),
+    onReportingError: pick('onReportingError'),
   };
   resolveReportSizeOptions(options);
   assertSizeLimit('maxContextSize', options.maxContextSize, MIN_VALUE_SIZE);
@@ -545,7 +547,7 @@ function resolveOptions(
     options.occurrenceIdSources,
   );
   // Validated here, resolved again on the maker: the option keeps the caller's
-  // own list, so `with()` layers one maker's parts onto another unchanged.
+  // own list, so `withOptions()` layers one maker's parts onto another unchanged.
   resolveFingerprintParts(options.fingerprintParts);
   options.fingerprintParts =
     options.fingerprintParts === null
@@ -554,8 +556,8 @@ function resolveOptions(
   if (typeof options.makeReportId !== 'function') {
     throw new TypeError('makeReportId must be a function');
   }
-  if (typeof options.onError !== 'function') {
-    throw new TypeError('onError must be a function');
+  if (typeof options.onReportingError !== 'function') {
+    throw new TypeError('onReportingError must be a function');
   }
   return Object.freeze(options);
 }
@@ -690,7 +692,7 @@ type Ctx = {
   errors: CorjReportingError[] | null;
 };
 type Entry = [string, unknown];
-type Report = CorjReport | CorjReportChild[];
+type Report = CorjReport | CorjReportNode[];
 
 type Node = {
   id: string;
@@ -713,8 +715,8 @@ function makeRecord(
   const where: CorjContext = {
     stage: 'warning',
     path: context.path,
-    key: context.key,
-    prop: context.prop,
+    reportKey: context.reportKey,
+    sourceProperty: context.sourceProperty,
   };
   const scrub = (text: string): string =>
     redactor === null ? text : redactor.text(text, where);
@@ -727,8 +729,13 @@ function makeRecord(
   return toObject<CorjReportingError>([
     ['stage', context.stage],
     ['path', scrub(context.path)],
-    ['key', context.key],
-    ['prop', context.prop === undefined ? undefined : scrub(context.prop)],
+    ['reportKey', context.reportKey],
+    [
+      'sourceProperty',
+      context.sourceProperty === undefined
+        ? undefined
+        : scrub(context.sourceProperty),
+    ],
     ['error', error],
   ]);
 }
@@ -740,20 +747,20 @@ function reportError(ctx: Ctx, caught: unknown, context: CorjContext): void {
   }
   try {
     // A copy: a handler that rewrites its record cannot rewrite the report's row.
-    ctx.options.onError(caught, { ...record });
+    ctx.options.onReportingError(caught, { ...record });
   } catch (failure: unknown) {
     // This line is emitted text like any other: a handler that quotes what it
     // was handling would otherwise print the one string the policy protects.
     const described = describeValue(failure);
     console.warn(
-      `[caught-object-report-json] onError threw: ${
+      `[caught-object-report-json] onReportingError threw: ${
         ctx.redactor === null
           ? described
           : ctx.redactor.text(described, {
               stage: 'warning',
               path: context.path,
-              key: context.key,
-              prop: context.prop,
+              reportKey: context.reportKey,
+              sourceProperty: context.sourceProperty,
             })
       }`,
     );
@@ -902,8 +909,8 @@ function access(
     ctx.redactor.excludes({
       stage: context.stage === 'children' ? 'children' : 'prop-access',
       path: redactPath ?? `${context.path}.${prop}`,
-      key: context.key,
-      prop,
+      reportKey: context.reportKey,
+      sourceProperty: prop,
     })
   ) {
     return {
@@ -931,7 +938,7 @@ function access(
       value: (host as Record<string, unknown>)[prop],
     };
   } catch (caught: unknown) {
-    reportError(ctx, caught, { ...context, prop });
+    reportError(ctx, caught, { ...context, sourceProperty: prop });
     return { found: false, threw: true };
   }
 }
@@ -962,11 +969,11 @@ function segmentPath(
   return `${path}.${prop}`;
 }
 
-/** A `{ field }` or `{ path }` read, with the JSONPath the value was reached at. */
+/** A `{ sourceProperty }` or `{ path }` read, with the JSONPath the value was reached at. */
 type EntryRead = Access & { path: string };
 
 /**
- * Walk a `{ field }` or `{ path }` entry from a node. Skip rules and
+ * Walk a `{ sourceProperty }` or `{ path }` entry from a node. Skip rules and
  * `inspection` apply at every segment, and the JSONPath the last segment was
  * reached at comes back with the value: every consumer of the value keys the
  * policy from it, so a `paths` rule sees one path per value wherever it is used.
@@ -975,10 +982,10 @@ function readEntry(
   ctx: Ctx,
   node: Pick<Node, 'obj' | 'path'>,
   entry: CorjSourceEntry,
-  key: CorjReportKey,
+  reportKey: CorjReportKey,
 ): EntryRead {
   const segments: readonly (string | number)[] =
-    'field' in entry ? [entry.field] : entry.path;
+    'sourceProperty' in entry ? [entry.sourceProperty] : entry.path;
   let host: unknown = node.obj;
   let path = node.path;
   let last: Access = { found: false, threw: false };
@@ -987,7 +994,7 @@ function readEntry(
     const next = segmentPath(path, host, segment);
     last = access(
       ctx,
-      { stage: 'prop-access', path, key },
+      { stage: 'prop-access', path, reportKey },
       host,
       prop,
       next,
@@ -1022,13 +1029,13 @@ function makeId(ctx: Ctx, context: CorjReportIdContext): string {
       : ctx.redactor.text(id, {
           stage: 'prop-access',
           path: context.path,
-          key: 'id',
+          reportKey: 'id',
         });
   } catch (caught: unknown) {
     reportError(ctx, caught, {
       stage: 'other',
       path: context.path,
-      key: 'id',
+      reportKey: 'id',
     });
     return context.index === -1 ? 'root' : String(context.index);
   }
@@ -1046,7 +1053,7 @@ function childSources(
   const context: CorjContext = {
     stage: 'children',
     path: node.path,
-    key: node.index === -1 ? 'children' : 'child_ids',
+    reportKey: node.index === -1 ? 'children' : 'child_ids',
   };
   // No report can hold more than `maxChildren` new nodes, so stop collecting
   // once that many unseen objects are found; references to seen ones are free.
@@ -1086,7 +1093,7 @@ function childSources(
     try {
       keys = Object.keys(array);
     } catch (caught: unknown) {
-      reportError(ctx, caught, { ...context, prop });
+      reportError(ctx, caught, { ...context, sourceProperty: prop });
       continue;
     }
     for (const key of keys) {
@@ -1195,12 +1202,12 @@ function discover(ctx: Ctx, caught: unknown): { root: Node; nodes: Node[] } {
 function readStringProp(
   ctx: Ctx,
   node: Node,
-  key: keyof CorjReportBase,
+  reportKey: keyof CorjReportBase,
   prop: string,
 ): { value: string | null | undefined; escaped: boolean } {
   const r = access(
     ctx,
-    { stage: 'prop-access', path: node.path, key },
+    { stage: 'prop-access', path: node.path, reportKey },
     node.obj,
     prop,
   );
@@ -1212,8 +1219,8 @@ function readStringProp(
     value: redactText(ctx, r.value, {
       stage: 'prop-access',
       path: `${node.path}.${prop}`,
-      key,
-      prop,
+      reportKey,
+      sourceProperty: prop,
     }),
     escaped: false,
   };
@@ -1222,17 +1229,17 @@ function readStringProp(
 function stringProp(
   ctx: Ctx,
   node: Node,
-  key: keyof CorjReportBase,
+  reportKey: keyof CorjReportBase,
   prop: string,
 ): string | null | undefined {
-  return readStringProp(ctx, node, key, prop).value;
+  return readStringProp(ctx, node, reportKey, prop).value;
 }
 
 function makeConstructorName(ctx: Ctx, node: Node): string | null | undefined {
   const context: CorjContext = {
     stage: 'prop-access',
     path: node.path,
-    key: 'constructor_name',
+    reportKey: 'constructor_name',
   };
   const ctor = access(ctx, context, node.obj, 'constructor');
   if (ctor.threw) return null;
@@ -1253,8 +1260,8 @@ function makeConstructorName(ctx: Ctx, node: Node): string | null | undefined {
   return redactText(ctx, name.value, {
     stage: 'prop-access',
     path: `${node.path}.constructor.name`,
-    key: 'constructor_name',
-    prop: 'name',
+    reportKey: 'constructor_name',
+    sourceProperty: 'name',
   });
 }
 
@@ -1281,7 +1288,7 @@ function makeAsStringNoInvoke(
   const context: CorjContext = {
     stage: 'as_string',
     path,
-    key: 'as_string',
+    reportKey: 'as_string',
   };
   try {
     if (!isObjectLike(obj)) {
@@ -1342,7 +1349,7 @@ function makeAsString(
   const context: CorjContext = {
     stage: 'as_string',
     path,
-    key: 'as_string',
+    reportKey: 'as_string',
   };
   const method = access(
     ctx,
@@ -1360,7 +1367,10 @@ function makeAsString(
         return { value, format: '.toCorjAsString' };
       }
     } catch (caught: unknown) {
-      reportError(ctx, caught, { ...context, prop: 'toCorjAsString' });
+      reportError(ctx, caught, {
+        ...context,
+        sourceProperty: 'toCorjAsString',
+      });
     }
   }
   try {
@@ -1384,7 +1394,9 @@ function jsonRedact(
   skipChildrenSources: boolean,
   /** The report field these values are destined for; a fingerprint part is not `as_json`. */
   reportKey: CorjReportKey = 'as_json',
-): ((key: string, path: string, read: () => unknown) => unknown) | undefined {
+):
+  | ((reportKey: string, path: string, read: () => unknown) => unknown)
+  | undefined {
   const redactor = ctx.redactor;
   if (redactor === null) return undefined;
   const sources = ctx.options.childrenSources;
@@ -1398,8 +1410,8 @@ function jsonRedact(
     const context: CorjContext = {
       stage: 'as_json',
       path,
-      key: reportKey,
-      prop: key,
+      reportKey: reportKey,
+      sourceProperty: key,
     };
     if (redactor.excludes(context)) return redactor.policy.replacement;
     const out = redactor.apply(read(), context);
@@ -1411,11 +1423,16 @@ function jsonRedact(
 function jsonKeyRedact(
   ctx: Ctx,
   reportKey: CorjReportKey = 'as_json',
-): ((key: string, path: string) => string) | undefined {
+): ((reportKey: string, path: string) => string) | undefined {
   const redactor = ctx.redactor;
   if (redactor === null) return undefined;
   return (key, path) =>
-    redactor.text(key, { stage: 'as_json', path, key: reportKey, prop: key });
+    redactor.text(key, {
+      stage: 'as_json',
+      path,
+      reportKey: reportKey,
+      sourceProperty: key,
+    });
 }
 
 /**
@@ -1434,7 +1451,9 @@ function viewStringify(
 function serialize(
   ctx: Ctx,
   value: unknown,
-  replacer: ((this: object, key: string, value: unknown) => unknown) | null,
+  replacer:
+    | ((this: object, reportKey: string, value: unknown) => unknown)
+    | null,
   node: Node,
   skipChildrenSources: boolean,
   /** A view's own bound: a number replaces the maker's, `null` removes it. */
@@ -1464,7 +1483,7 @@ function makeAsJson(
   truncated: boolean;
 } {
   const { obj, path } = node;
-  const context: CorjContext = { stage: 'as_json', path, key: 'as_json' };
+  const context: CorjContext = { stage: 'as_json', path, reportKey: 'as_json' };
   // `no-invoke` never consults the caught object's own JSON hook; the
   // serializer it runs under also skips `toJSON` and accessor properties.
   const method =
@@ -1489,7 +1508,7 @@ function makeAsJson(
         return { value: JSON.parse(json), format: '.toCorjAsJson', truncated };
       }
     } catch (caught: unknown) {
-      reportError(ctx, caught, { ...context, prop: 'toCorjAsJson' });
+      reportError(ctx, caught, { ...context, sourceProperty: 'toCorjAsJson' });
     }
   }
   const format = CORJ_EXPECTED_VALUES.as_json_format;
@@ -1544,7 +1563,11 @@ function makeNodeFields(ctx: Ctx, node: Node, withJson = true): NodeFields {
   try {
     instanceofError = obj instanceof Error;
   } catch (caught: unknown) {
-    reportError(ctx, caught, { stage: 'other', path, key: 'instanceof_error' });
+    reportError(ctx, caught, {
+      stage: 'other',
+      path,
+      reportKey: 'instanceof_error',
+    });
   }
   const constructorName = makeConstructorName(ctx, node);
   const message = stringProp(ctx, node, 'message', 'message');
@@ -1560,7 +1583,7 @@ function makeNodeFields(ctx: Ctx, node: Node, withJson = true): NodeFields {
       ? redactRequiredText(ctx, asString.value, {
           stage: 'as_string',
           path,
-          key: 'as_string',
+          reportKey: 'as_string',
         })
       : asString.value;
   const asJson = withJson
@@ -1681,7 +1704,7 @@ function readFingerprintValue(
       reportError(ctx, failure, {
         stage: 'other',
         path: node.path,
-        key: 'fingerprint',
+        reportKey: 'fingerprint',
       });
       return null;
     }
@@ -1698,7 +1721,9 @@ function readFingerprintValue(
     path = read.path;
     mode = part.inspection ?? mode;
     prop =
-      'field' in part ? part.field : String(part.path[part.path.length - 1]);
+      'sourceProperty' in part
+        ? part.sourceProperty
+        : String(part.path[part.path.length - 1]);
   }
   // Every emitted value meets the policy, whatever its type: a number or a
   // boolean is as identifying as a string, and the fingerprint is published.
@@ -1706,8 +1731,8 @@ function readFingerprintValue(
     const out = ctx.redactor.apply(raw, {
       stage: 'prop-access',
       path,
-      key: 'fingerprint',
-      prop,
+      reportKey: 'fingerprint',
+      sourceProperty: prop,
     });
     raw = out === CORJ_REDACT_DROP ? null : out;
   }
@@ -1738,7 +1763,7 @@ function readFingerprintValue(
     reportError(ctx, failure, {
       stage: 'as_json',
       path: node.path,
-      key: 'fingerprint',
+      reportKey: 'fingerprint',
     });
     return null;
   }
@@ -1815,7 +1840,7 @@ function computeFingerprint(
     reportError(ctx, failure, {
       stage: 'other',
       path: '$',
-      key: 'fingerprint',
+      reportKey: 'fingerprint',
     });
     return undefined;
   }
@@ -1843,7 +1868,7 @@ function resolveOccurrenceId(
         reportError(ctx, failure, {
           stage: 'other',
           path: '$',
-          key: 'occurrence_id',
+          reportKey: 'occurrence_id',
         });
         continue;
       }
@@ -1877,7 +1902,7 @@ function build(
     reportError(ctx, CALL_TOKEN_ERRORS[key], {
       stage: 'other',
       path: '$',
-      key,
+      reportKey: key,
     });
   }
   // First, so the id heads the root and is in hand before anything can fail.
@@ -1890,7 +1915,7 @@ function build(
     const fields = makeNodeFields(ctx, node);
     childFields.push([node, fields]);
     anyTruncated ||= fields.truncated;
-    return toObject<CorjReportChild>([
+    return toObject<CorjReportNode>([
       ['id', node.id],
       ['path', node.path],
       ['level', node.level],
@@ -1948,7 +1973,7 @@ function build(
   const reportingErrors =
     ctx.errors !== null && ctx.errors.length > 0 ? [...ctx.errors] : undefined;
   if (asArray) {
-    const rootRow = toObject<CorjReportChild>([
+    const rootRow = toObject<CorjReportNode>([
       ['occurrence_id', occurrenceId],
       ['fingerprint', fingerprint],
       ['id', root.id],
@@ -2011,7 +2036,7 @@ function finish<T extends Report>(ctx: Ctx, report: T): T {
 // ███████╗██╔╝ ██╗██║     ╚██████╔╝██║  ██║   ██║   ███████║
 // ╚══════╝╚═╝  ╚═╝╚═╝      ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚══════╝
 
-/** `$`, or `$` followed by an identifier: the roots {@link CorjMaker.makeJson} accepts. */
+/** `$`, or `$` followed by an identifier: the roots {@link CorjMaker.makeJsonView} accepts. */
 const ROOT_PATTERN = /^\$([A-Za-z_][A-Za-z0-9_]*)?$/;
 
 /** Produces reports with one set of options. Construct once, reuse for every caught object. */
@@ -2052,15 +2077,15 @@ export class CorjMaker {
         reportError(this.ctx, caught, {
           stage: 'redact',
           path: context.path,
-          key: context.key,
-          prop: context.prop,
+          reportKey: context.reportKey,
+          sourceProperty: context.sourceProperty,
         }),
       );
     }
   }
 
   /** A new maker with these options applied on top of this maker's options. */
-  with(options: CorjOptionsInput): CorjMaker {
+  withOptions(options: CorjOptionsInput): CorjMaker {
     return new CorjMaker(resolveOptions(this.options, options));
   }
 
@@ -2076,7 +2101,7 @@ export class CorjMaker {
   }
 
   /** An invalid call input throws a `TypeError` before any work is done. */
-  makeReportObject(caught: unknown, call?: CorjCallInput): CorjReport {
+  makeReport(caught: unknown, call?: CorjCallInput): CorjReport {
     const resolved = resolveCall(call);
     return this.collecting(() =>
       finish(this.ctx, build(this.ctx, caught, false, resolved) as CorjReport),
@@ -2084,12 +2109,12 @@ export class CorjMaker {
   }
 
   /** The root as the first element followed by every child; nodes link to each other by `child_ids`. */
-  makeReportArray(caught: unknown, call?: CorjCallInput): CorjReportChild[] {
+  makeReportArray(caught: unknown, call?: CorjCallInput): CorjReportNode[] {
     const resolved = resolveCall(call);
     return this.collecting(() =>
       finish(
         this.ctx,
-        build(this.ctx, caught, true, resolved) as CorjReportChild[],
+        build(this.ctx, caught, true, resolved) as CorjReportNode[],
       ),
     );
   }
@@ -2132,7 +2157,7 @@ export class CorjMaker {
    * `redact` options. A named `root` such as `"$context"` starts a separate
    * document, so a rule written for one never reaches another.
    */
-  makeJson(
+  makeJsonView(
     value: unknown,
     options: { root?: string; maxSize?: number | null } = {},
   ): CorjJsonView {
@@ -2174,7 +2199,11 @@ export class CorjMaker {
    */
   scrubText(
     text: string,
-    where: { path?: string; key?: CorjReportKey; prop?: string } = {},
+    where: {
+      path?: string;
+      reportKey?: CorjReportKey;
+      sourceProperty?: string;
+    } = {},
   ): string {
     if (typeof text !== 'string') throw new TypeError('text must be a string');
     const redactor = this.ctx.redactor;
@@ -2182,8 +2211,8 @@ export class CorjMaker {
     return redactor.text(text, {
       stage: 'warning',
       path: where.path ?? '$',
-      key: where.key,
-      prop: where.prop,
+      reportKey: where.reportKey,
+      sourceProperty: where.sourceProperty,
     });
   }
 }
@@ -2196,20 +2225,60 @@ function makerFor(options: CorjOptionsInput | undefined): CorjMaker {
   return defaultMaker;
 }
 
-/** {@link CorjMaker.makeReportObject} with {@link CORJ_DEFAULT_OPTIONS} and the given overrides. */
-export function makeCorj(
+function splitReportInput(input: CorjReportInput | undefined): {
+  options: CorjOptionsInput | undefined;
+  call: CorjCallInput | undefined;
+} {
+  if (input === undefined) return { options: undefined, call: undefined };
+  if (typeof input !== 'object' || input === null || Array.isArray(input)) {
+    throw new TypeError('report input must be an object');
+  }
+  const options: Record<string, unknown> = {};
+  const call: Record<string, unknown> = {};
+  let hasOptions = false;
+  let hasCall = false;
+  for (const key of Object.keys(input)) {
+    if (OPTION_KEYS.includes(key as keyof CorjOptions)) {
+      options[key] = input[key as keyof CorjReportInput];
+      hasOptions = true;
+    } else if ((CALL_KEYS as readonly string[]).includes(key)) {
+      call[key] = input[key as keyof CorjReportInput];
+      hasCall = true;
+    } else {
+      throw new TypeError(
+        `Unknown report input "${key}". Known inputs: ${[
+          ...OPTION_KEYS,
+          ...CALL_KEYS,
+        ].join(', ')}`,
+      );
+    }
+  }
+  return {
+    options: hasOptions ? (options as CorjOptionsInput) : undefined,
+    call: hasCall ? (call as CorjCallInput) : undefined,
+  };
+}
+
+/** {@link CorjMaker.makeReport} with {@link CORJ_DEFAULT_OPTIONS} and the given overrides. */
+export function makeReport(
   caught: unknown,
-  options?: CorjOptionsInput,
-  call?: CorjCallInput,
+  input?: CorjReportInput,
 ): CorjReport {
-  return makerFor(options).makeReportObject(caught, call);
+  if (arguments.length > 2) {
+    throw new TypeError('makeReport accepts caught and one input object');
+  }
+  const { options, call } = splitReportInput(input);
+  return makerFor(options).makeReport(caught, call);
 }
 
 /** {@link CorjMaker.makeReportArray} with {@link CORJ_DEFAULT_OPTIONS} and the given overrides. */
-export function makeCorjArray(
+export function makeReportArray(
   caught: unknown,
-  options?: CorjOptionsInput,
-  call?: CorjCallInput,
-): CorjReportChild[] {
+  input?: CorjReportInput,
+): CorjReportNode[] {
+  if (arguments.length > 2) {
+    throw new TypeError('makeReportArray accepts caught and one input object');
+  }
+  const { options, call } = splitReportInput(input);
   return makerFor(options).makeReportArray(caught, call);
 }

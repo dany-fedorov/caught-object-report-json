@@ -1,4 +1,4 @@
-import { makeCorj } from '../src';
+import { makeReport } from '../src';
 
 try {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -11,6 +11,6 @@ try {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore
   caught.heh_1 = new Number(123);
-  const report = makeCorj(caught);
+  const report = makeReport(caught);
   console.log(JSON.stringify(report, null, 2));
 }

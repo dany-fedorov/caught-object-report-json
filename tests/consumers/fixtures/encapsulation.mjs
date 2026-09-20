@@ -2,7 +2,7 @@
 // and `./package.json` resolve, and `import` and `require` reach one instance.
 import { createRequire } from 'node:module';
 import * as namespace from 'caught-object-report-json';
-import { makeCorj, CorjMaker } from 'caught-object-report-json';
+import { makeReport, CorjMaker } from 'caught-object-report-json';
 
 const require = createRequire(import.meta.url);
 const results = [];
@@ -53,7 +53,7 @@ check('./package.json still resolves', () => {
 });
 
 check('named ESM imports from the root still work', () =>
-  typeof makeCorj === 'function' && typeof CorjMaker === 'function'
+  typeof makeReport === 'function' && typeof CorjMaker === 'function'
     ? undefined
     : 'the root does not expose its named bindings through the ESM interop',
 );

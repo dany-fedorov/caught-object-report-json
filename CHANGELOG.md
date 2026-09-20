@@ -1,3 +1,12 @@
+# 12.0.0 (2026-09-21)
+
+### BREAKING CHANGES
+
+* rename the report API to `makeReport`, `makeReportArray`, `CorjMaker.makeReport`, `makeJsonView`, and `withOptions`
+* merge free-function configuration and per-call values into one `CorjReportInput` bag; remove the third positional argument
+* rename `CorjReportChild` to `CorjReportNode`, `onError` to `onReportingError`, source-entry `field` to `sourceProperty`, and reporting context `key`/`prop` to `reportKey`/`sourceProperty`
+* advance report schemas to `corj/v0.15` and `corj/v0.15-full`; reporting-error rows use the renamed context fields
+
 ## [11.0.1](https://github.com/dany-fedorov/caught-object-report-json/compare/v11.0.0...v11.0.1) (2026-09-19)
 
 

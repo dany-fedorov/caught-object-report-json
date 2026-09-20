@@ -1,7 +1,7 @@
 import {
   CorjMaker,
-  makeCorj,
-  makeCorjArray,
+  makeReport,
+  makeReportArray,
   restoreExpectedValues,
 } from '../src/index';
 
@@ -15,9 +15,8 @@ const silent = () => undefined;
 
 describe('call input: context', () => {
   test('context is rendered into the root of an object report', () => {
-    const report = makeCorj(
+    const report = makeReport(
       new ErrorWithCause('x', { cause: new Error('y') }),
-      undefined,
       { context: { runId: 'run-1' } },
     );
     expect(report.context).toEqual({ runId: 'run-1' });
@@ -25,9 +24,8 @@ describe('call input: context', () => {
   });
 
   test('context sits on the root row of an array report', () => {
-    const rows = makeCorjArray(
+    const rows = makeReportArray(
       new ErrorWithCause('x', { cause: new Error('y') }),
-      undefined,
       {
         context: { runId: 'run-1' },
       },
@@ -37,23 +35,23 @@ describe('call input: context', () => {
   });
 
   test('no context argument, no field; an explicit undefined is the same', () => {
-    expect(makeCorj(new Error('x'))).not.toHaveProperty('context');
+    expect(makeReport(new Error('x'))).not.toHaveProperty('context');
     expect(
-      makeCorj(new Error('x'), undefined, { context: undefined }),
+      makeReport(new Error('x'), { context: undefined }),
     ).not.toHaveProperty('context');
   });
 
   test('context: null is kept as null', () => {
-    expect(
-      makeCorj(new Error('x'), undefined, { context: null }).context,
-    ).toBeNull();
+    expect(makeReport(new Error('x'), { context: null }).context).toBeNull();
   });
 
   test('context paths start at $context, so the policy can address it', () => {
-    const report = makeCorj(
+    const report = makeReport(
       Object.assign(new Error('x'), { user: { email: 'kept@caught' } }),
-      { redact: { paths: ['$context.user.email'] } },
-      { context: { user: { email: 'gone@context' } } },
+      {
+        ...{ redact: { paths: ['$context.user.email'] } },
+        ...{ context: { user: { email: 'gone@context' } } },
+      },
     );
     expect(report.context).toEqual({ user: { email: '[redacted]' } });
     expect(report.as_json).toEqual({ user: { email: 'kept@caught' } });
@@ -67,28 +65,29 @@ describe('call input: context', () => {
         throw new Error('nope');
       },
     });
-    const report = makeCorj(new Error('x'), { onError: silent }, { context });
+    const report = makeReport(new Error('x'), {
+      ...{ onReportingError: silent },
+      ...{ context },
+    });
     expect(
       report.reporting_errors!.some((r) => r.path.startsWith('$context')),
     ).toBe(true);
   });
 
   test('maxContextSize caps the container on its own', () => {
-    const report = makeCorj(
-      new Error('x'),
-      { maxContextSize: 256 },
-      { context: { big: 'c'.repeat(5000) } },
-    );
+    const report = makeReport(new Error('x'), {
+      ...{ maxContextSize: 256 },
+      ...{ context: { big: 'c'.repeat(5000) } },
+    });
     expect(JSON.stringify(report.context).length).toBeLessThanOrEqual(256);
     expect(report.truncated).toBe(true);
   });
 
   test('maxContextSize: null leaves only the report budget', () => {
-    const report = makeCorj(
-      new Error('x'),
-      { maxContextSize: null, maxReportSize: null },
-      { context: { big: 'c'.repeat(20_000) } },
-    );
+    const report = makeReport(new Error('x'), {
+      ...{ maxContextSize: null, maxReportSize: null },
+      ...{ context: { big: 'c'.repeat(20_000) } },
+    });
     expect((report.context as { big: string }).big).toHaveLength(20_000);
   });
 
@@ -106,11 +105,11 @@ describe('call input: context', () => {
     // A null and an array are objects to `typeof`, so each needs its own check.
     for (const notAnObject of [5, null, []]) {
       expect(() =>
-        maker.makeReportObject(new Error('x'), notAnObject as never),
+        maker.makeReport(new Error('x'), notAnObject as never),
       ).toThrow(new TypeError('call input must be an object'));
     }
     expect(() =>
-      maker.makeReportObject(new Error('x'), { contxt: 1 } as never),
+      maker.makeReport(new Error('x'), { contxt: 1 } as never),
     ).toThrow(
       'Unknown call input "contxt". Known call inputs: occurrenceId, fingerprint, context',
     );
@@ -118,19 +117,13 @@ describe('call input: context', () => {
 
   test('one maker serves calls with different context', () => {
     const maker = new CorjMaker();
-    expect(maker.makeReportObject(new Error('a'), { context: 1 }).context).toBe(
-      1,
-    );
-    expect(maker.makeReportObject(new Error('b'), { context: 2 }).context).toBe(
-      2,
-    );
-    expect(maker.makeReportObject(new Error('c'))).not.toHaveProperty(
-      'context',
-    );
+    expect(maker.makeReport(new Error('a'), { context: 1 }).context).toBe(1);
+    expect(maker.makeReport(new Error('b'), { context: 2 }).context).toBe(2);
+    expect(maker.makeReport(new Error('c'))).not.toHaveProperty('context');
   });
 
   test('restoreExpectedValues leaves context alone', () => {
-    const report = makeCorj(new Error('x'), undefined, { context: { a: 1 } });
+    const report = makeReport(new Error('x'), { context: { a: 1 } });
     expect(restoreExpectedValues(report).context).toEqual({ a: 1 });
   });
 });

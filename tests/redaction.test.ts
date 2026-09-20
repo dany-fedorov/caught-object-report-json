@@ -1,9 +1,9 @@
-import type { CorjRedactContext, CorjRedactPolicyInput } from '../src';
+import type { CorjContext, CorjRedactPolicyInput } from '../src';
 import {
   CORJ_OMITTED_MARKER,
   CORJ_REDACTED_MARKER,
   CorjMaker,
-  makeCorj,
+  makeReport,
   resolveCorjRedactPolicy,
   restoreExpectedValues,
 } from '../src';
@@ -59,13 +59,13 @@ describe('redact', () => {
   describe('the marker never survives a policy that excludes it', () => {
     const maker = new CorjMaker({
       redact: { patterns: [new RegExp(SECRET, 'g')] },
-      onError: () => undefined,
+      onReportingError: () => undefined,
     });
 
     test('not in any field of an object report', () => {
-      expect(
-        allText(maker.makeReportObject(makeMarkedFixture())),
-      ).not.toContain(SECRET);
+      expect(allText(maker.makeReport(makeMarkedFixture()))).not.toContain(
+        SECRET,
+      );
     });
 
     test('not in any node of an array report', () => {
@@ -88,7 +88,7 @@ describe('redact', () => {
       });
       new CorjMaker({
         redact: { patterns: [new RegExp(SECRET, 'g')] },
-      }).makeReportObject(caught);
+      }).makeReport(caught);
       expect(warn).toHaveBeenCalled();
       for (const call of warn.mock.calls) {
         expect(allText(call)).not.toContain(SECRET);
@@ -107,15 +107,13 @@ describe('redact', () => {
           throw new Error(`inspection failure holds ${SECRET}`);
         },
       });
-      new CorjMaker().makeReportObject(caught);
+      new CorjMaker().makeReport(caught);
       expect(allText(warn.mock.calls)).toContain(SECRET);
     });
 
     test('the same fixture does leak it with no policy configured', () => {
-      const leaky = new CorjMaker({ onError: () => undefined });
-      expect(allText(leaky.makeReportObject(makeMarkedFixture()))).toContain(
-        SECRET,
-      );
+      const leaky = new CorjMaker({ onReportingError: () => undefined });
+      expect(allText(leaky.makeReport(makeMarkedFixture()))).toContain(SECRET);
     });
   });
 
@@ -131,7 +129,7 @@ describe('redact', () => {
       };
       const report = new CorjMaker({
         redact: { keys: ['token'] },
-      }).makeReportObject(caught);
+      }).makeReport(caught);
       expect(read).toBe(0);
       expect(report.as_json).toEqual({
         token: CORJ_REDACTED_MARKER,
@@ -152,7 +150,7 @@ describe('redact', () => {
       };
       const report = new CorjMaker({
         redact: { paths: ['$.config.authorization'] },
-      }).makeReportObject(caught);
+      }).makeReport(caught);
       expect(read).toBe(0);
       expect(report.as_json).toEqual({
         config: { authorization: CORJ_REDACTED_MARKER, url: '/orders' },
@@ -162,7 +160,7 @@ describe('redact', () => {
     test('a RegExp key matches case-insensitively when it is written to', () => {
       const report = new CorjMaker({
         redact: { keys: [/^authorization$/i] },
-      }).makeReportObject({ Authorization: SECRET, url: '/x' });
+      }).makeReport({ Authorization: SECRET, url: '/x' });
       expect(report.as_json).toEqual({
         Authorization: CORJ_REDACTED_MARKER,
         url: '/x',
@@ -172,7 +170,7 @@ describe('redact', () => {
     test('a global RegExp matcher answers the same way every time', () => {
       const report = new CorjMaker({
         redact: { keys: [/secret/g] },
-      }).makeReportObject({ secret1: 'a', secret2: 'b', secret3: 'c' });
+      }).makeReport({ secret1: 'a', secret2: 'b', secret3: 'c' });
       expect(report.as_json).toEqual({
         secret1: CORJ_REDACTED_MARKER,
         secret2: CORJ_REDACTED_MARKER,
@@ -197,7 +195,7 @@ describe('redact', () => {
       const report = new CorjMaker({
         redact: { keys: ['message'] },
         inspection: 'no-invoke',
-      }).makeReportObject(caught);
+      }).makeReport(caught);
       expect(counter.read).toBe(0);
       expect(report.message).toBe(CORJ_REDACTED_MARKER);
     });
@@ -212,7 +210,7 @@ describe('redact', () => {
       const { counter, caught } = makeCountingError();
       const report = new CorjMaker({
         redact: { keys: ['message'] },
-      }).makeReportObject(caught);
+      }).makeReport(caught);
       expect(counter.read).toBeGreaterThan(0);
       expect(report.message).toBe(CORJ_REDACTED_MARKER);
       // ...and the value it read is still in the text, which is why `patterns`
@@ -226,7 +224,7 @@ describe('redact', () => {
         const report = new CorjMaker({
           inspection,
           redact: { keys: ['message'], patterns: [new RegExp(SECRET, 'g')] },
-        }).makeReportObject(caught);
+        }).makeReport(caught);
         expect(allText(report)).not.toContain(SECRET);
       }
     });
@@ -242,7 +240,7 @@ describe('redact', () => {
       };
       const report = new CorjMaker({
         redact: { keys: ['cause'] },
-      }).makeReportObject(caught);
+      }).makeReport(caught);
       expect(read).toBe(0);
       expect(report.children_omitted).toBe('redacted');
       expect(report).not.toHaveProperty('children');
@@ -251,7 +249,7 @@ describe('redact', () => {
     test('an excluded element of an errors array marks the node', () => {
       const report = new CorjMaker({
         redact: { paths: ['$.errors[0]'] },
-      }).makeReportObject({ errors: [new Error('hidden'), new Error('kept')] });
+      }).makeReport({ errors: [new Error('hidden'), new Error('kept')] });
       expect(report.children_omitted).toBe('redacted');
       expect(report.children).toHaveLength(1);
       expect(String(report.children![0]!.stack)).toContain('kept');
@@ -261,11 +259,11 @@ describe('redact', () => {
   describe('patterns scrub every emitted representation', () => {
     const maker = new CorjMaker({
       redact: { patterns: [/password=\S+/g], replacement: '[gone]' },
-      onError: () => undefined,
+      onReportingError: () => undefined,
     });
 
     test('message and stack', () => {
-      const report = maker.makeReportObject(
+      const report = maker.makeReport(
         new Error('login failed for password=hunter2'),
       );
       expect(String(report.stack)).toContain('login failed for [gone]');
@@ -273,7 +271,7 @@ describe('redact', () => {
     });
 
     test('a value nested inside as_json', () => {
-      const report = maker.makeReportObject({
+      const report = maker.makeReport({
         a: { b: ['password=hunter2'] },
       });
       expect(report.as_json).toEqual({ a: { b: ['[gone]'] } });
@@ -281,7 +279,7 @@ describe('redact', () => {
 
     test('a custom toCorjAsString and toCorjAsJson', () => {
       const report = restoreExpectedValues(
-        maker.makeReportObject({
+        maker.makeReport({
           toCorjAsString: () => 'said password=hunter2',
           toCorjAsJson: () => ({ said: 'password=hunter2' }),
         }),
@@ -293,7 +291,7 @@ describe('redact', () => {
     test('a child report, not only the root', () => {
       const caught = new Error('outer');
       (caught as { cause?: unknown }).cause = new Error('password=hunter2');
-      const report = maker.makeReportObject(caught);
+      const report = maker.makeReport(caught);
       expect(String(report.children![0]!.stack)).toContain('[gone]');
       expect(allText(report)).not.toContain('hunter2');
     });
@@ -302,14 +300,14 @@ describe('redact', () => {
       class Passwordhunter2Error extends Error {}
       const report = new CorjMaker({
         redact: { patterns: [/hunter2/g] },
-      }).makeReportObject({ constructor: Passwordhunter2Error });
+      }).makeReport({ constructor: Passwordhunter2Error });
       expect(report.constructor_name).toBe('Password[redacted]Error');
     });
   });
 
   describe('transform is the last word', () => {
     test('it sees the context of each value', () => {
-      const seen: CorjRedactContext[] = [];
+      const seen: CorjContext[] = [];
       new CorjMaker({
         redact: {
           transform: (value, context) => {
@@ -317,7 +315,7 @@ describe('redact', () => {
             return value;
           },
         },
-      }).makeReportObject({ message: 'm', nested: { a: 1 } });
+      }).makeReport({ message: 'm', nested: { a: 1 } });
       expect(seen.map((c) => c.stage)).toContain('prop-access');
       expect(seen.map((c) => c.stage)).toContain('as_json');
       expect(seen.map((c) => c.path)).toContain('$.nested.a');
@@ -333,7 +331,7 @@ describe('redact', () => {
             return value;
           },
         },
-      }).makeReportObject({ note: 'a secret value' });
+      }).makeReport({ note: 'a secret value' });
       expect(seen).toContain('a [redacted] value');
     });
 
@@ -341,9 +339,9 @@ describe('redact', () => {
       const report = new CorjMaker({
         redact: {
           transform: (value, context) =>
-            context.prop === 'message' ? undefined : value,
+            context.sourceProperty === 'message' ? undefined : value,
         },
-      }).makeReportObject({ message: 'dropped', kept: 1 });
+      }).makeReport({ message: 'dropped', kept: 1 });
       expect(report).not.toHaveProperty('message');
       expect(report.as_json).toEqual({ kept: 1 });
     });
@@ -352,41 +350,41 @@ describe('redact', () => {
       const report = new CorjMaker({
         redact: {
           transform: (value, context) =>
-            context.prop === 'drop' ? undefined : value,
+            context.sourceProperty === 'drop' ? undefined : value,
         },
-      }).makeReportObject({ drop: 'gone', kept: 'here' });
+      }).makeReport({ drop: 'gone', kept: 'here' });
       expect(report.as_json).toEqual({ kept: 'here' });
     });
 
     test('a replacement that is not a string still yields a string field', () => {
       const report = new CorjMaker({
         redact: { transform: () => 42 },
-      }).makeReportObject({ message: 'original' });
+      }).makeReport({ message: 'original' });
       expect(report.message).toBe(CORJ_REDACTED_MARKER);
     });
   });
 
   describe('a throwing policy is reported once and fails closed', () => {
     test('a throwing transform yields the replacement, not the value', () => {
-      const onError = jest.fn();
+      const onReportingError = jest.fn();
       const report = new CorjMaker({
         redact: {
           transform: () => {
             throw new Error('policy exploded');
           },
         },
-        onError,
-      }).makeReportObject({ message: SECRET, other: SECRET });
+        onReportingError,
+      }).makeReport({ message: SECRET, other: SECRET });
       expect(allText(report)).not.toContain(SECRET);
       expect(report.message).toBe(CORJ_REDACTED_MARKER);
-      expect(onError).toHaveBeenCalledWith(
+      expect(onReportingError).toHaveBeenCalledWith(
         expect.any(Error),
         expect.objectContaining({ stage: 'redact' }),
       );
     });
 
     test('a throwing matcher excludes the property rather than letting it through', () => {
-      const onError = jest.fn();
+      const onReportingError = jest.fn();
       const exploding = {
         test(): boolean {
           throw new Error('matcher exploded');
@@ -395,10 +393,10 @@ describe('redact', () => {
       Object.setPrototypeOf(exploding, RegExp.prototype);
       const report = new CorjMaker({
         redact: { keys: [exploding] },
-        onError,
-      }).makeReportObject({ message: SECRET });
+        onReportingError,
+      }).makeReport({ message: SECRET });
       expect(allText(report)).not.toContain(SECRET);
-      expect(onError).toHaveBeenCalledWith(
+      expect(onReportingError).toHaveBeenCalledWith(
         expect.any(Error),
         expect.objectContaining({ stage: 'redact' }),
       );
@@ -407,7 +405,7 @@ describe('redact', () => {
     test('a transform that throws while a failure is reported does not recurse', () => {
       let depth = 0;
       let maxDepth = 0;
-      const onError = jest.fn(() => {
+      const onReportingError = jest.fn(() => {
         depth++;
         maxDepth = Math.max(maxDepth, depth);
         depth--;
@@ -418,8 +416,8 @@ describe('redact', () => {
             throw new Error('always');
           },
         },
-        onError,
-      }).makeReportObject({ message: 'x', a: 1, b: 2 });
+        onReportingError,
+      }).makeReport({ message: 'x', a: 1, b: 2 });
       expect(maxDepth).toBe(1);
     });
 
@@ -433,7 +431,7 @@ describe('redact', () => {
             throw new Error('always');
           },
         },
-      }).makeReportObject({ message: 'x' });
+      }).makeReport({ message: 'x' });
       expect(warn).toHaveBeenCalled();
       expect(String(warn.mock.calls[0])).toContain('stage=redact');
     });
@@ -443,12 +441,12 @@ describe('redact', () => {
     test('reports still validate against the published schemas', () => {
       const maker = new CorjMaker({
         redact: { keys: ['cause', 'token'], patterns: [/x/g] },
-        onError: () => undefined,
+        onReportingError: () => undefined,
       });
       const caught = makeMarkedFixture();
-      expect(
-        getReportObjectReportValidator()(maker.makeReportObject(caught)),
-      ).toBe(true);
+      expect(getReportObjectReportValidator()(maker.makeReport(caught))).toBe(
+        true,
+      );
       expect(
         getReportArrayReportValidator()(maker.makeReportArray(caught)),
       ).toBe(true);
@@ -458,7 +456,7 @@ describe('redact', () => {
       const report = new CorjMaker({
         redact: { patterns: [/nothing/g] },
         maxReportSize: 1_024,
-      }).makeReportObject({ big: 'x'.repeat(50_000) });
+      }).makeReport({ big: 'x'.repeat(50_000) });
       expect(
         Buffer.byteLength(JSON.stringify(report), 'utf8'),
       ).toBeLessThanOrEqual(1_024);
@@ -470,7 +468,7 @@ describe('redact', () => {
       caught['self'] = caught;
       const report = new CorjMaker({
         redact: { keys: ['nothing'] },
-      }).makeReportObject(caught);
+      }).makeReport(caught);
       expect(report.as_json).toEqual({
         name: 'cyclic',
         self: '[circular]',
@@ -481,7 +479,7 @@ describe('redact', () => {
       const report = new CorjMaker({
         inspection: 'no-invoke',
         redact: { keys: ['token'] },
-      }).makeReportObject({
+      }).makeReport({
         token: SECRET,
         get lazy() {
           return SECRET;
@@ -503,31 +501,31 @@ describe('redact', () => {
 
     test('an explicit null matches the default', () => {
       const caught = new Error('unchanged');
-      expect(new CorjMaker({ redact: null }).makeReportObject(caught)).toEqual(
-        new CorjMaker().makeReportObject(caught),
+      expect(new CorjMaker({ redact: null }).makeReport(caught)).toEqual(
+        new CorjMaker().makeReport(caught),
       );
     });
 
     test('an empty policy passes content through untouched', () => {
       const caught = new Error('unchanged');
-      expect(new CorjMaker({ redact: {} }).makeReportObject(caught)).toEqual(
-        makeCorj(caught),
+      expect(new CorjMaker({ redact: {} }).makeReport(caught)).toEqual(
+        makeReport(caught),
       );
     });
 
-    test('with() layers a policy onto a maker without changing it', () => {
+    test('withOptions() layers a policy onto a maker without changing it', () => {
       const base = new CorjMaker();
-      const redacting = base.with({ redact: { keys: ['token'] } });
+      const redacting = base.withOptions({ redact: { keys: ['token'] } });
       expect(base.options.redact).toBeNull();
-      expect(redacting.makeReportObject({ token: SECRET }).as_json).toEqual({
+      expect(redacting.makeReport({ token: SECRET }).as_json).toEqual({
         token: CORJ_REDACTED_MARKER,
       });
     });
 
     test('a resolved policy can be layered again', () => {
       const first = new CorjMaker({ redact: { keys: ['token'] } });
-      const second = first.with({ maxDepth: 1 });
-      expect(second.makeReportObject({ token: SECRET }).as_json).toEqual({
+      const second = first.withOptions({ maxDepth: 1 });
+      expect(second.makeReport({ token: SECRET }).as_json).toEqual({
         token: CORJ_REDACTED_MARKER,
       });
     });
@@ -568,7 +566,7 @@ describe('redact', () => {
       const keys = ['token'];
       const maker = new CorjMaker({ redact: { keys } });
       keys.push('other');
-      expect(maker.makeReportObject({ other: SECRET }).as_json).toEqual({
+      expect(maker.makeReport({ other: SECRET }).as_json).toEqual({
         other: SECRET,
       });
     });
@@ -584,7 +582,7 @@ describe('redact: the reporting boundary itself', () => {
     class SecretError extends Error {}
     const report = new CorjMaker({
       redact: { paths: ['$.constructor.name'] },
-    }).makeReportObject({ constructor: SecretError });
+    }).makeReport({ constructor: SecretError });
     expect(report.constructor_name).toBe(CORJ_REDACTED_MARKER);
   });
 
@@ -598,7 +596,7 @@ describe('redact: the reporting boundary itself', () => {
     });
     const report = new CorjMaker({
       redact: { keys: ['constructor'] },
-    }).makeReportObject(caught);
+    }).makeReport(caught);
     expect(report.constructor_name).toBe(CORJ_REDACTED_MARKER);
   });
 
@@ -614,12 +612,12 @@ describe('redact: the reporting boundary itself', () => {
     });
     new CorjMaker({
       redact: { patterns: [/sk-live-[A-Za-z0-9-]+/g] },
-      onError: (failure: unknown) => {
+      onReportingError: (failure: unknown) => {
         throw new Error(`sink failed for ${String(failure)}`);
       },
-    }).makeReportObject(caught);
+    }).makeReport(caught);
     const printed = warn.mock.calls.map((call) => String(call[0])).join('\n');
-    expect(printed).toContain('onError threw');
+    expect(printed).toContain('onReportingError threw');
     expect(printed).toContain(CORJ_REDACTED_MARKER);
     expect(printed).not.toContain(SECRET);
   });
@@ -634,7 +632,7 @@ describe('redact: the reporting boundary itself', () => {
     });
     new CorjMaker({
       redact: { patterns: [new RegExp(SECRET, 'g')] },
-    }).makeReportObject(new Error('caught'));
+    }).makeReport(new Error('caught'));
     expect(
       warn.mock.calls.some((call) => String(call).includes('stage=limit')),
     ).toBe(true);
@@ -642,7 +640,7 @@ describe('redact: the reporting boundary itself', () => {
   });
 
   test('a transform that throws on as_string is reported without a property', () => {
-    const onError = jest.fn();
+    const onReportingError = jest.fn();
     new CorjMaker({
       redact: {
         transform: (value, context) => {
@@ -651,13 +649,13 @@ describe('redact: the reporting boundary itself', () => {
           return value;
         },
       },
-      onError,
-    }).makeReportObject(new Error('boom'));
-    expect(onError).toHaveBeenCalledWith(
+      onReportingError,
+    }).makeReport(new Error('boom'));
+    expect(onReportingError).toHaveBeenCalledWith(
       expect.any(Error),
-      expect.objectContaining({ stage: 'redact', key: 'as_string' }),
+      expect.objectContaining({ stage: 'redact', reportKey: 'as_string' }),
     );
-    expect(onError.mock.calls[0]![1].prop).toBeUndefined();
+    expect(onReportingError.mock.calls[0]![1].sourceProperty).toBeUndefined();
   });
 
   test('a transform that drops the warning text yields the replacement', () => {
@@ -677,7 +675,7 @@ describe('redact: the reporting boundary itself', () => {
         transform: (value, context) =>
           context.stage === 'warning' ? undefined : value,
       },
-    }).makeReportObject(caught);
+    }).makeReport(caught);
     expect(String(warn.mock.calls)).toContain(CORJ_REDACTED_MARKER);
     expect(String(warn.mock.calls)).not.toContain('inspection failure');
   });
@@ -700,7 +698,7 @@ describe('redact: the reporting boundary itself', () => {
         transform: (value, context) =>
           context.stage === 'warning' ? { not: 'a string' } : value,
       },
-    }).makeReportObject(caught);
+    }).makeReport(caught);
     expect(String(warn.mock.calls)).toContain('[hidden]');
     expect(String(warn.mock.calls)).not.toContain('inspection failure');
   });
@@ -722,7 +720,7 @@ describe('redact: leaks found in review', () => {
   test('every occurrence is replaced, not only the first', () => {
     const report = new CorjMaker({
       redact: { patterns: [/sk-live-\w+/g] },
-    }).makeReportObject({ note: 'sk-live-AAA and sk-live-BBB' });
+    }).makeReport({ note: 'sk-live-AAA and sk-live-BBB' });
     expect(report.as_json).toEqual({ note: '[redacted] and [redacted]' });
   });
 
@@ -731,7 +729,7 @@ describe('redact: leaks found in review', () => {
     (replacement) => {
       const report = new CorjMaker({
         redact: { patterns: [/(sk)-live-\w+/g], replacement },
-      }).makeReportObject({ note: 'sk-live-AAA' });
+      }).makeReport({ note: 'sk-live-AAA' });
       expect(report.as_json).toEqual({ note: replacement });
       expect(allText(report)).not.toContain('sk-live-AAA');
     },
@@ -740,7 +738,7 @@ describe('redact: leaks found in review', () => {
   test('object keys inside as_json are scrubbed, not only values', () => {
     const report = new CorjMaker({
       redact: { patterns: [/sk-live-\w+/g] },
-    }).makeReportObject({ sessions: { 'sk-live-AAA': { user: 1 } } });
+    }).makeReport({ sessions: { 'sk-live-AAA': { user: 1 } } });
     expect(report.as_json).toEqual({
       sessions: { [CORJ_REDACTED_MARKER]: { user: 1 } },
     });
@@ -754,7 +752,7 @@ describe('redact: leaks found in review', () => {
     expect(matcher.lastIndex).toBeGreaterThan(0);
     const report = new CorjMaker({
       redact: { keys: [matcher] },
-    }).makeReportObject({ cause: new Error('should be hidden') });
+    }).makeReport({ cause: new Error('should be hidden') });
     expect(report.children_omitted).toBe('redacted');
     expect(report).not.toHaveProperty('children');
   });
@@ -763,15 +761,15 @@ describe('redact: leaks found in review', () => {
     const caught = {
       toCorjAsJson: () => ({ cause: 'kept', errors: [1], a: 1 }),
     };
-    expect(
-      new CorjMaker({ redact: {} }).makeReportObject(caught).as_json,
-    ).toEqual(makeCorj(caught).as_json);
+    expect(new CorjMaker({ redact: {} }).makeReport(caught).as_json).toEqual(
+      makeReport(caught).as_json,
+    );
   });
 
   test('a policy still hides the caught object own children sources from as_json', () => {
     const report = new CorjMaker({
       redact: { keys: ['nothing'] },
-    }).makeReportObject({ cause: new Error('inner'), a: 1 });
+    }).makeReport({ cause: new Error('inner'), a: 1 });
     expect(report.as_json).toEqual({ a: 1 });
   });
 
@@ -782,7 +780,7 @@ describe('redact: leaks found in review', () => {
         transform: (value, context) =>
           context.stage === 'as_string' ? undefined : value,
       },
-    }).makeReportObject({ a: 1 });
+    }).makeReport({ a: 1 });
     expect(report.as_string).toBe(CORJ_REDACTED_MARKER);
     expect(getReportObjectReportValidator('full')(report)).toBe(true);
   });
@@ -849,7 +847,7 @@ describe('redact: default report ids are structural', () => {
   test.each(policies)(
     'the object report keeps its default ids under a %s policy',
     (_name, redact) => {
-      const report = new CorjMaker({ redact }).makeReportObject(makeChain());
+      const report = new CorjMaker({ redact }).makeReport(makeChain());
       const children = report.children ?? [];
       expect(children.map((child) => child.id)).toEqual(['0', '1']);
       expect(children[0]?.child_ids).toEqual(['1']);
@@ -885,7 +883,7 @@ describe('redact: default report ids are structural', () => {
     const report = new CorjMaker({
       omitExpectedValues: false,
       redact: { patterns: [/\d/g] },
-    }).makeReportObject(caught);
+    }).makeReport(caught);
     expect(report.message).toBe(redactDigits('card 4111111111111111'));
     expect(report.as_json).toEqual({ account: redactDigits('12345') });
     expect(allText(report.stack)).not.toMatch(/\d/);
@@ -896,13 +894,13 @@ describe('redact: default report ids are structural', () => {
 
 describe("redact: scrubbing a consumer's own text and the policy resolver", () => {
   /** The context a consumer scrubbing its own text passes in. */
-  const context: CorjRedactContext = {
+  const context: CorjContext = {
     stage: 'warning',
     path: '$',
-    key: 'message',
+    reportKey: 'message',
   };
   /** The part of it `scrubText` takes; the stage is always `warning`. */
-  const where = { path: '$', key: 'message' } as const;
+  const where = { path: '$', reportKey: 'message' } as const;
 
   test('scrubText replaces a match with a literal $& replacement', () => {
     const out = new CorjMaker({
@@ -932,9 +930,9 @@ describe("redact: scrubbing a consumer's own text and the policy resolver", () =
   });
 
   test('scrubText fails closed and reports once when a transform throws', () => {
-    const onError = jest.fn();
+    const onReportingError = jest.fn();
     const out = new CorjMaker({
-      onError,
+      onReportingError,
       redact: {
         replacement: '[hidden]',
         transform: () => {
@@ -943,13 +941,13 @@ describe("redact: scrubbing a consumer's own text and the policy resolver", () =
       },
     }).scrubText('sensitive', where);
     expect(out).toBe('[hidden]');
-    expect(onError).toHaveBeenCalledTimes(1);
+    expect(onReportingError).toHaveBeenCalledTimes(1);
     // The record is itself scrubbed, and a policy that just threw is not
     // consulted again, so every text field of it is the replacement.
-    expect(onError.mock.calls[0]![1]).toEqual({
+    expect(onReportingError.mock.calls[0]![1]).toEqual({
       stage: 'redact',
       path: '[hidden]',
-      key: context.key,
+      reportKey: context.reportKey,
       error: '[hidden]',
     });
   });
@@ -987,12 +985,12 @@ describe('redact: claims the README makes', () => {
   test('two property names that scrub to the same text collapse into one key', () => {
     const report = new CorjMaker({
       redact: { patterns: [/sk-live-\w+/g] },
-    }).makeReportObject({ 'sk-live-AAA': 1, 'sk-live-BBB': 2 });
+    }).makeReport({ 'sk-live-AAA': 1, 'sk-live-BBB': 2 });
     expect(report.as_json).toEqual({ [CORJ_REDACTED_MARKER]: 2 });
     expect(Object.keys(report.as_json as object)).toHaveLength(1);
   });
 
-  test('a custom onError receives the caught object unchanged while the report is scrubbed', () => {
+  test('a custom onReportingError receives the caught object unchanged while the report is scrubbed', () => {
     const seen: unknown[] = [];
     const caught = new Error('top level holds sk-live-AAA');
     Object.defineProperty(caught, 'exploding', {
@@ -1004,8 +1002,8 @@ describe('redact: claims the README makes', () => {
     });
     const report = new CorjMaker({
       redact: { patterns: [/sk-live-\w+/g] },
-      onError: (failure) => seen.push(failure),
-    }).makeReportObject(caught);
+      onReportingError: (failure) => seen.push(failure),
+    }).makeReport(caught);
     expect(seen).toHaveLength(1);
     expect((seen[0] as Error).message).toBe(
       'inspection failure holds sk-live-AAA',

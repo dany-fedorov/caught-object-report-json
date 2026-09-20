@@ -193,7 +193,7 @@ describe('resolveFingerprintParts', () => {
       { path: ['details', 'tool'] },
       'constructor_name',
       second,
-      { field: '_tag' },
+      { sourceProperty: '_tag' },
     ])!;
     expect(resolved.map((r) => r.label)).toEqual([
       'constructor_name',
@@ -214,8 +214,14 @@ describe('resolveFingerprintParts', () => {
       'fingerprintParts[0] must be one of as_string, constructor_name, message, stack, typeof, an entry object, or a function',
     ],
     [['stack', 'stack'], 'fingerprintParts[1] repeats "stack"'],
-    [[{ field: 'a' }, { field: 'a' }], 'fingerprintParts[1] repeats "field:a"'],
-    [[{ field: '' }], 'fingerprintParts[0].field must be a nonempty string'],
+    [
+      [{ sourceProperty: 'a' }, { sourceProperty: 'a' }],
+      'fingerprintParts[1] repeats "field:a"',
+    ],
+    [
+      [{ sourceProperty: '' }],
+      'fingerprintParts[0].sourceProperty must be a nonempty string',
+    ],
     [[null], 'fingerprintParts[0] must be one of'],
   ] as [unknown, string][])('rejects %j', (value, message) => {
     expect(() => resolveFingerprintParts(value)).toThrow(message);

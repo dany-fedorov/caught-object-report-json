@@ -1,4 +1,4 @@
-import { CorjMaker, makeCorj, makeCorjArray } from '../src/index';
+import { CorjMaker, makeReport, makeReportArray } from '../src/index';
 import type {
   CorjFingerprintPart,
   CorjOptionsInput,
@@ -19,7 +19,7 @@ const silent = () => undefined;
 const withParts = (
   fingerprintParts: readonly CorjFingerprintPart[] | null,
   more: CorjOptionsInput = {},
-) => new CorjMaker({ onError: silent, fingerprintParts, ...more });
+) => new CorjMaker({ onReportingError: silent, fingerprintParts, ...more });
 const DEFAULT_PARTS = ['constructor_name', 'stack'] as const;
 
 function thrownAt(message: string): Error {
@@ -28,10 +28,10 @@ function thrownAt(message: string): Error {
 
 describe('fingerprint', () => {
   test('null and [] both turn the field off', () => {
-    expect(withParts(null).makeReportObject(new Error('x'))).not.toHaveProperty(
+    expect(withParts(null).makeReport(new Error('x'))).not.toHaveProperty(
       'fingerprint',
     );
-    expect(withParts([]).makeReportObject(new Error('x'))).not.toHaveProperty(
+    expect(withParts([]).makeReport(new Error('x'))).not.toHaveProperty(
       'fingerprint',
     );
     expect(withParts(null).makeFingerprint(new Error('x'))).toBeUndefined();
@@ -42,7 +42,7 @@ describe('fingerprint', () => {
     // One call site for both: a stack frame carries line and column, so two
     // separate `thrownAt(...)` expressions would already be two places.
     const [a, b] = ['User 12345 not found', 'User 67890 not found'].map(
-      (message) => maker.makeReportObject(thrownAt(message)).fingerprint,
+      (message) => maker.makeReport(thrownAt(message)).fingerprint,
     );
     expect(a).toMatch(/^fp1_[0-9a-f]{32}$/);
     expect(b).toBe(a);
@@ -51,7 +51,7 @@ describe('fingerprint', () => {
   test('adding the message part separates them', () => {
     const maker = withParts(['message', 'stack']);
     const [one, two] = ['one', 'two'].map(
-      (message) => maker.makeReportObject(thrownAt(message)).fingerprint,
+      (message) => maker.makeReport(thrownAt(message)).fingerprint,
     );
     expect(one).not.toBe(two);
   });
@@ -59,8 +59,8 @@ describe('fingerprint', () => {
   test('a different site gives a different fingerprint', () => {
     const maker = withParts(DEFAULT_PARTS);
     const elsewhere = new Error('x');
-    expect(maker.makeReportObject(thrownAt('x')).fingerprint).not.toBe(
-      maker.makeReportObject(elsewhere).fingerprint,
+    expect(maker.makeReport(thrownAt('x')).fingerprint).not.toBe(
+      maker.makeReport(elsewhere).fingerprint,
     );
   });
 
@@ -75,20 +75,19 @@ describe('fingerprint', () => {
     const error = new ErrorWithCause('m'.repeat(5000), {
       cause: new Error('inner'),
     });
-    const base = withParts(DEFAULT_PARTS).makeReportObject(error).fingerprint;
+    const base = withParts(DEFAULT_PARTS).makeReport(error).fingerprint;
     expect(
-      withParts(DEFAULT_PARTS, { maxReportSize: 512 }).makeReportObject(error)
+      withParts(DEFAULT_PARTS, { maxReportSize: 512 }).makeReport(error)
         .fingerprint,
     ).toBe(base);
     expect(
-      withParts(DEFAULT_PARTS, { stackFormat: 'string' }).makeReportObject(
-        error,
-      ).fingerprint,
+      withParts(DEFAULT_PARTS, { stackFormat: 'string' }).makeReport(error)
+        .fingerprint,
     ).toBe(base);
     expect(
       withParts(DEFAULT_PARTS, {
         omitExpectedValues: false,
-      }).makeReportObject(error).fingerprint,
+      }).makeReport(error).fingerprint,
     ).toBe(base);
     expect(
       withParts(DEFAULT_PARTS).makeReportArray(error)[0]!.fingerprint,
@@ -113,7 +112,7 @@ describe('fingerprint', () => {
   });
 
   test('a field part applies to every node', () => {
-    const maker = withParts([{ field: 'code' }]);
+    const maker = withParts([{ sourceProperty: 'code' }]);
     const refused = new ErrorWithCause('x', {
       cause: Object.assign(new Error('c'), { code: 'ECONNREFUSED' }),
     });
@@ -143,7 +142,7 @@ describe('fingerprint', () => {
   });
 
   test('a nested value hashes the same whatever its key order', () => {
-    const maker = withParts([{ field: 'details' }]);
+    const maker = withParts([{ sourceProperty: 'details' }]);
     const ab = Object.assign(new Error('x'), {
       details: { a: 1, b: { c: [1, 2] } },
     });
@@ -162,18 +161,18 @@ describe('fingerprint', () => {
       details: { blob: 'd'.repeat(50_000) },
     });
     expect(
-      withParts([{ field: 'details' }], { maxReportSize: 512 }).makeFingerprint(
-        big,
-      ),
+      withParts([{ sourceProperty: 'details' }], {
+        maxReportSize: 512,
+      }).makeFingerprint(big),
     ).toBe(
-      withParts([{ field: 'details' }], {
+      withParts([{ sourceProperty: 'details' }], {
         maxReportSize: null,
       }).makeFingerprint(big),
     );
   });
 
   test('numbers, booleans, bigints and non-finite numbers count; functions, symbols and undefined are null', () => {
-    const maker = withParts([{ field: 'v' }]);
+    const maker = withParts([{ sourceProperty: 'v' }]);
     const of = (v: unknown) =>
       maker.makeFingerprint(Object.assign(new Error('x'), { v }));
     expect(of(1)).not.toBe(of(2));
@@ -192,10 +191,10 @@ describe('fingerprint', () => {
 
   test('a one-segment path entry is the same recipe as the field entry', () => {
     const error = Object.assign(new Error('x'), { a: 'v' });
-    expect(withParts([{ field: 'a' }]).makeFingerprint(error)).toBe(
+    expect(withParts([{ sourceProperty: 'a' }]).makeFingerprint(error)).toBe(
       withParts([{ path: ['a'] }]).makeFingerprint(error),
     );
-    expect(() => withParts([{ field: 'a' }, { path: ['a'] }])).toThrow(
+    expect(() => withParts([{ sourceProperty: 'a' }, { path: ['a'] }])).toThrow(
       'fingerprintParts[1] repeats "field:a"',
     );
     // An index segment is not a field name, so it keeps its own label.
@@ -222,7 +221,7 @@ describe('fingerprint', () => {
   });
 
   test('a skipped field hashes as the replacement; a no-invoke getter as the marker', () => {
-    const skipping = withParts([{ field: 'code' }], {
+    const skipping = withParts([{ sourceProperty: 'code' }], {
       redact: { keys: ['code'] },
     });
     expect(
@@ -237,12 +236,17 @@ describe('fingerprint', () => {
         return 'G';
       }
     }
-    const strict = withParts([{ field: 'code' }], { inspection: 'no-invoke' });
-    expect(strict.makeFingerprint(new WithGetter('x'))).toMatch(/^fp1_/);
-    expect(ran).toBe(0);
-    const loosened = withParts([{ field: 'code', inspection: 'default' }], {
+    const strict = withParts([{ sourceProperty: 'code' }], {
       inspection: 'no-invoke',
     });
+    expect(strict.makeFingerprint(new WithGetter('x'))).toMatch(/^fp1_/);
+    expect(ran).toBe(0);
+    const loosened = withParts(
+      [{ sourceProperty: 'code', inspection: 'default' }],
+      {
+        inspection: 'no-invoke',
+      },
+    );
     loosened.makeFingerprint(new WithGetter('x'));
     expect(ran).toBe(1);
   });
@@ -256,7 +260,7 @@ describe('fingerprint', () => {
         return 'constant';
       },
     ]);
-    const report = maker.makeReportObject(
+    const report = maker.makeReport(
       new ErrorWithCause('x', { cause: new Error('y') }),
     );
     expect(paths).toEqual(['$', '$.cause']);
@@ -265,7 +269,7 @@ describe('fingerprint', () => {
       {
         stage: 'other',
         path: '$.cause',
-        key: 'fingerprint',
+        reportKey: 'fingerprint',
         error: 'Error: part failed',
       },
     ]);
@@ -287,7 +291,7 @@ describe('fingerprint', () => {
   });
 
   test('a value with no JSON form counts as nothing', () => {
-    const maker = withParts([{ field: 'details' }]);
+    const maker = withParts([{ sourceProperty: 'details' }]);
     const none = Object.assign(new Error('x'), {
       details: { toJSON: () => undefined },
     });
@@ -297,9 +301,9 @@ describe('fingerprint', () => {
   });
 
   test('a policy that drops a value leaves the part as empty as a missing one', () => {
-    const maker = withParts([{ field: 'code' }], {
+    const maker = withParts([{ sourceProperty: 'code' }], {
       redact: {
-        transform: (value, { key }) =>
+        transform: (value, { reportKey: key }) =>
           key === 'fingerprint' ? undefined : value,
       },
     });
@@ -315,7 +319,7 @@ describe('fingerprint', () => {
   test('a number or a boolean meets the policy too', () => {
     // The fingerprint is published, so a value a policy scrubs must not be
     // confirmable from the hash whatever its type.
-    const parts = [{ field: 'code' }] as const;
+    const parts = [{ sourceProperty: 'code' }] as const;
     const of = (maker: CorjMaker, code: unknown) =>
       maker.makeFingerprint(Object.assign(new Error('x'), { code }));
     const scrubbing = withParts(parts, {
@@ -333,37 +337,37 @@ describe('fingerprint', () => {
   });
 
   test('a policy that throws over a part fails closed, once, without throwing', () => {
-    const maker = withParts([{ field: 'code' }], {
+    const maker = withParts([{ sourceProperty: 'code' }], {
       redact: {
-        transform: (value, { key }) => {
+        transform: (value, { reportKey: key }) => {
           if (key === 'fingerprint') throw new Error('policy failed');
           return value;
         },
       },
     });
-    const report = maker.makeReportObject(
+    const report = maker.makeReport(
       Object.assign(new Error('x'), { code: 'A' }),
     );
     expect(report.fingerprint).toBe(
       maker.makeFingerprint(Object.assign(new Error('x'), { code: 'B' })),
     );
     expect(
-      report.reporting_errors!.filter((r) => r.key === 'fingerprint'),
+      report.reporting_errors!.filter((r) => r.reportKey === 'fingerprint'),
     ).toEqual([
       {
         stage: 'redact',
         path: '[redacted]',
-        key: 'fingerprint',
-        prop: '[redacted]',
+        reportKey: 'fingerprint',
+        sourceProperty: '[redacted]',
         error: '[redacted]',
       },
     ]);
   });
 
   test('a policy keyed on the fingerprint reaches inside a nested value', () => {
-    const maker = withParts([{ field: 'details' }], {
+    const maker = withParts([{ sourceProperty: 'details' }], {
       redact: {
-        transform: (value, { key }) =>
+        transform: (value, { reportKey: key }) =>
           key === 'fingerprint' && typeof value === 'number' ? 0 : value,
       },
     });
@@ -375,7 +379,7 @@ describe('fingerprint', () => {
   });
 
   test('a cyclic nested value hashes without throwing', () => {
-    const maker = withParts([{ field: 'details' }]);
+    const maker = withParts([{ sourceProperty: 'details' }]);
     const of = (tool: string) => {
       const details: Record<string, unknown> = { tool };
       details['self'] = details;
@@ -387,7 +391,7 @@ describe('fingerprint', () => {
   });
 
   test('a policy reaches inside a nested value', () => {
-    const maker = withParts([{ field: 'details' }], {
+    const maker = withParts([{ sourceProperty: 'details' }], {
       redact: { keys: ['token'] },
     });
     const a = Object.assign(new Error('x'), {
@@ -410,18 +414,18 @@ describe('fingerprint', () => {
       },
     });
     const caught = Object.assign(new Error('x'), { details });
-    const withheld = withParts([{ field: 'details' }], {
+    const withheld = withParts([{ sourceProperty: 'details' }], {
       inspection: 'no-invoke',
     }).makeFingerprint(caught);
     expect(ran).toBe(0);
-    expect(withParts([{ field: 'details' }]).makeFingerprint(caught)).not.toBe(
-      withheld,
-    );
+    expect(
+      withParts([{ sourceProperty: 'details' }]).makeFingerprint(caught),
+    ).not.toBe(withheld);
     expect(ran).toBe(1);
   });
 
   test('a serializer failure inside a part is recorded, and the part counts as null', () => {
-    const maker = withParts([{ field: 'details' }]);
+    const maker = withParts([{ sourceProperty: 'details' }]);
     const trap = Object.assign(new Error('x'), {
       details: {
         toJSON() {
@@ -429,24 +433,24 @@ describe('fingerprint', () => {
         },
       },
     });
-    const report = maker.makeReportObject(trap);
+    const report = maker.makeReport(trap);
     expect(report.fingerprint).toBe(maker.makeFingerprint(new Error('x')));
     expect(report.reporting_errors).toContainEqual({
       stage: 'as_json',
       path: '$',
-      key: 'fingerprint',
+      reportKey: 'fingerprint',
       error: 'Error: toJSON trap',
     });
   });
 
   test('the call argument wins, works with the feature off, and is validated', () => {
     expect(
-      withParts(DEFAULT_PARTS).makeReportObject(new Error('x'), {
+      withParts(DEFAULT_PARTS).makeReport(new Error('x'), {
         fingerprint: 'group-7',
       }).fingerprint,
     ).toBe('group-7');
     expect(
-      withParts(null).makeReportObject(new Error('x'), {
+      withParts(null).makeReport(new Error('x'), {
         fingerprint: 'group-7',
       }).fingerprint,
     ).toBe('group-7');
@@ -455,10 +459,10 @@ describe('fingerprint', () => {
   test('an invalid call argument is recorded, never quoted, and falls through', () => {
     const records: CorjReportingError[] = [];
     const maker = new CorjMaker({
-      onError: (_caught, record) => void records.push(record),
+      onReportingError: (_caught, record) => void records.push(record),
       fingerprintParts: DEFAULT_PARTS,
     });
-    const report = maker.makeReportObject(new Error('x'), {
+    const report = maker.makeReport(new Error('x'), {
       fingerprint: 'group 7',
     });
     expect(report.fingerprint).toMatch(/^fp1_[0-9a-f]{32}$/);
@@ -466,7 +470,7 @@ describe('fingerprint', () => {
       {
         stage: 'other',
         path: '$',
-        key: 'fingerprint',
+        reportKey: 'fingerprint',
         error:
           'fingerprint must be 1 to 64 printable ASCII characters without spaces',
       },
@@ -475,7 +479,7 @@ describe('fingerprint', () => {
     expect(JSON.stringify(report)).not.toContain('group 7');
     // With the feature off there is nothing to fall through to.
     expect(
-      withParts(null).makeReportObject(new Error('x'), {
+      withParts(null).makeReport(new Error('x'), {
         fingerprint: 'x'.repeat(65),
       }),
     ).not.toHaveProperty('fingerprint');
@@ -483,15 +487,14 @@ describe('fingerprint', () => {
 
   test('fingerprint follows occurrence_id at the head of the root, in both shapes', () => {
     const options = {
-      onError: silent,
+      onReportingError: silent,
       occurrenceIdSources: [{ auto: 'random' }],
       fingerprintParts: DEFAULT_PARTS,
     } as const;
-    expect(Object.keys(makeCorj(new Error('x'), options)).slice(0, 2)).toEqual([
-      'occurrence_id',
-      'fingerprint',
-    ]);
-    const rows = makeCorjArray(
+    expect(
+      Object.keys(makeReport(new Error('x'), options)).slice(0, 2),
+    ).toEqual(['occurrence_id', 'fingerprint']);
+    const rows = makeReportArray(
       new ErrorWithCause('x', { cause: new Error('y') }),
       options,
     );
@@ -530,7 +533,7 @@ describe('fingerprint values are redacted under their own path', () => {
     options: CorjOptionsInput,
     make: (secret: string) => unknown,
   ): [string | undefined, string | undefined] => {
-    const maker = new CorjMaker({ onError: silent, ...options });
+    const maker = new CorjMaker({ onReportingError: silent, ...options });
     const [a, b] = ['AAA', 'BBB'].map((secret) =>
       maker.makeFingerprint(make(secret)),
     );
@@ -543,13 +546,13 @@ describe('fingerprint values are redacted under their own path', () => {
 
   test('a paths rule on a property inside the value reaches the hash', () => {
     const options = {
-      fingerprintParts: [{ field: 'details' }],
+      fingerprintParts: [{ sourceProperty: 'details' }],
       redact: { paths: ['$.details.token', '$.details.inner.token2'] },
     } as const;
     const [a, b] = pair(options, withDetails);
     expect(a).toBe(b);
     expect(
-      new CorjMaker({ onError: silent, ...options }).makeReportObject(
+      new CorjMaker({ onReportingError: silent, ...options }).makeReport(
         withDetails('AAA'),
       ).as_json,
     ).toEqual({
@@ -564,7 +567,7 @@ describe('fingerprint values are redacted under their own path', () => {
   test('an anchored paths RegExp reaches the hash', () => {
     const [a, b] = pair(
       {
-        fingerprintParts: [{ field: 'details' }],
+        fingerprintParts: [{ sourceProperty: 'details' }],
         redact: { paths: [/^\$\.details\.(token|inner)$/] },
       },
       withDetails,
@@ -586,7 +589,7 @@ describe('fingerprint values are redacted under their own path', () => {
   test('a transform keyed on the path of a nested value reaches the hash', () => {
     const [a, b] = pair(
       {
-        fingerprintParts: [{ field: 'details' }],
+        fingerprintParts: [{ sourceProperty: 'details' }],
         redact: {
           transform: (value, { path }) =>
             path === '$.details.token' || path === '$.details.inner.token2'
@@ -602,7 +605,7 @@ describe('fingerprint values are redacted under their own path', () => {
   test('a transform keyed on the path of a string field reaches the hash', () => {
     const [a, b] = pair(
       {
-        fingerprintParts: [{ field: 'secretField' }],
+        fingerprintParts: [{ sourceProperty: 'secretField' }],
         redact: {
           transform: (value, { path }) =>
             path === '$.secretField' ? '[x]' : value,
@@ -616,7 +619,7 @@ describe('fingerprint values are redacted under their own path', () => {
   test('a keys rule still reaches the hash', () => {
     const [a, b] = pair(
       {
-        fingerprintParts: [{ field: 'details' }],
+        fingerprintParts: [{ sourceProperty: 'details' }],
         redact: { keys: ['token', 'token2'] },
       },
       withDetails,
@@ -627,7 +630,7 @@ describe('fingerprint values are redacted under their own path', () => {
   test('a child node hashes under its own path', () => {
     const [a, b] = pair(
       {
-        fingerprintParts: [{ field: 'details' }],
+        fingerprintParts: [{ sourceProperty: 'details' }],
         redact: { paths: ['$.cause.details.token'] },
       },
       (secret) =>
@@ -647,13 +650,13 @@ describe('the fingerprint hash input is bounded and cannot throw', () => {
   const HUGE = 20 * 1024 * 1024;
 
   test('a huge thrown string is reported with a fingerprint', () => {
-    const report = makeCorj('x'.repeat(HUGE), { onError: silent });
+    const report = makeReport('x'.repeat(HUGE), { onReportingError: silent });
     expect(report.fingerprint).toMatch(/^fp1_[0-9a-f]{32}$/);
   });
 
   test('a huge message is reported with a fingerprint', () => {
-    const report = makeCorj(new Error(`upstream said: ${'y'.repeat(HUGE)}`), {
-      onError: silent,
+    const report = makeReport(new Error(`upstream said: ${'y'.repeat(HUGE)}`), {
+      onReportingError: silent,
       fingerprintParts: ['constructor_name', 'message'],
     });
     expect(report.fingerprint).toMatch(/^fp1_[0-9a-f]{32}$/);
@@ -688,15 +691,15 @@ describe('the fingerprint hash input is bounded and cannot throw', () => {
     });
     try {
       const records: CorjReportingError[] = [];
-      const report = makeCorj(new Error('x'), {
-        onError: (_caught, record) => void records.push(record),
+      const report = makeReport(new Error('x'), {
+        onReportingError: (_caught, record) => void records.push(record),
       });
       expect(report).not.toHaveProperty('fingerprint');
       expect(report.reporting_errors).toEqual([
         {
           stage: 'other',
           path: '$',
-          key: 'fingerprint',
+          reportKey: 'fingerprint',
           error: 'Error: hash boom',
         },
       ]);
@@ -741,12 +744,12 @@ describe('makeFingerprint({ requireStack: true })', () => {
     const plain = maker.makeFingerprint(error);
     expect(plain).toMatch(/^fp1_[0-9a-f]{32}$/);
     expect(required(error)).toBe(plain);
-    expect(maker.makeReportObject(error).fingerprint).toBe(plain);
+    expect(maker.makeReport(error).fingerprint).toBe(plain);
   });
 
   test('a recipe whose parts are all empty has no fingerprint either', () => {
     // The root falls back to its own text here too, stack or no stack.
-    const absent = withParts([{ field: 'absent' }]);
+    const absent = withParts([{ sourceProperty: 'absent' }]);
     const error = new Error('x');
     expect(absent.makeFingerprint(error)).toMatch(/^fp1_[0-9a-f]{32}$/);
     expect(
@@ -786,9 +789,9 @@ describe('makeFingerprint({ requireStack: true })', () => {
   test('the option is the caller’s alone: reports are unchanged', () => {
     const thrown = 'socket closed';
     expect(required(thrown)).toBeUndefined();
-    expect(makeCorj(thrown).fingerprint).toBe(makeCorj(thrown).fingerprint);
-    expect(makeCorj(thrown).fingerprint).toBe(maker.makeFingerprint(thrown));
-    expect(makeCorjArray(thrown)[0]!.fingerprint).toBe(
+    expect(makeReport(thrown).fingerprint).toBe(makeReport(thrown).fingerprint);
+    expect(makeReport(thrown).fingerprint).toBe(maker.makeFingerprint(thrown));
+    expect(makeReportArray(thrown)[0]!.fingerprint).toBe(
       maker.makeFingerprint(thrown),
     );
   });
@@ -900,10 +903,10 @@ describe('makeFingerprint({ requireStack: true })', () => {
     ).toBeUndefined();
   });
 
-  test('`{ field: "stack" }` is not the `stack` part', () => {
+  test('`{ sourceProperty: "stack" }` is not the `stack` part', () => {
     // It reads the property rather than the cut stack, so it is not the part
     // the rule is about.
-    const byField = withParts([{ field: 'stack' }]);
+    const byField = withParts([{ sourceProperty: 'stack' }]);
     expect(byField.makeFingerprint(new Error('x'))).toMatch(/^fp1_/);
     expect(
       byField.makeFingerprint(new Error('x'), { requireStack: true }),
@@ -915,7 +918,7 @@ describe('makeFingerprint({ requireStack: true })', () => {
     const error = new Error('x');
     const value = both.makeFingerprint(error, { requireStack: true });
     expect(value).toMatch(/^fp1_[0-9a-f]{32}$/);
-    expect(value).toBe(both.makeReportObject(error).fingerprint);
+    expect(value).toBe(both.makeReport(error).fingerprint);
   });
 
   test('a Firefox or Safari stack counts as frames', () => {

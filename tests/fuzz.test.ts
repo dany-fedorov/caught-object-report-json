@@ -4,10 +4,10 @@ import {
   CorjMaker,
   CorjOptionsInput,
   CorjReport,
-  CorjReportChild,
+  CorjReportNode,
   CorjReportSizeUnit,
-  makeCorj,
-  makeCorjArray,
+  makeReport,
+  makeReportArray,
   restoreExpectedValues,
 } from '../src';
 import {
@@ -144,7 +144,7 @@ function options(random: Random): CorjOptionsInput {
     // The seeded corpus below asserts the 10.x report shape; occurrence_id and
     // fingerprint have their own suites, and the defaults get their own seeds.
     ...LEGACY,
-    onError: () => undefined,
+    onReportingError: () => undefined,
     maxReportSize,
     reportSizeUnit: random.pick<CorjReportSizeUnit>([
       'utf8-bytes',
@@ -176,8 +176,8 @@ function size(report: unknown, unit: CorjReportSizeUnit): number {
 }
 
 function checkIds(
-  root: CorjReportChild | undefined,
-  rows: CorjReportChild[],
+  root: CorjReportNode | undefined,
+  rows: CorjReportNode[],
   rootId: string,
 ) {
   const ids = new Set(rows.map((row) => row.id));
@@ -224,7 +224,7 @@ function checkObject(
 }
 
 function checkArray(
-  rows: CorjReportChild[],
+  rows: CorjReportNode[],
   input: CorjOptionsInput,
   kind: 'compact' | 'full',
 ) {
@@ -258,7 +258,7 @@ describe('randomized invariants', () => {
       const caught = graph(random, { nodes: 12 + random.int(40) }, []);
       const kind = input.omitExpectedValues ? 'compact' : 'full';
       const maker = new CorjMaker(input);
-      const object = maker.makeReportObject(caught);
+      const object = maker.makeReport(caught);
       const rows = maker.makeReportArray(caught);
       const rootId = rows[0]!.id;
       // A report that fell back to the minimal shape always carries the structural
@@ -290,14 +290,12 @@ describe('randomized invariants', () => {
       );
       if (input.maxReportSize === null) expect(objectNodes).toEqual(arrayNodes);
       // The convenience functions agree with the maker.
-      expect(makeCorj(caught, input)).toEqual(object);
-      expect(makeCorjArray(caught, input)).toEqual(rows);
+      expect(makeReport(caught, input)).toEqual(object);
+      expect(makeReportArray(caught, input)).toEqual(rows);
       // Restoring a compact report gives the full report of the same input.
       if (input.omitExpectedValues && input.maxReportSize === null) {
-        const full = maker.with({ omitExpectedValues: false });
-        expect(restoreExpectedValues(object)).toEqual(
-          full.makeReportObject(caught),
-        );
+        const full = maker.withOptions({ omitExpectedValues: false });
+        expect(restoreExpectedValues(object)).toEqual(full.makeReport(caught));
         expect(restoreExpectedValues(rows)).toEqual(
           full.makeReportArray(caught),
         );
@@ -318,8 +316,8 @@ describe('randomized invariants', () => {
     (seed) => {
       const random = rng(seed);
       const caught = graph(random, { nodes: 12 + random.int(40) }, []);
-      const maker = new CorjMaker({ onError: () => undefined });
-      const report = maker.makeReportObject(caught);
+      const maker = new CorjMaker({ onReportingError: () => undefined });
+      const report = maker.makeReport(caught);
       const rows = maker.makeReportArray(caught);
       expect(getReportObjectReportValidator('compact')(report)).toBe(true);
       expect(getReportArrayReportValidator('compact')(rows)).toBe(true);
@@ -337,12 +335,11 @@ describe('randomized invariants', () => {
     const random = rng(99);
     const caught = graph(random, { nodes: 30 }, []);
     const maker = new CorjMaker({
-      onError: () => undefined,
+      onReportingError: () => undefined,
       maxReportSize: 2048,
     });
-    const first = maker.makeReportObject(caught);
-    for (let i = 0; i < 5; i++)
-      expect(maker.makeReportObject(caught)).toEqual(first);
+    const first = maker.makeReport(caught);
+    for (let i = 0; i < 5; i++) expect(maker.makeReport(caught)).toEqual(first);
   });
 
   test('big inputs stay bounded in time', () => {
@@ -356,9 +353,9 @@ describe('randomized invariants', () => {
     for (let i = 0; i < 5_000; i++)
       deep = { message: `level ${i}`, cause: deep };
     const start = Date.now();
-    const wideReport = makeCorj(wide, { onError: () => undefined });
-    const deepReport = makeCorj(deep, {
-      onError: () => undefined,
+    const wideReport = makeReport(wide, { onReportingError: () => undefined });
+    const deepReport = makeReport(deep, {
+      onReportingError: () => undefined,
       maxDepth: 1_000,
     });
     expect(Date.now() - start).toBeLessThan(5_000);

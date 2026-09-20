@@ -3,7 +3,7 @@ import {
   CORJ_VERSION_FULL,
   CorjMaker,
   CorjOptions,
-  CorjErrorContext,
+  CorjContext,
   CorjReportSizeUnit,
   restoreExpectedValues,
 } from '../src';
@@ -27,7 +27,7 @@ describe('review regressions', () => {
         ...LEGACY,
         maxReportSize: 512,
         reportSizeUnit,
-      }).makeReportObject({
+      }).makeReport({
         errors: Array.from({ length: 20 }, () => ({ message: 'child' })),
       });
       expect(report.children_omitted).toBe('max_size');
@@ -63,16 +63,16 @@ describe('review regressions', () => {
       jest.spyOn(reportSize, 'limitReportSize').mockImplementation(() => {
         throw failure;
       });
-      const errors: [unknown, CorjErrorContext][] = [];
+      const errors: [unknown, CorjContext][] = [];
       const maker = new CorjMaker({
         ...LEGACY,
         maxReportSize: 512,
-        onError: (error, context) => errors.push([error, context]),
+        onReportingError: (error, context) => errors.push([error, context]),
       });
       const caught = { cause: { message: 'child' } };
       const report = array
         ? maker.makeReportArray(caught)
-        : maker.makeReportObject(caught);
+        : maker.makeReport(caught);
       const validate = array
         ? getReportArrayReportValidator()
         : getReportObjectReportValidator();
@@ -107,8 +107,8 @@ describe('review regressions', () => {
     const report = new CorjMaker({
       ...LEGACY,
       omitExpectedValues: false,
-      onError: () => undefined,
-    }).makeReportObject(new Error('caught'));
+      onReportingError: () => undefined,
+    }).makeReport(new Error('caught'));
     expect(getReportObjectReportValidator('full')(report)).toBe(true);
     expect(report).toEqual({
       truncated: true,
@@ -132,7 +132,7 @@ describe('review regressions', () => {
       const caught = new Error('caught');
       const report = array
         ? maker.makeReportArray(caught)
-        : maker.makeReportObject(caught);
+        : maker.makeReport(caught);
       const root = Array.isArray(report) ? report[0]! : report;
       expect(root).not.toHaveProperty('truncated');
       expect(root).not.toHaveProperty('instanceof_error');
@@ -152,11 +152,11 @@ describe('review regressions', () => {
         maxReportSize,
         reportSizeUnit: 'utf16-code-units',
       });
-      const clone = maker.with({
+      const clone = maker.withOptions({
         maxReportSize: undefined,
         reportSizeUnit: undefined,
       } as unknown as Partial<CorjOptions>);
-      const report = clone.makeReportObject('😀'.repeat(30_000));
+      const report = clone.makeReport('😀'.repeat(30_000));
       expect(clone.options.maxReportSize).toBe(maxReportSize);
       expect(clone.options.reportSizeUnit).toBe('utf16-code-units');
       if (maxReportSize === null) {
@@ -172,9 +172,9 @@ describe('review regressions', () => {
   );
 
   test('an empty clone keeps the default budget', () => {
-    const maker = new CorjMaker(LEGACY).with({});
+    const maker = new CorjMaker(LEGACY).withOptions({});
     expect(maker.options).toEqual(new CorjMaker(LEGACY).options);
-    const report = maker.makeReportObject('😀'.repeat(30_000));
+    const report = maker.makeReport('😀'.repeat(30_000));
     expect(
       Buffer.byteLength(JSON.stringify(report), 'utf8'),
     ).toBeLessThanOrEqual(100_000);
@@ -204,7 +204,7 @@ describe('review regressions', () => {
         ...LEGACY,
         ...crowded,
         maxReportSize,
-      }).makeReportObject(overBudget());
+      }).makeReport(overBudget());
       expect(report.message).toMatch(/^critical failure: /);
       expect(report.as_json).toHaveProperty('message');
       expect(report).not.toHaveProperty('$schema');
@@ -223,7 +223,7 @@ describe('review regressions', () => {
       ...LEGACY,
       ...crowded,
       maxReportSize: 700,
-    }).makeReportObject(overBudget());
+    }).makeReport(overBudget());
     expect(report).toHaveProperty('$schema');
     expect(report.message).toMatch(/^critical failure: /);
     expect(
@@ -240,11 +240,11 @@ describe('review regressions', () => {
       const maker = new CorjMaker({
         ...LEGACY,
         maxReportSize: 512,
-        onError: () => undefined,
+        onReportingError: () => undefined,
       });
       const report = array
         ? maker.makeReportArray(payload)
-        : maker.makeReportObject(payload);
+        : maker.makeReport(payload);
       const validate = array
         ? getReportArrayReportValidator()
         : getReportObjectReportValidator();
@@ -284,7 +284,7 @@ describe('review regressions', () => {
 
       const report = array
         ? maker.makeReportArray(caught)
-        : maker.makeReportObject(caught);
+        : maker.makeReport(caught);
       const validate = array
         ? getReportArrayReportValidator()
         : getReportObjectReportValidator();

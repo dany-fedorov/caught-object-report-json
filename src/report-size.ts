@@ -1,4 +1,4 @@
-import type { CorjOptions, CorjReport, CorjReportChild } from './index';
+import type { CorjOptions, CorjReport, CorjReportNode } from './index';
 import type { JsonSizeUnit } from './json-size';
 import { TRUNCATED_MARKER } from './safe-stable-stringify';
 import { stackDerivedFields } from './expected-values';
@@ -85,7 +85,7 @@ export function resolveReportSizeOptions(
   return { maxReportSize, reportSizeUnit };
 }
 
-type Report = CorjReport | CorjReportChild[];
+type Report = CorjReport | CorjReportNode[];
 const contentKeys = [
   'message',
   'stack',
@@ -171,10 +171,10 @@ export function limitReportSize<T extends Report>(
   // `report` is rebound below, so read its parts through these helpers rather
   // than through a narrowing that a reassignment invalidates.
   const isArray = Array.isArray(report);
-  const rootOf = (value: Report): CorjReportChild & CorjReport =>
-    (Array.isArray(value) ? value[0] : value) as CorjReportChild & CorjReport;
+  const rootOf = (value: Report): CorjReportNode & CorjReport =>
+    (Array.isArray(value) ? value[0] : value) as CorjReportNode & CorjReport;
   // Only the root is rewritten below, so the rows after it never change.
-  const tail: CorjReportChild[] = Array.isArray(report) ? report.slice(1) : [];
+  const tail: CorjReportNode[] = Array.isArray(report) ? report.slice(1) : [];
 
   // Optional root parts go before any error content: the caller's context,
   // whole, then the reporting errors. Each leaves a flag behind.
@@ -199,7 +199,7 @@ export function limitReportSize<T extends Report>(
   }
 
   const root = rootOf(report);
-  const children: CorjReportChild[] = isArray ? tail : root.children ?? [];
+  const children: CorjReportNode[] = isArray ? tail : root.children ?? [];
 
   function candidate(
     valueLimit: number,
@@ -212,18 +212,18 @@ export function limitReportSize<T extends Report>(
     );
 
     function trimNode(
-      node: CorjReportChild,
+      node: CorjReportNode,
       hasChildIds: boolean,
-    ): CorjReportChild {
+    ): CorjReportNode {
       // `as_string`, `constructor_name` and `message` may have been omitted as
       // derivable from the first line of `stack`. Put them back before trimming
       // so a shortened `stack` cannot lose them; the final omission pass removes
       // them again when the line survived intact.
-      const source: CorjReportChild = {
+      const source: CorjReportNode = {
         ...node,
         ...stackDerivedFields(node),
       };
-      const result: Partial<CorjReportChild> = { ...source };
+      const result: Partial<CorjReportNode> = { ...source };
       for (const key of contentKeys) {
         if (source[key] === undefined) continue;
         const { json, truncated } = measure(source[key], valueLimit);
@@ -253,10 +253,10 @@ export function limitReportSize<T extends Report>(
           result.truncated = true;
         }
       }
-      return result as CorjReportChild;
+      return result as CorjReportNode;
     }
 
-    const resultRoot = trimNode(root, isArray) as CorjReportChild & CorjReport;
+    const resultRoot = trimNode(root, isArray) as CorjReportNode & CorjReport;
     const resultChildren = retained.map((child) => trimNode(child, true));
     resultRoot.truncated = true;
     if (childCount < children.length) resultRoot.children_omitted = 'max_size';

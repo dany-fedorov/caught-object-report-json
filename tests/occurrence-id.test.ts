@@ -1,4 +1,4 @@
-import { CorjMaker, makeCorj, makeCorjArray } from '../src/index';
+import { CorjMaker, makeReport, makeReportArray } from '../src/index';
 import type { CorjOccurrenceIdSource, CorjReportingError } from '../src/index';
 
 // The compile target predates `cause`; the runtime has it.
@@ -10,48 +10,42 @@ const ErrorWithCause = Error as unknown as new (
 const silent = () => undefined;
 const withSources = (
   occurrenceIdSources: readonly CorjOccurrenceIdSource[] | null,
-) => new CorjMaker({ onError: silent, occurrenceIdSources });
+) => new CorjMaker({ onReportingError: silent, occurrenceIdSources });
 
 describe('occurrence_id', () => {
   test('null and [] both turn the field off', () => {
-    expect(
-      withSources(null).makeReportObject(new Error('x')),
-    ).not.toHaveProperty('occurrence_id');
-    expect(withSources([]).makeReportObject(new Error('x'))).not.toHaveProperty(
+    expect(withSources(null).makeReport(new Error('x'))).not.toHaveProperty(
+      'occurrence_id',
+    );
+    expect(withSources([]).makeReport(new Error('x'))).not.toHaveProperty(
       'occurrence_id',
     );
   });
 
   test('auto random: one object, one id, across calls and makers', () => {
     const error = new Error('x');
-    const a = withSources([{ auto: 'random' }]).makeReportObject(
-      error,
-    ).occurrence_id;
-    const b = withSources([{ auto: 'random' }]).makeReportObject(
-      error,
-    ).occurrence_id;
+    const a = withSources([{ auto: 'random' }]).makeReport(error).occurrence_id;
+    const b = withSources([{ auto: 'random' }]).makeReport(error).occurrence_id;
     expect(a).toMatch(/^CORJ_[0-9A-HJKMNP-TV-Z]{26}$/);
     expect(b).toBe(a);
   });
 
   test('the first source that yields a valid id wins', () => {
     const maker = withSources([
-      { field: 'requestId' },
-      { field: 'traceId' },
+      { sourceProperty: 'requestId' },
+      { sourceProperty: 'traceId' },
       { auto: 'random' },
     ]);
     expect(
-      maker.makeReportObject(
+      maker.makeReport(
         Object.assign(new Error('x'), { requestId: 'req-1', traceId: 't-1' }),
       ).occurrence_id,
     ).toBe('req-1');
     expect(
-      maker.makeReportObject(Object.assign(new Error('x'), { traceId: 't-1' }))
+      maker.makeReport(Object.assign(new Error('x'), { traceId: 't-1' }))
         .occurrence_id,
     ).toBe('t-1');
-    expect(maker.makeReportObject(new Error('x')).occurrence_id).toMatch(
-      /^CORJ_/,
-    );
+    expect(maker.makeReport(new Error('x')).occurrence_id).toMatch(/^CORJ_/);
   });
 
   test.each([
@@ -62,7 +56,7 @@ describe('occurrence_id', () => {
     [{ nested: 1 }],
     [null],
   ])('an invalid field value %j falls through silently', (value) => {
-    const report = withSources([{ field: 'requestId' }]).makeReportObject(
+    const report = withSources([{ sourceProperty: 'requestId' }]).makeReport(
       Object.assign(new Error('x'), { requestId: value }),
     );
     expect(report).not.toHaveProperty('occurrence_id');
@@ -79,16 +73,16 @@ describe('occurrence_id', () => {
     expect(
       withSources([
         { path: ['response', 'headers', 'x-request-id'] },
-      ]).makeReportObject(error).occurrence_id,
+      ]).makeReport(error).occurrence_id,
     ).toBe('req-9');
     expect(
-      withSources([{ path: ['response', 'ids', 1] }]).makeReportObject(error)
+      withSources([{ path: ['response', 'ids', 1] }]).makeReport(error)
         .occurrence_id,
     ).toBe('second');
     expect(
-      withSources([
-        { path: ['response', 'missing', 'deeper'] },
-      ]).makeReportObject(error),
+      withSources([{ path: ['response', 'missing', 'deeper'] }]).makeReport(
+        error,
+      ),
     ).not.toHaveProperty('occurrence_id');
   });
 
@@ -97,7 +91,7 @@ describe('occurrence_id', () => {
       cause: Object.assign(new Error('inner'), { requestId: 'inner-1' }),
     });
     expect(
-      withSources([{ field: 'requestId' }]).makeReportObject(error),
+      withSources([{ sourceProperty: 'requestId' }]).makeReport(error),
     ).not.toHaveProperty('occurrence_id');
   });
 
@@ -110,17 +104,20 @@ describe('occurrence_id', () => {
       }
     }
     expect(
-      withSources([{ field: 'requestId' }]).makeReportObject(
+      withSources([{ sourceProperty: 'requestId' }]).makeReport(
         new WithGetter('x'),
       ).occurrence_id,
     ).toBe('from-getter');
     const before = ran;
     const strict = new CorjMaker({
-      onError: silent,
+      onReportingError: silent,
       inspection: 'no-invoke',
-      occurrenceIdSources: [{ field: 'requestId' }, { auto: 'random' }],
+      occurrenceIdSources: [
+        { sourceProperty: 'requestId' },
+        { auto: 'random' },
+      ],
     });
-    expect(strict.makeReportObject(new WithGetter('x')).occurrence_id).toMatch(
+    expect(strict.makeReport(new WithGetter('x')).occurrence_id).toMatch(
       /^CORJ_/,
     );
     expect(ran).toBe(before);
@@ -135,18 +132,20 @@ describe('occurrence_id', () => {
       }
     }
     const tightened = withSources([
-      { field: 'requestId', inspection: 'no-invoke' },
+      { sourceProperty: 'requestId', inspection: 'no-invoke' },
     ]);
-    expect(tightened.makeReportObject(new WithGetter('x'))).not.toHaveProperty(
+    expect(tightened.makeReport(new WithGetter('x'))).not.toHaveProperty(
       'occurrence_id',
     );
     expect(ran).toBe(0);
     const loosened = new CorjMaker({
-      onError: silent,
+      onReportingError: silent,
       inspection: 'no-invoke',
-      occurrenceIdSources: [{ field: 'requestId', inspection: 'default' }],
+      occurrenceIdSources: [
+        { sourceProperty: 'requestId', inspection: 'default' },
+      ],
     });
-    expect(loosened.makeReportObject(new WithGetter('x')).occurrence_id).toBe(
+    expect(loosened.makeReport(new WithGetter('x')).occurrence_id).toBe(
       'from-getter',
     );
   });
@@ -159,42 +158,39 @@ describe('occurrence_id', () => {
       },
     });
     const report = withSources([
-      { field: 'requestId' },
+      { sourceProperty: 'requestId' },
       { auto: 'random' },
-    ]).makeReportObject(error);
+    ]).makeReport(error);
     expect(report.occurrence_id).toMatch(/^CORJ_/);
     expect(report.reporting_errors).toEqual([
       expect.objectContaining({
         stage: 'prop-access',
-        key: 'occurrence_id',
-        prop: 'requestId',
+        reportKey: 'occurrence_id',
+        sourceProperty: 'requestId',
       }),
     ]);
   });
 
   test('a skip rule hides the field from the chain too', () => {
     const maker = new CorjMaker({
-      onError: silent,
+      onReportingError: silent,
       redact: { keys: ['requestId'] },
-      occurrenceIdSources: [{ field: 'requestId' }],
+      occurrenceIdSources: [{ sourceProperty: 'requestId' }],
     });
     expect(
-      maker.makeReportObject(
-        Object.assign(new Error('x'), { requestId: 'req-1' }),
-      ),
+      maker.makeReport(Object.assign(new Error('x'), { requestId: 'req-1' })),
     ).not.toHaveProperty('occurrence_id');
   });
 
   test('the id is never passed through the scrub rules', () => {
     const maker = new CorjMaker({
-      onError: silent,
+      onReportingError: silent,
       redact: { patterns: [/req/g] },
-      occurrenceIdSources: [{ field: 'requestId' }],
+      occurrenceIdSources: [{ sourceProperty: 'requestId' }],
     });
     expect(
-      maker.makeReportObject(
-        Object.assign(new Error('x'), { requestId: 'req-1' }),
-      ).occurrence_id,
+      maker.makeReport(Object.assign(new Error('x'), { requestId: 'req-1' }))
+        .occurrence_id,
     ).toBe('req-1');
   });
 
@@ -210,32 +206,29 @@ describe('occurrence_id', () => {
         throw new Error('source failed');
       },
       () => 'fn-id',
-    ]).makeReportObject(error);
+    ]).makeReport(error);
     expect(seen).toEqual([{ index: -1, level: 0, path: '$', caught: error }]);
     expect(report.occurrence_id).toBe('fn-id');
     expect(report.reporting_errors).toEqual([
       {
         stage: 'other',
         path: '$',
-        key: 'occurrence_id',
+        reportKey: 'occurrence_id',
         error: 'Error: source failed',
       },
     ]);
   });
 
   test('the call argument wins over every source', () => {
-    const maker = withSources([{ field: 'requestId' }]);
+    const maker = withSources([{ sourceProperty: 'requestId' }]);
     expect(
-      maker.makeReportObject(
-        Object.assign(new Error('x'), { requestId: 'req-1' }),
-        {
-          occurrenceId: 'explicit-1',
-        },
-      ).occurrence_id,
+      maker.makeReport(Object.assign(new Error('x'), { requestId: 'req-1' }), {
+        occurrenceId: 'explicit-1',
+      }).occurrence_id,
     ).toBe('explicit-1');
     // and works with the feature off
     expect(
-      withSources(null).makeReportObject('primitive', {
+      withSources(null).makeReport('primitive', {
         occurrenceId: 'explicit-2',
       }).occurrence_id,
     ).toBe('explicit-2');
@@ -246,10 +239,10 @@ describe('occurrence_id', () => {
     (occurrenceId) => {
       const records: CorjReportingError[] = [];
       const maker = new CorjMaker({
-        onError: (_caught, record) => void records.push(record),
-        occurrenceIdSources: [{ field: 'requestId' }],
+        onReportingError: (_caught, record) => void records.push(record),
+        occurrenceIdSources: [{ sourceProperty: 'requestId' }],
       });
-      const report = maker.makeReportObject(
+      const report = maker.makeReport(
         Object.assign(new Error('x'), { requestId: 'req-1' }),
         { occurrenceId: occurrenceId as string },
       );
@@ -259,7 +252,7 @@ describe('occurrence_id', () => {
         {
           stage: 'other',
           path: '$',
-          key: 'occurrence_id',
+          reportKey: 'occurrence_id',
           error:
             'occurrenceId must be 1 to 128 printable ASCII characters without spaces',
         },
@@ -269,7 +262,7 @@ describe('occurrence_id', () => {
   );
 
   test('an invalid call argument is never quoted back', () => {
-    const report = withSources(null).makeReportObject(new Error('x'), {
+    const report = withSources(null).makeReport(new Error('x'), {
       occurrenceId: 'req 42',
     });
     expect(report).not.toHaveProperty('occurrence_id');
@@ -281,17 +274,15 @@ describe('occurrence_id', () => {
       a: { b: { id: 'deep-1' } },
     });
     const entry = { path: ['a', 'b', 'id'] } as const;
-    expect(withSources([entry]).makeReportObject(caught).occurrence_id).toBe(
+    expect(withSources([entry]).makeReport(caught).occurrence_id).toBe(
       'deep-1',
     );
     const skipping = new CorjMaker({
-      onError: silent,
+      onReportingError: silent,
       occurrenceIdSources: [entry],
       redact: { paths: ['$.a.b'] },
     });
-    expect(skipping.makeReportObject(caught)).not.toHaveProperty(
-      'occurrence_id',
-    );
+    expect(skipping.makeReport(caught)).not.toHaveProperty('occurrence_id');
   });
 
   test('a per-entry inspection applies at every segment of a path', () => {
@@ -306,14 +297,14 @@ describe('occurrence_id', () => {
       ({ path: ['a', 'b', 'id'], inspection } as const);
     // The first segment is a data property, so only the second can be refused.
     expect(
-      withSources([source('no-invoke')]).makeReportObject(caught),
+      withSources([source('no-invoke')]).makeReport(caught),
     ).not.toHaveProperty('occurrence_id');
     expect(
       new CorjMaker({
-        onError: silent,
+        onReportingError: silent,
         inspection: 'no-invoke',
         occurrenceIdSources: [source('default')],
-      }).makeReportObject(caught).occurrence_id,
+      }).makeReport(caught).occurrence_id,
     ).toBe('deep-2');
   });
 
@@ -326,11 +317,11 @@ describe('occurrence_id', () => {
       ['ids', '0'],
     ]) {
       const maker = new CorjMaker({
-        onError: silent,
+        onReportingError: silent,
         occurrenceIdSources: [{ path } as CorjOccurrenceIdSource],
         redact: { paths: ['$.ids[0]'] },
       });
-      const report = maker.makeReportObject(caught);
+      const report = maker.makeReport(caught);
       expect(report).not.toHaveProperty('occurrence_id');
       expect(report.as_json).toEqual({ ids: ['[redacted]', 'public-1'] });
     }
@@ -339,11 +330,11 @@ describe('occurrence_id', () => {
   test('a numeric key of a plain object keeps its dotted path', () => {
     const caught = Object.assign(new Error('x'), { map: { '0': 'from-map' } });
     const maker = new CorjMaker({
-      onError: silent,
+      onReportingError: silent,
       occurrenceIdSources: [{ path: ['map', '0'] }],
       redact: { paths: ['$.map[0]'] },
     });
-    expect(maker.makeReportObject(caught).occurrence_id).toBe('from-map');
+    expect(maker.makeReport(caught).occurrence_id).toBe('from-map');
   });
 
   test('a revoked proxy on the way to an index answers nothing', () => {
@@ -351,21 +342,21 @@ describe('occurrence_id', () => {
     revoke();
     const caught = Object.assign(new Error('x'), { a: proxy });
     const maker = new CorjMaker({
-      onError: silent,
+      onReportingError: silent,
       occurrenceIdSources: [{ path: ['a', '0'] }],
     });
-    expect(maker.makeReportObject(caught)).not.toHaveProperty('occurrence_id');
+    expect(maker.makeReport(caught)).not.toHaveProperty('occurrence_id');
   });
 
   test('occurrence_id is the first key of the root, in both shapes', () => {
     const options = {
-      onError: silent,
+      onReportingError: silent,
       occurrenceIdSources: [{ auto: 'random' }],
     } as const;
-    expect(Object.keys(makeCorj(new Error('x'), options))[0]).toBe(
+    expect(Object.keys(makeReport(new Error('x'), options))[0]).toBe(
       'occurrence_id',
     );
-    const rows = makeCorjArray(
+    const rows = makeReportArray(
       new ErrorWithCause('x', { cause: new Error('y') }),
       options,
     );
@@ -374,7 +365,7 @@ describe('occurrence_id', () => {
   });
 
   test('the id survives the tightest budget', () => {
-    const report = makeCorj(new Error('m'.repeat(5000)), {
+    const report = makeReport(new Error('m'.repeat(5000)), {
       maxReportSize: 512,
       occurrenceIdSources: [{ auto: 'random' }],
     });
@@ -385,11 +376,14 @@ describe('occurrence_id', () => {
     [5, 'occurrenceIdSources must be an array or null'],
     [[{ auto: 'uuid' }], 'occurrenceIdSources[0].auto must be "random"'],
     [
-      [{ auto: 'random' }, { field: 'id' }],
+      [{ auto: 'random' }, { sourceProperty: 'id' }],
       'occurrenceIdSources[1] can never be reached: it follows { auto }',
     ],
     [['requestId'], 'occurrenceIdSources[0] must be an object or a function'],
-    [[{ field: '' }], 'occurrenceIdSources[0].field must be a nonempty string'],
+    [
+      [{ sourceProperty: '' }],
+      'occurrenceIdSources[0].sourceProperty must be a nonempty string',
+    ],
   ])('rejects the option %j', (value, message) => {
     expect(
       () => new CorjMaker({ occurrenceIdSources: value as never }),

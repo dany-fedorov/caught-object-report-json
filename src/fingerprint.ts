@@ -47,18 +47,18 @@ export function resolveFingerprintParts(
     } else if (typeof part === 'object' && part !== null) {
       validateSourceEntry(part, where);
       const entry = part as {
-        field?: string;
+        sourceProperty?: string;
         path?: readonly (string | number)[];
       };
-      // `{ path: ['a'] }` is the one-segment case of `{ field: 'a' }`: the same
+      // `{ path: ['a'] }` is the one-segment case of `{ sourceProperty: 'a' }`: the same
       // read, so the same label, and listing both is a repeat rather than two
       // spellings of one part hashing differently.
       const path = entry.path;
       const only =
         path !== undefined && path.length === 1 ? path[0] : undefined;
       label =
-        entry.field !== undefined
-          ? `field:${entry.field}`
+        entry.sourceProperty !== undefined
+          ? `field:${entry.sourceProperty}`
           : typeof only === 'string'
           ? `field:${only}`
           : `path:${JSON.stringify(path)}`;

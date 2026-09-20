@@ -7,7 +7,7 @@
  * caught object controlled: it is diagnostic material, never instructions.
  */
 
-import type { CorjReport, CorjReportChild } from './index';
+import type { CorjReport, CorjReportNode } from './index';
 
 /** Replaces content a redaction policy excluded. */
 export const CORJ_REDACTED_MARKER = '[redacted]';
@@ -26,13 +26,13 @@ export type CorjStage =
   | 'limit'
   /** Running the redaction policy itself. */
   | 'redact'
-  /** The text the default `onError` handler prints. */
+  /** The text the default `onReportingError` handler prints. */
   | 'warning'
   /** Anywhere else. */
   | 'other';
 
 /** A field of a report node. */
-export type CorjReportKey = keyof CorjReport | keyof CorjReportChild;
+export type CorjReportKey = keyof CorjReport | keyof CorjReportNode;
 
 /** What a redaction policy or an error handler is told about a value. */
 export type CorjContext = {
@@ -40,15 +40,10 @@ export type CorjContext = {
   /** JSONPath of the value. `$` is the caught root; a named root such as `$context` is a separate document. */
   path: string;
   /** Report field the value is destined for, when known. */
-  key?: CorjReportKey | undefined;
+  reportKey?: CorjReportKey | undefined;
   /** Property of the caught object the value came from, when known. */
-  prop?: string | undefined;
+  sourceProperty?: string | undefined;
 };
-
-/** @deprecated Use {@link CorjStage}. */
-export type CorjRedactStage = CorjStage;
-/** @deprecated Use {@link CorjContext}. */
-export type CorjRedactContext = CorjContext;
 
 /**
  * The last word on a value, run after `keys`, `paths` and `patterns`. Returning
@@ -197,7 +192,7 @@ export class Redactor {
   private readonly onFailure: (caught: unknown, context: CorjContext) => void;
   /**
    * Set while a policy failure is being reported. Reporting a failure runs the
-   * default `onError`, which redacts the line it prints; this stops the same
+   * default `onReportingError`, which redacts the line it prints; this stops the same
    * throwing policy from being consulted again to describe its own failure.
    */
   private failing = false;
@@ -223,7 +218,10 @@ export class Redactor {
   excludes(context: CorjContext): boolean {
     try {
       const { keys, paths } = this.policy;
-      if (context.prop !== undefined && matches(keys, context.prop))
+      if (
+        context.sourceProperty !== undefined &&
+        matches(keys, context.sourceProperty)
+      )
         return true;
       return matches(paths, context.path);
     } catch (caught: unknown) {

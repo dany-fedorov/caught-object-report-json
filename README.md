@@ -9,8 +9,6 @@ Uniform, bounded exception data for self-correction in agentic workflows, LLM ha
 [![Package License MIT](https://img.shields.io/npm/l/caught-object-report-json.svg "Package License MIT")](https://www.npmjs.org/package/caught-object-report-json)
 [![Npm Version](https://img.shields.io/npm/v/caught-object-report-json.svg "Npm Version")](https://www.npmjs.org/package/caught-object-report-json)
 
-<img src="https://github.com/dany-fedorov/caught-object-report-json/raw/main/banner.png">
-
 Normalize caught values and nested causes into one typed JSON format. Give your
 harness or LLM consistent exception data to inspect when correcting tool inputs
 or choosing a recovery step, instead of handling every SDK's error shape.

@@ -1,3 +1,20 @@
+# 14.0.0 (2026-10-17)
+
+### BREAKING CHANGES
+
+* pass detached, policy-sanitized snapshots to redaction transforms instead of raw containers; withhold accessors, executable values, and unsupported snapshot data
+* enforce finite input work and text ceilings even when `maxReportSize` or `maxSize` is `null`
+* omit computed fingerprints with a reporting error when safety handling cannot preserve the supported `fp1_` input; explicit call fingerprints still win
+* return the literal `[redacted]` for an excluded occurrence-ID source and stop fallback, regardless of custom replacement; explicit call IDs still win
+* preserve colliding redacted object keys with suffixes such as ` (2)` instead of overwriting members
+
+### Fixes
+
+* use container-based numeric paths consistently so ordinary-object properties cannot bypass exclusions
+* retain revoked child proxies as opaque children and safely handle hostile thrown values
+* bound graph candidates, BigInt decimal conversion, text processing, stack lines, and prototype inspection; propagate truncation without undercounting generated-report size
+* preserve source paths and callback isolation through nested snapshots, mutations, and reentrant reporting
+
 # 13.0.0 (2026-09-20)
 
 ### BREAKING CHANGES

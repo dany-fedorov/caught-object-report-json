@@ -395,7 +395,7 @@ Each version has its own JSON Schema (see [Links](#links)); `$schema` points to 
 
 ## Stack as an array of lines
 
-`stack` is stored as `caught.stack.split('\n')`, one element per line. Lines are easier to read in pretty-printed logs and to
+`stack` is stored as an array, one element per line, capped at 10,000 lines plus a `[truncated]` marker. Lines are easier to read in pretty-printed logs and to
 query in log tools than one long string with escaped newlines. The split is literal: only `\n` separates, a `\r` before it stays
 on its line, empty lines are kept, an empty stack becomes `[""]`. Only a string `stack` is reported; a `stack` getter that
 throws yields `null`. Pass `stackFormat: 'string'` to keep the raw string.
@@ -454,11 +454,14 @@ const maker = new CorjMaker({
 ```
 
 - The default is `[{ auto: 'random' }]`. `null` or `[]` turns the field off.
-- `{ field }` and `{ path }` read the **root** caught value only, through the same access the report uses, so `redact` skip
+- `{ sourceProperty }` and `{ path }` read the **root** caught value only, through the same access the report uses, so `redact` skip
   rules apply and [`inspection`](#reporting-without-running-the-caught-object) decides whether a getter runs — at **every**
   segment of a path, not only the last. An entry may carry its own `inspection`; `inspection: 'default'` on an entry under a
   global `no-invoke` runs caught code for that read. An element of an array is addressed as `$.ids[0]` whether you write the
   segment as `0` or as `'0'`, so one `paths` rule covers both spellings.
+- An excluded source immediately produces the literal `[redacted]`, regardless of the configured replacement, and stops
+  the source chain. This marker loses uniqueness and correlation information. An explicit call `occurrenceId` still wins.
+  Numeric ordinary-object properties use dotted paths such as `$.map.0`; only array indices use brackets.
 - A function entry that throws is recorded as a reporting error (`stage: 'other'`, `reportKey: 'occurrence_id'`) and resolution
   continues with the next entry.
 - `{ auto: 'random' }` yields `CORJ_` plus 26 Crockford base32 characters, from `globalThis.crypto.getRandomValues` when it
@@ -495,7 +498,7 @@ them.
 both is rejected as a repeated part.
 
 `as_json` is deliberately not a part: it carries timestamps and per-occurrence ids, which would make every occurrence a new
-kind of failure. Name a stable property with `{ field }` instead. A whole-report hash was rejected for the same reason, and
+kind of failure. Name a stable property with `{ sourceProperty }` instead. A whole-report hash was rejected for the same reason, and
 because every format bump would then change every fingerprint.
 
 Parts apply to **every node**, root and children, in discovery order, and each node's values are hashed together with its
@@ -531,6 +534,13 @@ The output is `fp1_` plus the first 32 hex characters of a SHA-256 digest, compu
 implementation because the web platform has no synchronous digest and this package has no dependencies. The `fp1` prefix
 names the recipe: if it ever changes, fingerprints from the two versions are not comparable, and the prefix is how a reader
 can tell.
+
+Computed fingerprints are omitted with a fingerprint reporting error when new input safety handling, lossy snapshot
+preparation, colliding redacted keys, or pattern changes whose transform skips a legacy scrub pass prevent the supported
+canonical input from being reconstructed. Supported `fp1_` hashes retain their recipe, including its existing 16,384-byte nested JSON and 16,384-code-unit string output cuts. A limit
+in an independent JSON view does not invalidate an otherwise complete fingerprint. Explicit call fingerprints still win.
+Function parts use the node path; CORJ does not infer a source path from application code. Numeric and string path segments
+read the same property and policy path but remain distinct labels in the existing fingerprint recipe.
 
 `maker.makeFingerprint(caught)` computes the value alone — discovery and node fields, without `as_json`, the context or the
 limiter. It returns `undefined` when `fingerprintParts` is `null` or `[]`. `makeFingerprint(caught, { requireStack: true })`
@@ -622,6 +632,18 @@ const corj = new CorjMaker({ maxReportSize: 64_000, reportSizeUnit: 'utf8-bytes'
 maker is built. The floor is 512 because that is the smallest budget the worst case of a minimal report is guaranteed to
 fit: a 128-character `occurrence_id`, a 64-character `fingerprint`, both omission flags, and the array form.
 
+Input safety ceilings apply even with `maxReportSize: null` or a view's `maxSize: null`: 10,000 JSON candidate entries per
+serialization, depth 128, 10,000 child-source candidates across graph discovery, 16,384 decimal BigInt digits before decimal
+conversion, 1,000,000 UTF-16 units per text subject/intermediate and in aggregate per serialization or prepared snapshot,
+10,000 display stack lines, and 128 prototype lookup steps. Dropped values and repeated children still consume candidate budgets. Oversized
+text is withheld whole before patterns or transforms, since cutting it first could split a secret. Input exhaustion sets
+`truncated` and retains safe partial output with existing markers. Display stack truncation may still fingerprint the full
+supported raw stack.
+
+These bound library-controlled work, not elapsed time. Native enumeration/allocation, proxy traps, default-mode hooks and
+getters, individual regular expressions (including overridden methods), and application callbacks cannot be interrupted
+synchronously. A replacement may allocate before CORJ can check its result.
+
 Reports that fit are preserved exactly. Oversized reports set `truncated: true` on the root. Optional root parts go first,
 each whole and each leaving a flag behind, and only then is error content reduced:
 
@@ -711,7 +733,7 @@ Every option is optional; missing ones keep their defaults. `CORJ_DEFAULT_OPTION
 | `reportSizeUnit` | `'utf8-bytes'` | Unit of `maxReportSize`; also `'utf16-code-units'`. |
 | `maxContextSize` | `16384` | Own size cap of the call's `context`, inside `maxReportSize`. `null` leaves only the report budget. |
 | `omitExpectedValues` | `true` | Leave out fields holding their expected value. |
-| `stackFormat` | `'lines'` | `'lines'` stores `stack.split('\n')`, `'string'` the raw string. |
+| `stackFormat` | `'lines'` | `'lines'` stores at most 10,000 stack lines plus a truncation marker, `'string'` the raw string. |
 | `inspection` | `'default'` | How much of the caught object may run while it is reported. `'no-invoke'` reads property descriptors only, see [Reporting without running the caught object](#reporting-without-running-the-caught-object). |
 | `redact` | `null` | Field selection and redaction applied to everything the report emits, see [Redacting what the report emits](#redacting-what-the-report-emits). |
 | `metadata` | `{ v: true, $schema: false }` | Which of `v` and `$schema` to add to the root. `true` adds both, `false` neither, an object sets them individually. |
@@ -771,6 +793,37 @@ The `transform` context is `{ stage, path, reportKey, sourceProperty }`, where `
 `'warning'`. (`'children'` reaches only the skip rules, never `transform`: a children source is excluded before it is read or
 not at all.)
 
+**Transforms receive safe snapshots by default.** An object or array is copied into detached plain data before the
+callback runs. CORJ applies configured key/path exclusions and string patterns to nested keys and values first. Objects have
+no prototype; arrays retain their array identity with inherited executable behavior removed. Only own enumerable data is
+copied. Accessors, functions, symbols and BigInts become `[not-inspected]`; ancestor cycles become `[circular]`. Preparation
+never calls getters or serialization hooks. The source object is unchanged. This protects configured secrets; it cannot
+identify secrets absent from your policy. Callback context paths and source-property names deliberately retain original
+source names for policy matching; treat that metadata as sensitive.
+
+```typescript
+let callbackPassword: unknown;
+const maker = new CorjMaker({
+  redact: {
+    keys: ['password'],
+    transform: (value, { path }) => {
+      if (path === '$' && typeof value === 'object' && value !== null) {
+        callbackPassword = (value as Record<string, unknown>).password;
+      }
+      return value;
+    },
+  },
+});
+const report = maker.makeReport({ user: 'ada', password: 'hunter2' });
+// callbackPassword === '[redacted]'
+// report.as_json: { user: 'ada', password: '[redacted]' }
+```
+
+Returned containers are sanitized before later callbacks or output. If scrubbed object keys collide, CORJ preserves members
+with suffixes such as `name (2)` and `name (3)`, skipping names already emitted. Policy paths continue to use original keys.
+Snapshot inspection failures fail closed. Other application callbacks, including fingerprint/source functions,
+`makeReportId` and a custom `onReportingError`, keep receiving their documented original inputs and require your trust.
+
 ## What the policy reaches
 
 - every report field: `message`, `stack`, `constructor_name`, `as_string`, and every value **and property name** inside
@@ -791,7 +844,7 @@ not at all.)
 
 A children source the policy excludes is not followed: the node gets `children_omitted: "redacted"` instead of a child report.
 Report schema, cycle handling and the `maxReportSize` budget are unaffected — redaction runs before the size limit is applied.
-Two property names that scrub to the same text collapse into one key in `as_json`.
+Property names that scrub to the same text retain their values with suffixes such as ` (2)` and ` (3)` in `as_json`.
 
 Because `keys` matches a property *name* wherever it appears, a broad name has a broad reach: `keys: ['name']` also blanks
 `constructor_name`, which is read as `constructor.name`.
@@ -805,9 +858,10 @@ const onCaughtOnly = { paths: [/^\$\..*\.headers$/] };
 const onContextOnly = { paths: ['$context.user.email'] };
 ```
 
-Three fields are still never rewritten: `occurrence_id`, `fingerprint` and a default report `id`. A scrubbed correlation
-handle correlates with nothing, a fingerprint is a hash of values the policy has already seen, and a scrubbed structural id
-would break `child_ids`.
+The final `occurrence_id`, `fingerprint` and default report `id` are not post-processed by transforms or string patterns.
+An excluded occurrence-ID source still yields the literal `[redacted]` and stops source resolution, as documented above; an
+explicit call `occurrenceId` wins. Computed fingerprints hash policy-processed values, and preserving default structural IDs
+keeps `child_ids` linked to their reports.
 
 ## Applying the policy to your own text
 

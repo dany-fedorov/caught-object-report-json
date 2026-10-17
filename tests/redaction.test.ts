@@ -663,7 +663,7 @@ describe('redact: the reporting boundary itself', () => {
       .spyOn(console, 'warn')
       .mockImplementation(() => undefined);
     const caught = {};
-    Object.defineProperty(caught, 'exploding', {
+    Object.defineProperty(caught, 'message', {
       enumerable: true,
       configurable: true,
       get(): never {
@@ -685,7 +685,7 @@ describe('redact: the reporting boundary itself', () => {
       .spyOn(console, 'warn')
       .mockImplementation(() => undefined);
     const caught = {};
-    Object.defineProperty(caught, 'exploding', {
+    Object.defineProperty(caught, 'message', {
       enumerable: true,
       configurable: true,
       get(): never {
@@ -982,12 +982,15 @@ describe("redact: scrubbing a consumer's own text and the policy resolver", () =
 });
 
 describe('redact: claims the README makes', () => {
-  test('two property names that scrub to the same text collapse into one key', () => {
+  test('two property names that scrub to the same text retain both values', () => {
     const report = new CorjMaker({
       redact: { patterns: [/sk-live-\w+/g] },
     }).makeReport({ 'sk-live-AAA': 1, 'sk-live-BBB': 2 });
-    expect(report.as_json).toEqual({ [CORJ_REDACTED_MARKER]: 2 });
-    expect(Object.keys(report.as_json as object)).toHaveLength(1);
+    expect(report.as_json).toEqual({
+      [CORJ_REDACTED_MARKER]: 1,
+      [`${CORJ_REDACTED_MARKER} (2)`]: 2,
+    });
+    expect(Object.keys(report.as_json as object)).toHaveLength(2);
   });
 
   test('a custom onReportingError receives the caught object unchanged while the report is scrubbed', () => {

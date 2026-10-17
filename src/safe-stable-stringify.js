@@ -176,6 +176,30 @@ function getPositiveIntegerOption(options, key) {
   return value === undefined ? Infinity : value;
 }
 
+// Input work guards may be explicitly disabled for already-generated data.
+function getInputLimitOption(options, key) {
+  const value = options[key];
+  if (value === undefined || value === Infinity) return Infinity;
+  if (typeof value !== 'number') {
+    throw new TypeError(`The "${key}" argument must be of type number`);
+  }
+  if (!Number.isSafeInteger(value)) {
+    throw new TypeError(`The "${key}" argument must be a safe integer`);
+  }
+  if (value < 0) throw new RangeError(`The "${key}" argument must be >= 0`);
+  return value;
+}
+
+function getKeyCollisionOption(options) {
+  if (!hasOwnProperty.call(options, 'keyCollision')) return 'suffix';
+  if (options.keyCollision !== 'suffix' && options.keyCollision !== 'throw') {
+    throw new TypeError(
+      'The "keyCollision" argument must be "suffix" or "throw"',
+    );
+  }
+  return options.keyCollision;
+}
+
 function getSkipAccessorsOption(options) {
   if (!hasOwnProperty.call(options, 'skipAccessors')) return undefined;
   const value = options.skipAccessors;
@@ -242,6 +266,14 @@ function configure(options) {
     typeof deterministic === 'function' ? deterministic : undefined;
   const maximumDepth = getPositiveIntegerOption(options, 'maximumDepth');
   const maximumBreadth = getPositiveIntegerOption(options, 'maximumBreadth');
+  const maximumVisits = getInputLimitOption(options, 'maximumVisits');
+  const inputDepthLimit = getInputLimitOption(options, 'inputDepthLimit');
+  const maximumTextLength = getInputLimitOption(options, 'maximumTextLength');
+  const onInputLimit = options.onInputLimit;
+  if (onInputLimit !== undefined && typeof onInputLimit !== 'function') {
+    throw new TypeError('The "onInputLimit" argument must be of type function');
+  }
+  const keyCollision = getKeyCollisionOption(options);
   const lengthLimit = getPositiveIntegerOption(options, 'lengthLimit');
   const lengthUnit = getLengthUnitOption(options);
   // When set, own values are read from property descriptors and `toJSON` is
@@ -262,8 +294,11 @@ function configure(options) {
   /**
    * @param {unknown} value
    * @param {((this: object, key: string, value: any) => any) | null} [replacer]
-   * @param {{ lengthLimit?: number, onTruncate?: () => void }} [perCall]
-   *   Per-call overrides of the configured `lengthLimit` and `onTruncate`.
+   * @param {{ lengthLimit?: number, maximumVisits?: number, inputDepthLimit?: number,
+   * maximumTextLength?: number, onInputLimit?: (reason: string) => void, maximumDepth?: number, keyCollision?: 'suffix' | 'throw', onTruncate?: () => void,
+   * redact?: (key: string, path: string, read: () => unknown, parent: object) => unknown,
+   * mapKey?: (key: string, path: string, parent: object) => string, basePath?: string }} [perCall]
+   *   Per-call input and output limits and redaction policies.
    * @returns {string | undefined}
    */
   function stringify(value, replacer = null, perCall = undefined) {
@@ -274,6 +309,12 @@ function configure(options) {
     }
     let callLengthLimit = lengthLimit;
     let callOnTruncate = onTruncate;
+    let callMaximumVisits = maximumVisits;
+    let callInputDepthLimit = inputDepthLimit;
+    let callMaximumDepth = maximumDepth;
+    let callKeyCollision = keyCollision;
+    let callMaximumTextLength = maximumTextLength;
+    let callOnInputLimit = onInputLimit;
     // `redact(key, path, read)` decides a property's fate; it may return a
     // replacement without ever calling `read`, which is what keeps an excluded
     // getter from running.
@@ -284,6 +325,32 @@ function configure(options) {
     let mapKey;
     let basePath = '$';
     if (perCall !== undefined) {
+      if (perCall.maximumVisits !== undefined) {
+        callMaximumVisits = getInputLimitOption(perCall, 'maximumVisits');
+      }
+      if (perCall.inputDepthLimit !== undefined) {
+        callInputDepthLimit = getInputLimitOption(perCall, 'inputDepthLimit');
+      }
+      if (perCall.maximumTextLength !== undefined) {
+        callMaximumTextLength = getInputLimitOption(
+          perCall,
+          'maximumTextLength',
+        );
+      }
+      if (perCall.onInputLimit !== undefined) {
+        if (typeof perCall.onInputLimit !== 'function') {
+          throw new TypeError(
+            'The "onInputLimit" argument must be of type function',
+          );
+        }
+        callOnInputLimit = perCall.onInputLimit;
+      }
+      if (perCall.maximumDepth !== undefined) {
+        callMaximumDepth = getInputLimitOption(perCall, 'maximumDepth');
+      }
+      if (perCall.keyCollision !== undefined) {
+        callKeyCollision = getKeyCollisionOption(perCall);
+      }
       if (perCall.lengthLimit !== undefined) {
         callLengthLimit = getPositiveIntegerOption(perCall, 'lengthLimit');
         if (callLengthLimit < 4) {
@@ -324,6 +391,30 @@ function configure(options) {
     const markerJson = strEscape(marker);
     const markerSize = measure(markerJson);
     let truncated = false;
+    let visits = 0;
+    let textLength = 0;
+    const inputLimits = new Set();
+
+    function inputLimit(reason) {
+      truncated = true;
+      if (!inputLimits.has(reason)) {
+        inputLimits.add(reason);
+        if (callOnInputLimit) callOnInputLimit(reason);
+      }
+    }
+
+    function chargeText(value) {
+      if (value.length > callMaximumTextLength - textLength) {
+        inputLimit('text');
+        return false;
+      }
+      textLength += value.length;
+      return true;
+    }
+
+    function safeText(value) {
+      return typeof value === 'string' && !chargeText(value) ? marker : value;
+    }
 
     function fit(json, budget) {
       if (json === undefined || budget === Infinity || measure(json) <= budget)
@@ -368,10 +459,18 @@ function configure(options) {
     }
 
     function read(key, parent, path) {
-      const rawRead = () => readRaw(key, parent);
-      const value =
-        redact === undefined ? rawRead() : redact(key, path, rawRead);
-      return replacer ? replacer.call(parent, key, value) : value;
+      const unread = Symbol('unread');
+      let raw = unread;
+      const rawRead = () => {
+        raw = safeText(readRaw(key, parent));
+        return raw;
+      };
+      let value =
+        redact === undefined ? rawRead() : redact(key, path, rawRead, parent);
+      if (value !== raw) value = safeText(value);
+      if (!replacer) return value;
+      const replaced = replacer.call(parent, key, value);
+      return replaced === value ? value : safeText(replaced);
     }
 
     function readRaw(key, parent) {
@@ -448,6 +547,12 @@ function configure(options) {
         );
       }
 
+      // Stop before enumerating or inspecting another container. This guard is
+      // separate from the legacy maximumDepth option, which uses type markers.
+      if (stack.length >= callInputDepthLimit) {
+        inputLimit('depth');
+        return fit(markerJson, budget);
+      }
       const isArray = Array.isArray(value);
       const open = isArray ? '[' : '{';
       const close = isArray ? ']' : '}';
@@ -461,13 +566,20 @@ function configure(options) {
           : arrayLength(value)
         : keys.length;
       if (count === 0) return open + close;
-      if (maximumDepth < stack.length + 1) {
+      if (callMaximumDepth < stack.length + 1) {
         return fit(isArray ? '"[Array]"' : '"[Object]"', budget);
       }
       if (!isArray && deterministic && !isTypedArrayWithEntries(value)) {
-        keys = sort(keys, comparator);
+        const remaining = Math.max(0, callMaximumVisits - visits);
+        if (keys.length > remaining && callKeyCollision === 'throw') {
+          inputLimit('visits');
+          return fit(markerJson, budget);
+        }
+        keys = sort(keys.slice(0, remaining), comparator);
       }
       const entries = [];
+      const emittedKeys = new Set();
+      const nextSuffix = new Map();
       // Reserve the closing delimiter before visiting any child.
       let length = 2;
 
@@ -475,6 +587,7 @@ function configure(options) {
         const size = budget === Infinity ? 0 : measure(json);
         length += (entries.length ? 1 : 0) + size;
         entries.push({ key, json, size });
+        if (!isArray) emittedKeys.add(key);
       }
 
       function finishTruncated() {
@@ -505,13 +618,48 @@ function configure(options) {
       try {
         const maximum = Math.min(count, maximumBreadth);
         for (let i = 0; i < maximum; i++) {
+          // Charge every candidate before reading it, even if redaction or the
+          // replacer will omit its value. Repeated references are charged again.
+          if (visits >= callMaximumVisits) {
+            inputLimit('visits');
+            return finishTruncated();
+          }
+          visits++;
           const key = isArray ? String(i) : keys[i];
+          if (!isArray && !chargeText(key)) {
+            return finishTruncated();
+          }
+          if (
+            path.length + key.length + (isArray ? 2 : 1) >
+            callMaximumTextLength
+          ) {
+            inputLimit('text');
+            return finishTruncated();
+          }
           const available = budget - length - (entries.length ? 1 : 0);
           if (isArray && available < 1) return finishTruncated();
           const childPath = isArray ? `${path}[${key}]` : `${path}.${key}`;
           const child = read(key, value, childPath);
-          const emitted =
-            isArray || mapKey === undefined ? key : mapKey(key, childPath);
+          const mapped =
+            isArray || mapKey === undefined
+              ? key
+              : mapKey(key, childPath, value);
+          if (mapped !== key && !chargeText(mapped)) {
+            inputLimit('text');
+            return finishTruncated();
+          }
+          let emitted = mapped;
+          const collision = !isArray && emittedKeys.has(mapped);
+          let suffix;
+          if (collision && callKeyCollision === 'suffix') {
+            suffix = nextSuffix.get(mapped) || 2;
+            do {
+              emitted = `${mapped} (${suffix++})`;
+            } while (emittedKeys.has(emitted));
+          }
+          if (emitted !== mapped && !chargeText(emitted.slice(mapped.length))) {
+            return finishTruncated();
+          }
           // An overlong key need not be escaped, but its value must still pass
           // through the replacer: omitted properties consume no output space.
           const prefix = isArray
@@ -528,8 +676,12 @@ function configure(options) {
             if (!isArray) continue;
             json = fit('null', available);
           }
+          if (collision && callKeyCollision === 'throw') {
+            throw new TypeError('Redacted object key collision');
+          }
           if (json === overflow || prefix === null) return finishTruncated();
           append(emitted, prefix + json);
+          if (suffix !== undefined) nextSuffix.set(mapped, suffix);
           if (truncated) break;
         }
         if (!truncated && count > maximumBreadth) {

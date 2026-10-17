@@ -285,11 +285,11 @@ describe('fingerprint', () => {
     );
   });
 
-  test('a caught object with no string form still hashes', () => {
+  test('a caught object with no string form withholds its fingerprint', () => {
     // `String()` of a null-prototype object throws, so `as_string` is null.
     expect(
       withParts(DEFAULT_PARTS).makeFingerprint(Object.create(null)),
-    ).toMatch(/^fp1_/);
+    ).toBeUndefined();
   });
 
   test('a value with no JSON form counts as nothing', () => {
@@ -426,7 +426,7 @@ describe('fingerprint', () => {
     expect(ran).toBe(1);
   });
 
-  test('a serializer failure inside a part is recorded, and the part counts as null', () => {
+  test('a serializer failure inside a part is recorded and withholds the fingerprint', () => {
     const maker = withParts([{ sourceProperty: 'details' }]);
     const trap = Object.assign(new Error('x'), {
       details: {
@@ -436,7 +436,7 @@ describe('fingerprint', () => {
       },
     });
     const report = maker.makeReport(trap);
-    expect(report.fingerprint).toBe(maker.makeFingerprint(new Error('x')));
+    expect(report.fingerprint).toBeUndefined();
     expect(report.reporting_errors).toContainEqual({
       stage: 'as_json',
       path: '$',
@@ -651,17 +651,17 @@ describe('the fingerprint hash input is bounded and cannot throw', () => {
   // keep the suite fast now that every string part is cut first.
   const HUGE = 20 * 1024 * 1024;
 
-  test('a huge thrown string is reported with a fingerprint', () => {
+  test('a huge thrown string is reported without an unsafe fingerprint', () => {
     const report = makeReport('x'.repeat(HUGE), { onReportingError: silent });
-    expect(report.fingerprint).toMatch(/^fp1_[0-9a-f]{32}$/);
+    expect(report.fingerprint).toBeUndefined();
   });
 
-  test('a huge message is reported with a fingerprint', () => {
+  test('a huge message is reported without an unsafe fingerprint', () => {
     const report = makeReport(new Error(`upstream said: ${'y'.repeat(HUGE)}`), {
       onReportingError: silent,
       fingerprintParts: ['constructor_name', 'message'],
     });
-    expect(report.fingerprint).toMatch(/^fp1_[0-9a-f]{32}$/);
+    expect(report.fingerprint).toBeUndefined();
   });
 
   test('two strings that differ only after the cap share a fingerprint', () => {
@@ -676,15 +676,13 @@ describe('the fingerprint hash input is bounded and cannot throw', () => {
   });
 
   // The fallback is cut like any other string, and it may also be absent.
-  test('a root whose string form failed still hashes its fallback', () => {
+  test('a root whose string form failed withholds its unsafe fallback fingerprint', () => {
     const hostile = {
       toString() {
         throw new Error('no string');
       },
     };
-    expect(withParts(DEFAULT_PARTS).makeFingerprint(hostile)).toMatch(
-      /^fp1_[0-9a-f]{32}$/,
-    );
+    expect(withParts(DEFAULT_PARTS).makeFingerprint(hostile)).toBeUndefined();
   });
 
   test('a failure inside hashing leaves the report without a fingerprint', () => {

@@ -24,12 +24,24 @@ export type Stringify = (
   value: unknown,
   replacer?: ((this: object, key: string, value: unknown) => unknown) | null,
   perCall?: {
+    maximumVisits?: number;
+    inputDepthLimit?: number;
+    maximumTextLength?: number;
+    keyCollision?: 'suffix' | 'throw';
+    onInputLimit?: (reason: 'visits' | 'depth' | 'text') => void;
     lengthLimit?: number;
     onTruncate?: () => void;
     /** Decides a property's fate before it is read; see `safe-stable-stringify`. */
-    redact?: (key: string, path: string, read: () => unknown) => unknown;
+    redact?: (
+      key: string,
+      path: string,
+      read: () => unknown,
+      parent: object,
+    ) => unknown;
     /** Rewrites an object key on its way into the output. */
-    mapKey?: ((key: string, path: string) => string) | undefined;
+    mapKey?:
+      | ((key: string, path: string, parent: object) => string)
+      | undefined;
     /** JSONPath the root value sits at. Defaults to `"$"`. */
     basePath?: string;
   },
@@ -159,6 +171,9 @@ export function limitReportSize<T extends Report>(
     let truncated = false;
     const json = stringify(value, null, {
       lengthLimit,
+      maximumVisits: Infinity,
+      inputDepthLimit: Infinity,
+      maximumTextLength: Infinity,
       onTruncate: () => {
         truncated = true;
       },

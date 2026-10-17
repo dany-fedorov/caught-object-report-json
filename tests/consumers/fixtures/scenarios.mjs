@@ -26,6 +26,46 @@ export const scenarios = [
     },
   },
   {
+    name: 'prototype safety signals survive compiled Error subclass behavior',
+    run(corj) {
+      let caught = { message: 'deep', stable: 'secret' };
+      for (let index = 0; index < 130; index++) caught = Object.create(caught);
+      const report = new corj.CorjMaker({
+        inspection: 'no-invoke',
+        fingerprintParts: [{ sourceProperty: 'stable' }],
+        onReportingError: () => undefined,
+      }).makeReport(caught);
+      assert(report.truncated === true, 'prototype exhaustion was not marked');
+      assert(
+        report.fingerprint === undefined,
+        'unsafe prototype fallback was fingerprinted',
+      );
+      assert(
+        report.reporting_errors?.some((record) => record.stage === 'limit'),
+        'prototype limit diagnostic missing',
+      );
+    },
+  },
+  {
+    name: 'revoked proxies thrown during inspection remain reportable',
+    run(corj) {
+      const { proxy: failure, revoke } = Proxy.revocable({}, {});
+      revoke();
+      const maker = new corj.CorjMaker({ onReportingError: () => undefined });
+      const report = maker.makeReport({
+        get message() {
+          throw failure;
+        },
+      });
+      assert(
+        report.reporting_errors?.some(
+          (record) => record.reportKey === 'message',
+        ),
+        'thrown proxy inspection failure missing',
+      );
+    },
+  },
+  {
     name: 'a cause chain',
     run(corj) {
       const outer = new Error('outer');

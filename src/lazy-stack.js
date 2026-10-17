@@ -3,6 +3,24 @@
 // This helper is shared with the bundled CommonJS serializer, so it is a
 // CommonJS module too.
 
+const { INPUT_MAX_DEPTH } = require('./input-limits');
+const prototypeInspectionLimitErrors = new WeakSet();
+class PrototypeInspectionLimitError extends Error {
+  constructor() {
+    super('Prototype inspection input limit exceeded');
+    prototypeInspectionLimitErrors.add(this);
+  }
+}
+
+/**
+ * Recognizes only errors this module created without inspecting thrown values.
+ * @param {unknown} value
+ * @returns {boolean}
+ */
+function isPrototypeInspectionLimitError(value) {
+  return prototypeInspectionLimitErrors.has(value);
+}
+
 const hasOwnProperty = Object.prototype.hasOwnProperty;
 
 /**
@@ -14,7 +32,11 @@ const hasOwnProperty = Object.prototype.hasOwnProperty;
  */
 function isDataProperty(host, prop) {
   let current = host;
+  const seen = new Set();
   while (current !== undefined && current !== null) {
+    if (seen.size >= INPUT_MAX_DEPTH || seen.has(current))
+      throw new PrototypeInspectionLimitError();
+    seen.add(current);
     const descriptor = Object.getOwnPropertyDescriptor(current, prop);
     if (descriptor !== undefined) return 'value' in descriptor;
     current = Object.getPrototypeOf(current);
@@ -54,7 +76,11 @@ function lazyStackFormattingIsSafe(host) {
  */
 function hasPropertyWithoutReading(host, prop) {
   let current = host;
+  const seen = new Set();
   while (current !== undefined && current !== null) {
+    if (seen.size >= INPUT_MAX_DEPTH || seen.has(current))
+      throw new PrototypeInspectionLimitError();
+    seen.add(current);
     if (hasOwnProperty.call(current, prop)) return true;
     current = Object.getPrototypeOf(current);
   }
@@ -64,3 +90,7 @@ function hasPropertyWithoutReading(host, prop) {
 exports.isDataProperty = isDataProperty;
 exports.lazyStackFormattingIsSafe = lazyStackFormattingIsSafe;
 exports.hasPropertyWithoutReading = hasPropertyWithoutReading;
+
+exports.PrototypeInspectionLimitError = PrototypeInspectionLimitError;
+
+exports.isPrototypeInspectionLimitError = isPrototypeInspectionLimitError;

@@ -312,7 +312,7 @@ describe('randomized invariants', () => {
   );
 
   test.each([1, 2, 3, 5, 8])(
-    'seed %i with the real defaults: carries both fields, fits, and validates',
+    'seed %i with the real defaults: carries correlation fields or a fingerprint failure, fits, and validates',
     (seed) => {
       const random = rng(seed);
       const caught = graph(random, { nodes: 12 + random.int(40) }, []);
@@ -326,7 +326,15 @@ describe('randomized invariants', () => {
       expect(size(rows, 'utf8-bytes')).toBeLessThanOrEqual(budget);
       for (const root of [report, rows[0]!]) {
         expect(root.occurrence_id).toMatch(/^CORJ_[0-9A-HJKMNP-TV-Z]{26}$/);
-        expect(root.fingerprint).toMatch(/^fp1_[0-9a-f]{32}$/);
+        if (root.fingerprint === undefined) {
+          expect(root.reporting_errors).toEqual(
+            expect.arrayContaining([
+              expect.objectContaining({ reportKey: 'fingerprint' }),
+            ]),
+          );
+        } else {
+          expect(root.fingerprint).toMatch(/^fp1_[0-9a-f]{32}$/);
+        }
       }
     },
   );

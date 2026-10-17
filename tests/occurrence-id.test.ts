@@ -181,7 +181,7 @@ describe('occurrence_id', () => {
     });
     expect(
       maker.makeReport(Object.assign(new Error('x'), { requestId: 'req-1' })),
-    ).not.toHaveProperty('occurrence_id');
+    ).toHaveProperty('occurrence_id', '[redacted]');
   });
 
   test('the id is never passed through the scrub rules', () => {
@@ -284,7 +284,10 @@ describe('occurrence_id', () => {
       occurrenceIdSources: [entry],
       redact: { paths: ['$.a.b'] },
     });
-    expect(skipping.makeReport(caught)).not.toHaveProperty('occurrence_id');
+    expect(skipping.makeReport(caught)).toHaveProperty(
+      'occurrence_id',
+      '[redacted]',
+    );
   });
 
   test('a per-entry inspection applies at every segment of a path', () => {
@@ -324,7 +327,7 @@ describe('occurrence_id', () => {
         redact: { paths: ['$.ids[0]'] },
       });
       const report = maker.makeReport(caught);
-      expect(report).not.toHaveProperty('occurrence_id');
+      expect(report).toHaveProperty('occurrence_id', '[redacted]');
       expect(report.as_json).toEqual({ ids: ['[redacted]', 'public-1'] });
     }
   });

@@ -8,6 +8,15 @@
  */
 
 import type { CorjReport, CorjReportNode } from './index';
+import {
+  INPUT_MAX_VISITS,
+  INPUT_MAX_DEPTH,
+  INPUT_MAX_TEXT_LENGTH,
+} from './input-limits';
+import {
+  lazyStackFormattingIsSafe,
+  isPrototypeInspectionLimitError,
+} from './lazy-stack';
 
 /** Replaces content a redaction policy excluded. */
 export const CORJ_REDACTED_MARKER = '[redacted]';
@@ -196,10 +205,94 @@ export class Redactor {
    * throwing policy from being consulted again to describe its own failure.
    */
   private failing = false;
+  private scope:
+    | {
+        members: WeakMap<
+          object,
+          Map<string, { context: CorjContext; value: unknown }>
+        >;
+        visits: number;
+        text: number;
+        limited: boolean;
+        textFailures: number;
+        workText: number;
+      }
+    | undefined;
+
+  withScope<T>(produce: () => T): T {
+    const previous = this.scope;
+    this.scope = {
+      members: new WeakMap(),
+      visits: 0,
+      text: 0,
+      limited: false,
+      textFailures: 0,
+      workText: 0,
+    };
+    try {
+      return produce();
+    } finally {
+      this.scope = previous;
+    }
+  }
+
+  private limit(context: CorjContext): void {
+    if (!this.scope!.limited) {
+      this.scope!.limited = true;
+      this.onInputLimit(context);
+      this.fail(new Error('Redaction input limit exceeded'), context);
+    }
+    this.onIncompatible(context);
+  }
+
+  private provenance(parent: object, key: string) {
+    const saved = this.scope?.members.get(parent)?.get(key);
+    if (saved === undefined) return undefined;
+    const descriptor = Object.getOwnPropertyDescriptor(parent, key);
+    return descriptor !== undefined &&
+      'value' in descriptor &&
+      descriptor.value === saved.value
+      ? saved
+      : undefined;
+  }
+
+  sourceContext(
+    parent: object,
+    key: string,
+    fallback: CorjContext,
+  ): CorjContext {
+    return this.scope?.members.get(parent)?.get(key)?.context ?? fallback;
+  }
+
+  /** Prepared parents must never regain getter or inherited hook execution. */
+  read(parent: object, key: string, fallback: () => unknown): unknown {
+    if (this.scope?.members.has(parent) !== true) return fallback();
+    const descriptor = Object.getOwnPropertyDescriptor(parent, key);
+    if (descriptor === undefined) return undefined;
+    if ('value' in descriptor) return descriptor.value;
+    this.onIncompatible(
+      this.sourceContext(parent, key, {
+        stage: 'as_json',
+        path: '$',
+        sourceProperty: key,
+      }),
+    );
+    return '[not-inspected]';
+  }
+
+  key(key: string, context: CorjContext, parent: object): string {
+    const prepared = this.provenance(parent, key) !== undefined;
+    const out = this.applyValue(key, context, prepared);
+    return typeof out === 'string' ? out : this.policy.replacement;
+  }
 
   constructor(
     policy: CorjRedactPolicy,
     onFailure: (caught: unknown, context: CorjContext) => void,
+    private readonly onInputLimit: (context: CorjContext) => void = () =>
+      undefined,
+    private readonly onIncompatible: (context: CorjContext) => void = () =>
+      undefined,
   ) {
     this.policy = policy;
     this.onFailure = onFailure;
@@ -216,8 +309,27 @@ export class Redactor {
 
   /** Whether a property is excluded by name or path, decided without reading it. */
   excludes(context: CorjContext): boolean {
+    if (this.scope === undefined)
+      return this.withScope(() => this.excludes(context));
     try {
+      if (
+        context.path.length > INPUT_MAX_TEXT_LENGTH ||
+        (context.sourceProperty !== undefined &&
+          context.sourceProperty.length > INPUT_MAX_TEXT_LENGTH)
+      ) {
+        this.limit(context);
+        return true;
+      }
       const { keys, paths } = this.policy;
+      const units =
+        (keys.length > 0 && context.sourceProperty !== undefined
+          ? context.sourceProperty.length
+          : 0) + (paths.length > 0 ? context.path.length : 0);
+      if (this.scope.workText + units > INPUT_MAX_TEXT_LENGTH) {
+        this.limit(context);
+        return true;
+      }
+      this.scope.workText += units;
       if (
         context.sourceProperty !== undefined &&
         matches(keys, context.sourceProperty)
@@ -235,30 +347,312 @@ export class Redactor {
    * so that `$&`, `$1` and friends stay literal text: a `replacement` that
    * re-expanded the match would put the secret straight back.
    */
-  private scrub(value: string): string {
+  private scrub(value: string, context: CorjContext): string {
+    if (
+      this.scope!.limited ||
+      value.length > INPUT_MAX_TEXT_LENGTH ||
+      this.scope!.workText + value.length > INPUT_MAX_TEXT_LENGTH
+    ) {
+      this.scope!.textFailures++;
+      this.limit(context);
+      return '[truncated]';
+    }
+    this.scope!.workText += value.length;
     const literal = () => this.policy.replacement;
     let out = value;
     for (const pattern of this.policy.patterns) {
       pattern.lastIndex = 0;
       out = out.replace(pattern, literal);
       pattern.lastIndex = 0;
+      if (out.length > INPUT_MAX_TEXT_LENGTH) {
+        this.scope!.textFailures++;
+        this.limit(context);
+        return '[truncated]';
+      }
     }
     return out;
   }
 
-  /**
-   * Patterns and then `transform` applied to one emitted value. Returns
-   * {@link CORJ_REDACT_DROP} when the policy left the field out.
-   */
-  apply(value: unknown, context: CorjContext): unknown {
-    if (this.failing) return this.policy.replacement;
-    let out = value;
+  private prepare(
+    value: unknown,
+    context: CorjContext,
+    depth = 0,
+    ancestors = new Set<object>(),
+    unchanged = false,
+  ): unknown {
+    if (typeof value === 'string') {
+      const out = unchanged ? value : this.scrub(value, context);
+      if (!unchanged && this.scope!.text + out.length > INPUT_MAX_TEXT_LENGTH) {
+        this.limit(context);
+        return '[truncated]';
+      }
+      if (!unchanged) this.scope!.text += out.length;
+      if (!unchanged && out !== value && depth > 0)
+        this.onIncompatible(context);
+      return out;
+    }
+    if (
+      typeof value === 'function' ||
+      typeof value === 'symbol' ||
+      typeof value === 'bigint'
+    ) {
+      this.onIncompatible(context);
+      return '[not-inspected]';
+    }
+    if (value === null || typeof value !== 'object') return value;
+    if (ancestors.has(value)) {
+      this.onIncompatible(context);
+      return '[circular]';
+    }
+    if (depth >= INPUT_MAX_DEPTH) {
+      this.limit(context);
+      return '[truncated]';
+    }
     try {
-      if (typeof out === 'string') out = this.scrub(out);
+      const array = Array.isArray(value);
+      const existing = this.scope!.members.get(value);
+      const prototype = Object.getPrototypeOf(value);
+      if (
+        prototype !== null &&
+        prototype !== (array ? Array.prototype : Object.prototype)
+      )
+        this.onIncompatible(context);
+      const out: Record<string, unknown> = array
+        ? (Object.setPrototypeOf([], null) as Record<string, unknown>)
+        : (Object.create(null) as Record<string, unknown>);
+      const saved = new Map<string, { context: CorjContext; value: unknown }>();
+      const used = new Set<string>();
+      const next = new Map<string, number>();
+      this.scope!.members.set(out, saved);
+      ancestors.add(value);
+      let keys = Reflect.ownKeys(value);
+      if (array) {
+        const lengthContext: CorjContext = {
+          ...context,
+          path: `${context.path}.length`,
+          sourceProperty: 'length',
+        };
+        const excludedLength = this.excludes(lengthContext);
+        if (excludedLength) this.onIncompatible(lengthContext);
+        const length = excludedLength
+          ? 0
+          : (Object.getOwnPropertyDescriptor(value, 'length')!.value as number);
+        Object.defineProperty(out, 'length', {
+          value: Math.min(length, INPUT_MAX_VISITS),
+        });
+        const candidates: PropertyKey[] = [];
+        for (
+          let index = 0;
+          index < Math.min(length, INPUT_MAX_VISITS + 1);
+          index++
+        )
+          candidates.push(String(index));
+        for (
+          let index = 0;
+          index < Math.min(keys.length, INPUT_MAX_VISITS + 1);
+          index++
+        ) {
+          const key = keys[index]!;
+          if (
+            key !== 'length' &&
+            !(
+              typeof key === 'string' &&
+              /^(0|[1-9]\d*)$/.test(key) &&
+              Number(key) < length
+            )
+          )
+            candidates.push(key);
+        }
+        keys = candidates as (string | symbol)[];
+      }
+      for (const key of keys) {
+        if (this.scope!.limited || this.scope!.visits++ >= INPUT_MAX_VISITS) {
+          this.limit(context);
+          Object.defineProperty(
+            out,
+            array
+              ? String(Object.getOwnPropertyDescriptor(out, 'length')!.value)
+              : '...',
+            {
+              value: '[truncated]',
+              enumerable: true,
+              configurable: true,
+              writable: true,
+            },
+          );
+          break;
+        }
+        if (typeof key !== 'string') {
+          this.onIncompatible(context);
+          continue;
+        }
+        if (
+          key.length > INPUT_MAX_TEXT_LENGTH ||
+          context.path.length + key.length + 2 > INPUT_MAX_TEXT_LENGTH
+        ) {
+          this.limit(context);
+          break;
+        }
+        const fallback: CorjContext = {
+          ...context,
+          path:
+            array && /^(0|[1-9]\d*)$/.test(key)
+              ? `${context.path}[${key}]`
+              : `${context.path}.${key}`,
+          sourceProperty: key,
+        };
+        const childContext = this.sourceContext(value, key, fallback);
+        let child: unknown;
+        if (this.excludes(childContext)) child = this.policy.replacement;
+        else if (key === 'stack' && !lazyStackFormattingIsSafe(value)) {
+          this.onIncompatible(childContext);
+          child = '[not-inspected]';
+        } else {
+          const descriptor = Object.getOwnPropertyDescriptor(value, key);
+          if (descriptor === undefined) continue;
+          if (!descriptor.enumerable) {
+            this.onIncompatible(childContext);
+            continue;
+          }
+          if (!('value' in descriptor)) {
+            this.onIncompatible(childContext);
+            child = '[not-inspected]';
+          } else
+            child = this.prepare(
+              descriptor.value,
+              childContext,
+              depth + 1,
+              ancestors,
+              this.provenance(value, key) !== undefined,
+            );
+        }
+        let emitted =
+          this.provenance(value, key) !== undefined
+            ? key
+            : this.scrub(key, childContext);
+        if (emitted !== key) this.onIncompatible(childContext);
+        const base = emitted;
+        if (used.has(emitted)) {
+          this.onIncompatible(childContext);
+          let suffix = next.get(base) ?? 2;
+          do {
+            emitted = `${base} (${suffix++})`;
+          } while (used.has(emitted));
+          next.set(base, suffix);
+        }
+        if (
+          existing === undefined &&
+          this.scope!.text + emitted.length > INPUT_MAX_TEXT_LENGTH
+        ) {
+          this.limit(childContext);
+          Object.defineProperty(out, '...', {
+            value: '[truncated]',
+            enumerable: true,
+            configurable: true,
+            writable: true,
+          });
+          saved.set('...', { context: childContext, value: '[truncated]' });
+          break;
+        }
+        if (existing === undefined) this.scope!.text += emitted.length;
+        used.add(emitted);
+        Object.defineProperty(out, emitted, {
+          value: child,
+          enumerable: true,
+          configurable: true,
+          writable: true,
+        });
+        saved.set(emitted, { context: childContext, value: child });
+      }
+      ancestors.delete(value);
+      if (existing !== undefined) {
+        // Keep callback-visible identity where possible, but publish only the
+        // completely prepared member set, so renames cannot overwrite source members.
+        for (const key of Reflect.ownKeys(value)) {
+          if (array && key === 'length') continue;
+          if (!Reflect.deleteProperty(value, key)) return out;
+        }
+        Object.setPrototypeOf(value, null);
+        if (array)
+          Object.defineProperty(value, 'length', {
+            value: Object.getOwnPropertyDescriptor(out, 'length')!.value,
+          });
+        for (const key of Reflect.ownKeys(out)) {
+          if (array && key === 'length') continue;
+          Object.defineProperty(
+            value,
+            key,
+            Object.getOwnPropertyDescriptor(out, key)!,
+          );
+        }
+        this.scope!.members.set(value, saved);
+        return value;
+      }
+      return out;
+    } catch (caught: unknown) {
+      if (isPrototypeInspectionLimitError(caught)) this.limit(context);
+      ancestors.delete(value);
+      this.onIncompatible(context);
+      this.fail(new Error('Unable to inspect redaction input'), context);
+      return this.policy.replacement;
+    }
+  }
+
+  apply(
+    value: unknown,
+    context: CorjContext,
+    origin?: { parent: object; key: string },
+  ): unknown {
+    if (this.scope === undefined)
+      return this.withScope(() => this.apply(value, context, origin));
+    return this.applyValue(
+      value,
+      context,
+      origin !== undefined &&
+        this.provenance(origin.parent, origin.key) !== undefined,
+    );
+  }
+
+  private applyValue(
+    value: unknown,
+    context: CorjContext,
+    prepared: boolean,
+  ): unknown {
+    if (this.scope === undefined)
+      return this.withScope(() => this.applyValue(value, context, prepared));
+    if (this.failing) return this.policy.replacement;
+    try {
+      if (typeof value === 'string' && value.length > INPUT_MAX_TEXT_LENGTH) {
+        this.limit(context);
+        return this.policy.replacement;
+      }
+      const failures = this.scope.textFailures;
+      let out =
+        typeof value === 'string' && !prepared
+          ? this.scrub(value, context)
+          : value;
+      if (this.scope.textFailures !== failures) return this.policy.replacement;
       if (this.policy.transform !== null) {
+        out = this.prepare(
+          out,
+          context,
+          0,
+          new Set(),
+          prepared || typeof out === 'string',
+        );
+        const before = out;
         out = this.policy.transform(out, context);
+        if (out === before && typeof value === 'string' && before !== value)
+          this.onIncompatible(context);
         if (out === undefined) return CORJ_REDACT_DROP;
-        if (typeof out === 'string') out = this.scrub(out);
+        if (typeof out === 'string' && out !== before) {
+          if (out.length > INPUT_MAX_TEXT_LENGTH) {
+            this.limit(context);
+            return this.policy.replacement;
+          }
+          out = this.scrub(out, context);
+        }
+        if (typeof out !== 'string') out = this.prepare(out, context);
       }
       return out;
     } catch (caught: unknown) {

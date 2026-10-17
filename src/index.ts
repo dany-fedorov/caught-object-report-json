@@ -1,5 +1,14 @@
+import {
+  INPUT_MAX_VISITS,
+  INPUT_MAX_DEPTH,
+  INPUT_MAX_TEXT_LENGTH,
+  INPUT_MAX_STACK_LINES,
+  bigintExceedsInputLimit,
+} from './input-limits';
 import { configure as configureStringify } from './safe-stable-stringify';
 import {
+  PrototypeInspectionLimitError,
+  isPrototypeInspectionLimitError,
   hasPropertyWithoutReading,
   lazyStackFormattingIsSafe,
 } from './lazy-stack';
@@ -22,7 +31,12 @@ import {
   omitExpectedValues,
   restoreExpectedValues,
 } from './expected-values';
-import { CORJ_REDACT_DROP, Redactor, resolveRedactPolicy } from './redaction';
+import {
+  CORJ_REDACTED_MARKER,
+  CORJ_REDACT_DROP,
+  Redactor,
+  resolveRedactPolicy,
+} from './redaction';
 import type {
   CorjContext,
   CorjRedactPolicy,
@@ -276,7 +290,7 @@ export type CorjOptions = {
   maxContextSize: number | null;
   /** Leave out fields holding their expected value, see {@link CORJ_EXPECTED_VALUES}. Defaults to `true`. */
   omitExpectedValues: boolean;
-  /** Store `stack` as `stack.split('\n')` (`lines`, the default) or as the raw string. */
+  /** Store `stack` as at most 10,000 lines plus a truncation marker (`lines`, the default), or as the raw string. */
   stackFormat: CorjStackFormat;
   /** How much of the caught object may be executed while reporting it. Defaults to `"default"`. */
   inspection: CorjInspection;
@@ -339,7 +353,10 @@ const MIN_VALUE_SIZE = 256;
 
 function describeValue(value: unknown): string {
   try {
-    return String(value);
+    if (typeof value === 'bigint' && bigintExceedsInputLimit(value))
+      return CORJ_TRUNCATED_MARKER;
+    const text = String(value);
+    return text.length > INPUT_MAX_TEXT_LENGTH ? CORJ_TRUNCATED_MARKER : text;
   } catch {
     return '[unprintable value]';
   }
@@ -671,6 +688,9 @@ type StringifyConfig = {
   circularValue: string;
   deterministic: false;
   lengthUnit: CorjReportSizeUnit;
+  maximumVisits: number;
+  inputDepthLimit: number;
+  maximumTextLength: number;
   skipAccessors?: string;
 };
 
@@ -689,7 +709,39 @@ type Ctx = {
   redactor: Redactor | null;
   /** Records kept for the report being produced; `null` means sealed - the handler still sees every failure. */
   errors: CorjReportingError[] | null;
+  input: {
+    visits: number;
+    truncated: Set<string>;
+    fingerprintInvalid: boolean;
+    limits: Set<string>;
+  };
 };
+function inputLimit(
+  ctx: Ctx,
+  context: CorjContext,
+  invalidateFingerprint = true,
+): void {
+  ctx.input.truncated.add(context.path);
+  if (
+    invalidateFingerprint &&
+    context.reportKey !== 'as_json' &&
+    context.path !== '$context'
+  )
+    ctx.input.fingerprintInvalid = true;
+  const key = `${context.path}:${context.reportKey}`;
+  if (ctx.input.limits.has(key)) return;
+  ctx.input.limits.add(key);
+  reportError(ctx, 'Input safety limit exceeded', {
+    ...context,
+    stage: 'limit',
+  });
+}
+
+function withholdText(ctx: Ctx, context: CorjContext): string {
+  inputLimit(ctx, context);
+  return CORJ_TRUNCATED_MARKER;
+}
+
 type Entry = [string, unknown];
 type Report = CorjReport | CorjReportNode[];
 
@@ -775,6 +827,7 @@ function redactText(
   value: string,
   context: CorjContext,
 ): string | undefined {
+  if (value.length > INPUT_MAX_TEXT_LENGTH) return withholdText(ctx, context);
   if (ctx.redactor === null) return value;
   const out = ctx.redactor.apply(value, context);
   if (out === CORJ_REDACT_DROP) return undefined;
@@ -791,6 +844,12 @@ function redactRequiredText(
   value: string,
   context: CorjContext,
 ): string {
+  if (value.length > INPUT_MAX_TEXT_LENGTH) return withholdText(ctx, context);
+  if (
+    value === CORJ_TRUNCATED_MARKER &&
+    ctx.input.limits.has(`${context.path}:${context.reportKey}`)
+  )
+    return value;
   if (ctx.redactor === null) return value;
   const out = ctx.redactor.apply(value, context);
   return out === CORJ_REDACT_DROP || typeof out !== 'string'
@@ -859,7 +918,11 @@ function accessNoInvoke(host: unknown, prop: PropertyKey): Access {
       : { found: false, threw: false };
   }
   let current: unknown = host;
+  const seen = new Set<unknown>();
   while (current !== undefined && current !== null) {
+    if (seen.size >= INPUT_MAX_DEPTH || seen.has(current))
+      throw new PrototypeInspectionLimitError();
+    seen.add(current);
     const descriptor = Object.getOwnPropertyDescriptor(current as object, prop);
     if (descriptor !== undefined) {
       if ('value' in descriptor) {
@@ -937,6 +1000,13 @@ function access(
       value: (host as Record<string, unknown>)[prop],
     };
   } catch (caught: unknown) {
+    if (isPrototypeInspectionLimitError(caught)) {
+      inputLimit(ctx, {
+        ...context,
+        path: redactPath ?? `${context.path}.${prop}`,
+      });
+      return { found: true, threw: false, omitted: true };
+    }
     reportError(ctx, caught, { ...context, sourceProperty: prop });
     return { found: false, threw: true };
   }
@@ -946,9 +1016,8 @@ function access(
 const INDEX_SEGMENT = /^(0|[1-9][0-9]*)$/;
 
 /**
- * The JSONPath one segment leads to. An index is `[n]` whether it was written
- * as a number or as a string, so `{ path: ['ids', '0'] }` asks the policy about
- * the same `$.ids[0]` the serializer emits.
+ * The containing value decides the path: arrays use `[n]` for either numeric
+ * spelling, while ordinary objects retain dotted numeric property names.
  */
 function segmentPath(
   path: string,
@@ -957,9 +1026,9 @@ function segmentPath(
 ): string {
   const prop = String(segment);
   if (typeof segment === 'number' || INDEX_SEGMENT.test(prop)) {
-    let isArray = typeof segment === 'number';
+    let isArray = false;
     try {
-      isArray ||= Array.isArray(host);
+      isArray = Array.isArray(host);
     } catch {
       // A revoked proxy answers nothing; the dotted spelling is the safe default.
     }
@@ -1016,6 +1085,10 @@ function makeId(ctx: Ctx, context: CorjReportIdContext): string {
         `makeReportId must return a string, got ${describeValue(id)}`,
       );
     }
+    if (id.length > INPUT_MAX_TEXT_LENGTH) {
+      inputLimit(ctx, { stage: 'other', path: context.path, reportKey: 'id' });
+      return defaultMakeReportId(context);
+    }
     // A default id is structural - it carries nothing from the caught object -
     // so the policy never sees it. Rewriting it would collapse distinct ids
     // onto one string and break the `child_ids` <-> `id` linkage.
@@ -1068,8 +1141,14 @@ function childSources(
       fresh++;
     }
   };
+  const charge = () => {
+    if (ctx.input.visits++ < INPUT_MAX_VISITS) return true;
+    node.childrenOmitted = 'max_children';
+    inputLimit(ctx, { ...context, reportKey: 'children' });
+    return false;
+  };
   for (const prop of ctx.options.childrenSources) {
-    if (fresh >= enough) break;
+    if (fresh >= enough || !charge()) break;
     const source = access(ctx, context, host, prop);
     // A children source behind an accessor is left unread rather than reported
     // as the marker string, which would invent a child that does not exist.
@@ -1082,12 +1161,22 @@ function childSources(
       continue;
     }
     if (!source.found || source.value === undefined) continue;
-    if (!Array.isArray(source.value)) {
+    let sourceIsArray = false;
+    try {
+      sourceIsArray = Array.isArray(source.value);
+    } catch (caught: unknown) {
+      reportError(ctx, caught, {
+        ...context,
+        path: `${node.path}.${prop}`,
+        sourceProperty: prop,
+      });
+    }
+    if (!sourceIsArray) {
       push(source.value, `${node.path}.${prop}`);
       continue;
     }
     // Own keys rather than `length`: a sparse array is not walked hole by hole.
-    const array: unknown[] = source.value;
+    const array = source.value as unknown[];
     let keys: string[];
     try {
       keys = Object.keys(array);
@@ -1096,7 +1185,7 @@ function childSources(
       continue;
     }
     for (const key of keys) {
-      if (fresh >= enough) break;
+      if (fresh >= enough || !charge()) break;
       if (!/^(0|[1-9][0-9]*)$/.test(key)) continue;
       const element = access(
         ctx,
@@ -1308,6 +1397,16 @@ function makeAsStringNoInvoke(
         stringOrMarker(
           access(ctx, { ...context, stage: 'prop-access' }, obj, 'message'),
         ) ?? '';
+      if (
+        name.length > INPUT_MAX_TEXT_LENGTH ||
+        message.length > INPUT_MAX_TEXT_LENGTH ||
+        (name !== '' &&
+          message !== '' &&
+          name.length + message.length + 2 > INPUT_MAX_TEXT_LENGTH)
+      ) {
+        inputLimit(ctx, context);
+        return { value: CORJ_TRUNCATED_MARKER, format: 'derived' };
+      }
       const value =
         name === '' ? message : message === '' ? name : `${name}: ${message}`;
       return { value, format: 'derived' };
@@ -1328,10 +1427,18 @@ function makeAsStringNoInvoke(
           : typeof obj === 'function'
           ? 'Function'
           : 'Object';
+      if (label.length + 9 > INPUT_MAX_TEXT_LENGTH) {
+        inputLimit(ctx, context);
+        return { value: CORJ_TRUNCATED_MARKER, format: 'derived' };
+      }
       return { value: `[object ${label}]`, format: 'derived' };
     }
     return { value: CORJ_OMITTED_MARKER, format: 'derived' };
   } catch (caught: unknown) {
+    if (isPrototypeInspectionLimitError(caught)) {
+      inputLimit(ctx, context);
+      return { value: CORJ_OMITTED_MARKER, format: 'derived' };
+    }
     reportError(ctx, caught, context);
     return { value: null, format: 'derived' };
   }
@@ -1341,6 +1448,17 @@ function makeAsString(
   ctx: Ctx,
   node: Node,
 ): { value: string | null; format: CorjAsStringFormat } {
+  if (typeof node.obj === 'bigint' && bigintExceedsInputLimit(node.obj)) {
+    inputLimit(ctx, {
+      stage: 'as_string',
+      path: node.path,
+      reportKey: 'as_string',
+    });
+    return {
+      value: CORJ_TRUNCATED_MARKER,
+      format: ctx.options.inspection === 'no-invoke' ? 'derived' : 'String',
+    };
+  }
   if (ctx.options.inspection === 'no-invoke') {
     return makeAsStringNoInvoke(ctx, node);
   }
@@ -1375,6 +1493,7 @@ function makeAsString(
   try {
     return { value: String(obj), format: 'String' };
   } catch (caught: unknown) {
+    ctx.input.fingerprintInvalid = true;
     reportError(ctx, caught, context);
     return { value: null, format: 'String' };
   }
@@ -1394,26 +1513,34 @@ function jsonRedact(
   /** The report field these values are destined for; a fingerprint part is not `as_json`. */
   reportKey: CorjReportKey = 'as_json',
 ):
-  | ((reportKey: string, path: string, read: () => unknown) => unknown)
+  | ((
+      reportKey: string,
+      path: string,
+      read: () => unknown,
+      parent: object,
+    ) => unknown)
   | undefined {
   const redactor = ctx.redactor;
   if (redactor === null) return undefined;
   const sources = ctx.options.childrenSources;
-  return (key, path, read) => {
+  return (key, path, read, parent) => {
     if (
       skipChildrenSources &&
       sources.some((source) => path === `${node.path}.${source}`)
     ) {
       return undefined;
     }
-    const context: CorjContext = {
+    const context = redactor.sourceContext(parent, key, {
       stage: 'as_json',
       path,
-      reportKey: reportKey,
+      reportKey,
       sourceProperty: key,
-    };
+    });
     if (redactor.excludes(context)) return redactor.policy.replacement;
-    const out = redactor.apply(read(), context);
+    const out = redactor.apply(redactor.read(parent, key, read), context, {
+      parent,
+      key,
+    });
     return out === CORJ_REDACT_DROP ? undefined : out;
   };
 }
@@ -1422,16 +1549,20 @@ function jsonRedact(
 function jsonKeyRedact(
   ctx: Ctx,
   reportKey: CorjReportKey = 'as_json',
-): ((reportKey: string, path: string) => string) | undefined {
+): ((reportKey: string, path: string, parent: object) => string) | undefined {
   const redactor = ctx.redactor;
   if (redactor === null) return undefined;
-  return (key, path) =>
-    redactor.text(key, {
-      stage: 'as_json',
-      path,
-      reportKey: reportKey,
-      sourceProperty: key,
-    });
+  return (key, path, parent) =>
+    redactor.key(
+      key,
+      redactor.sourceContext(parent, key, {
+        stage: 'as_json',
+        path,
+        reportKey: reportKey,
+        sourceProperty: key,
+      }),
+      parent,
+    );
 }
 
 /**
@@ -1461,13 +1592,16 @@ function serialize(
   let truncated = false;
   const redact = jsonRedact(ctx, node, skipChildrenSources);
   const mapKey = jsonKeyRedact(ctx);
-  const json = viewStringify(ctx, lengthLimit)(value, replacer, {
-    onTruncate: () => {
-      truncated = true;
-    },
-    ...(typeof lengthLimit === 'number' ? { lengthLimit } : {}),
-    ...(redact === undefined ? {} : { redact, mapKey, basePath: node.path }),
-  });
+  const produce = () =>
+    viewStringify(ctx, lengthLimit)(value, replacer, {
+      onTruncate: () => {
+        truncated = true;
+      },
+      ...(typeof lengthLimit === 'number' ? { lengthLimit } : {}),
+      ...(redact === undefined ? {} : { redact, mapKey, basePath: node.path }),
+    });
+  const json =
+    ctx.redactor === null ? produce() : ctx.redactor.withScope(produce);
   return { json, truncated };
 }
 
@@ -1533,8 +1667,13 @@ function makeAsJson(
     }
     return { value: JSON.parse(json), format, truncated };
   } catch (caught: unknown) {
+    if (isPrototypeInspectionLimitError(caught)) inputLimit(ctx, context);
     reportError(ctx, caught, context);
-    return { value: null, format, truncated: false };
+    return {
+      value: null,
+      format,
+      truncated: isPrototypeInspectionLimitError(caught),
+    };
   }
 }
 
@@ -1542,7 +1681,7 @@ type NodeFields = {
   entries: Entry[];
   formatEntries: Entry[];
   truncated: boolean;
-  /** `stack` as it was read, before `split('\n')` and after redaction. */
+  /** `stack` as it was read, before bounded line scanning and after redaction. */
   rawStack: string | null | undefined;
   /** Set when `rawStack` stands in for a stack a skip rule or `no-invoke` kept from being read. */
   stackEscaped: boolean;
@@ -1554,6 +1693,23 @@ type NodeFields = {
     typeof: CorjTypeof;
   };
 };
+
+function displayStack(ctx: Ctx, text: string, path: string): string[] {
+  const lines: string[] = [];
+  let start = 0;
+  while (lines.length < INPUT_MAX_STACK_LINES) {
+    const end = text.indexOf('\n', start);
+    if (end < 0) {
+      lines.push(text.slice(start));
+      return lines;
+    }
+    lines.push(text.slice(start, end));
+    start = end + 1;
+  }
+  lines.push(CORJ_TRUNCATED_MARKER);
+  inputLimit(ctx, { stage: 'other', path, reportKey: 'stack' }, false);
+  return lines;
+}
 
 /** `withJson` is `false` for a fingerprint, which never needs the JSON form. */
 function makeNodeFields(ctx: Ctx, node: Node, withJson = true): NodeFields {
@@ -1574,7 +1730,7 @@ function makeNodeFields(ctx: Ctx, node: Node, withJson = true): NodeFields {
   const rawStack = stackRead.value;
   const stack =
     typeof rawStack === 'string' && ctx.options.stackFormat === 'lines'
-      ? rawStack.split('\n')
+      ? displayStack(ctx, rawStack, path)
       : rawStack;
   const asString = makeAsString(ctx, node);
   const asStringValue =
@@ -1614,7 +1770,10 @@ function makeNodeFields(ctx: Ctx, node: Node, withJson = true): NodeFields {
       ['as_string_format', asString.format],
       ['as_json_format', asJson.format],
     ],
-    truncated: asJson.truncated,
+    truncated:
+      asJson.truncated ||
+      ctx.input.truncated.has(path) ||
+      Array.from(ctx.input.truncated).some((p) => p.startsWith(`${path}.`)),
   };
 }
 
@@ -1658,6 +1817,7 @@ function sortedStringify(ctx: Ctx, mode: CorjInspection): Stringify {
     // Fixed unit and cap: neither reportSizeUnit nor maxReportSize may move a fingerprint.
     lengthUnit: 'utf8-bytes',
     lengthLimit: FINGERPRINT_VALUE_MAX_SIZE,
+    keyCollision: 'throw',
     skipAccessors: mode === 'no-invoke' ? CORJ_OMITTED_MARKER : undefined,
   }) as Stringify;
   return ctx.sorted[mode] as Stringify;
@@ -1724,6 +1884,10 @@ function readFingerprintValue(
         ? part.sourceProperty
         : String(part.path[part.path.length - 1]);
   }
+  if (typeof raw === 'string' && raw.length > INPUT_MAX_TEXT_LENGTH) {
+    inputLimit(ctx, { stage: 'other', path, reportKey: 'fingerprint' });
+    return null;
+  }
   // Every emitted value meets the policy, whatever its type: a number or a
   // boolean is as identifying as a string, and the fingerprint is published.
   if (ctx.redactor !== null) {
@@ -1742,13 +1906,22 @@ function readFingerprintValue(
   // JSON has no `NaN` and no bigint, so both take the form the nested view
   // gives them: a value the policy saw is never dropped for want of a slot.
   if (typeof raw === 'number') return Number.isFinite(raw) ? raw : String(raw);
-  if (typeof raw === 'bigint') return `${String(raw)}n`;
+  if (typeof raw === 'bigint') {
+    if (bigintExceedsInputLimit(raw)) {
+      inputLimit(ctx, { stage: 'other', path, reportKey: 'fingerprint' });
+      return null;
+    }
+    return `${String(raw)}n`;
+  }
   if (typeof raw !== 'object' || raw === null) return null;
   try {
     // Rooted at the value's own path, so a `paths` rule that redacts something
     // inside it in `as_json` redacts the same thing in the hash input.
     const redact = jsonRedact(ctx, node, false, 'fingerprint');
     const json = sortedStringify(ctx, mode)(raw, null, {
+      onInputLimit: () => {
+        ctx.input.fingerprintInvalid = true;
+      },
       ...(redact === undefined
         ? {}
         : {
@@ -1759,6 +1932,7 @@ function readFingerprintValue(
     });
     return json === undefined ? null : (JSON.parse(json) as CorjJsonValue);
   } catch (failure: unknown) {
+    ctx.input.fingerprintInvalid = true;
     reportError(ctx, failure, {
       stage: 'as_json',
       path: node.path,
@@ -1817,13 +1991,21 @@ function computeFingerprint(
       NodeFields,
     ]): FingerprintRow => [
       node.path,
-      parts.map((part) => fingerprintValue(ctx, node, fields, part)),
+      parts.map((part) =>
+        ctx.redactor === null
+          ? fingerprintValue(ctx, node, fields, part)
+          : ctx.redactor.withScope(() =>
+              fingerprintValue(ctx, node, fields, part),
+            ),
+      ),
     ];
     const rootRow = rowOf([root, rootFields]);
     const rows: readonly FingerprintRow[] = [rootRow, ...children.map(rowOf)];
     if (requireStack && !rootStackBacksHash(parts, rootRow, rootFields)) {
       return undefined;
     }
+    if (ctx.input.fingerprintInvalid)
+      throw new Error('Fingerprint input is unavailable after safety handling');
     const asString = rootFields.values.as_string;
     return fingerprintOf(
       parts.map((part) => part.label),
@@ -1880,6 +2062,7 @@ function resolveOccurrenceId(
         source,
         'occurrence_id',
       );
+      if (read.redacted !== undefined) return CORJ_REDACTED_MARKER;
       candidate =
         read.found && read.redacted === undefined && read.omitted !== true
           ? read.value
@@ -1908,7 +2091,7 @@ function build(
   const occurrenceId = resolveOccurrenceId(ctx, caught, call.occurrenceId);
   const { root, nodes } = discover(ctx, caught);
   const rootFields = makeNodeFields(ctx, root);
-  let anyTruncated = rootFields.truncated;
+  let anyTruncated = rootFields.truncated || ctx.input.truncated.size > 0;
   const childFields: (readonly [Node, NodeFields])[] = [];
   const rows = nodes.map((node) => {
     const fields = makeNodeFields(ctx, node);
@@ -1954,6 +2137,7 @@ function build(
     context = view.value;
     anyTruncated ||= view.truncated;
   }
+  anyTruncated ||= ctx.input.truncated.size > 0;
   const { metadata, omitExpectedValues: omit } = ctx.options;
   const schemaLink = omit
     ? asArray
@@ -2048,6 +2232,9 @@ export class CorjMaker {
     this.options = resolveOptions(CORJ_DEFAULT_OPTIONS, options);
     const { maxReportSize, reportSizeUnit } = this.options;
     const stringifyOptions: StringifyConfig = {
+      maximumVisits: INPUT_MAX_VISITS,
+      inputDepthLimit: INPUT_MAX_DEPTH,
+      maximumTextLength: INPUT_MAX_TEXT_LENGTH,
       circularValue: CORJ_CIRCULAR_MARKER,
       deterministic: false,
       lengthUnit: reportSizeUnit,
@@ -2059,6 +2246,12 @@ export class CorjMaker {
       options: this.options,
       redactor: null,
       errors: null,
+      input: {
+        visits: 0,
+        truncated: new Set(),
+        fingerprintInvalid: false,
+        limits: new Set(),
+      },
       stringifyOptions,
       unbounded: null,
       sorted: {},
@@ -2072,13 +2265,20 @@ export class CorjMaker {
     };
     const policy = this.options.redact;
     if (policy !== null) {
-      this.ctx.redactor = new Redactor(policy, (caught, context) =>
-        reportError(this.ctx, caught, {
-          stage: 'redact',
-          path: context.path,
-          reportKey: context.reportKey,
-          sourceProperty: context.sourceProperty,
-        }),
+      this.ctx.redactor = new Redactor(
+        policy,
+        (caught, context) =>
+          reportError(this.ctx, caught, {
+            stage: 'redact',
+            path: context.path,
+            reportKey: context.reportKey,
+            sourceProperty: context.sourceProperty,
+          }),
+        (context) => inputLimit(this.ctx, context),
+        (context) => {
+          if (context.reportKey !== 'as_json')
+            this.ctx.input.fingerprintInvalid = true;
+        },
       );
     }
   }
@@ -2091,11 +2291,21 @@ export class CorjMaker {
   /** Records are per call. A caught object may re-enter this maker, so the previous list is restored. */
   private collecting<T>(produce: () => T): T {
     const previous = this.ctx.errors;
+    const previousInput = this.ctx.input;
     this.ctx.errors = [];
+    this.ctx.input = {
+      visits: 0,
+      truncated: new Set(),
+      fingerprintInvalid: false,
+      limits: new Set(),
+    };
     try {
-      return produce();
+      return this.ctx.redactor === null
+        ? produce()
+        : this.ctx.redactor.withScope(produce);
     } finally {
       this.ctx.errors = previous;
+      this.ctx.input = previousInput;
     }
   }
 
@@ -2186,7 +2396,7 @@ export class CorjMaker {
       );
       return {
         value: made.value,
-        truncated: made.truncated,
+        truncated: made.truncated || this.ctx.input.truncated.size > 0,
         errors: [...(this.ctx.errors as CorjReportingError[])],
       };
     });

@@ -5,8 +5,6 @@
 <a href="https://www.npmjs.com/package/@tsconfig/strictest"><img src="https://img.shields.io/badge/typescript-strictest-blue" alt="Strictest TypeScript Config" title="Strictest TypeScript Config"></a>
 <a href="https://www.npmjs.org/package/caught-object-report-json"><img src="https://img.shields.io/npm/l/caught-object-report-json.svg" alt="Package License MIT" title="Package License MIT"></a>
 <a href="https://www.npmjs.org/package/caught-object-report-json"><img src="https://img.shields.io/npm/v/caught-object-report-json.svg" alt="Npm Version" title="Npm Version"></a></p>
-<img src="https://github.com/dany-fedorov/caught-object-report-json/raw/main/banner.png">
-
 <p>Normalize caught values and nested causes into one typed JSON format. Give your
 harness or LLM consistent exception data to inspect when correcting tool inputs
 or choosing a recovery step, instead of handling every SDK&#39;s error shape.
@@ -363,7 +361,7 @@ would have produced. It does not add <code>v</code> or <code>$schema</code>, sin
 </tr>
 </tbody></table>
 <p>Each version has its own JSON Schema (see <a href="#md:links">Links</a>); <code>$schema</code> points to the matching one.</p>
-<a id="md:stack-as-an-array-of-lines" class="tsd-anchor"></a><h2><a href="#md:stack-as-an-array-of-lines">Stack as an array of lines</a></h2><p><code>stack</code> is stored as <code>caught.stack.split(&#39;\n&#39;)</code>, one element per line. Lines are easier to read in pretty-printed logs and to
+<a id="md:stack-as-an-array-of-lines" class="tsd-anchor"></a><h2><a href="#md:stack-as-an-array-of-lines">Stack as an array of lines</a></h2><p><code>stack</code> is stored as an array, one element per line, capped at 10,000 lines plus a <code>[truncated]</code> marker. Lines are easier to read in pretty-printed logs and to
 query in log tools than one long string with escaped newlines. The split is literal: only <code>\n</code> separates, a <code>\r</code> before it stays
 on its line, empty lines are kept, an empty stack becomes <code>[&quot;&quot;]</code>. Only a string <code>stack</code> is reported; a <code>stack</code> getter that
 throws yields <code>null</code>. Pass <code>stackFormat: &#39;string&#39;</code> to keep the raw string.</p>
@@ -419,11 +417,14 @@ input is your own configuration and still throws: something that is not an objec
 </code><button>Copy</button></pre>
 <ul>
 <li>The default is <code>[{ auto: &#39;random&#39; }]</code>. <code>null</code> or <code>[]</code> turns the field off.</li>
-<li><code>{ field }</code> and <code>{ path }</code> read the <strong>root</strong> caught value only, through the same access the report uses, so <code>redact</code> skip
+<li><code>{ sourceProperty }</code> and <code>{ path }</code> read the <strong>root</strong> caught value only, through the same access the report uses, so <code>redact</code> skip
 rules apply and <a href="#md:reporting-without-running-the-caught-object"><code>inspection</code></a> decides whether a getter runs — at <strong>every</strong>
 segment of a path, not only the last. An entry may carry its own <code>inspection</code>; <code>inspection: &#39;default&#39;</code> on an entry under a
 global <code>no-invoke</code> runs caught code for that read. An element of an array is addressed as <code>$.ids[0]</code> whether you write the
 segment as <code>0</code> or as <code>&#39;0&#39;</code>, so one <code>paths</code> rule covers both spellings.</li>
+<li>An excluded source immediately produces the literal <code>[redacted]</code>, regardless of the configured replacement, and stops
+the source chain. This marker loses uniqueness and correlation information. An explicit call <code>occurrenceId</code> still wins.
+Numeric ordinary-object properties use dotted paths such as <code>$.map.0</code>; only array indices use brackets.</li>
 <li>A function entry that throws is recorded as a reporting error (<code>stage: &#39;other&#39;</code>, <code>reportKey: &#39;occurrence_id&#39;</code>) and resolution
 continues with the next entry.</li>
 <li><code>{ auto: &#39;random&#39; }</code> yields <code>CORJ_</code> plus 26 Crockford base32 characters, from <code>globalThis.crypto.getRandomValues</code> when it
@@ -469,7 +470,7 @@ them.</p>
 <p><code>{ path: [&#39;a&#39;] }</code> is the one-segment case of <code>{ sourceProperty: &#39;a&#39; }</code>: the same read, the same label, the same hash — and listing
 both is rejected as a repeated part.</p>
 <p><code>as_json</code> is deliberately not a part: it carries timestamps and per-occurrence ids, which would make every occurrence a new
-kind of failure. Name a stable property with <code>{ field }</code> instead. A whole-report hash was rejected for the same reason, and
+kind of failure. Name a stable property with <code>{ sourceProperty }</code> instead. A whole-report hash was rejected for the same reason, and
 because every format bump would then change every fingerprint.</p>
 <p>Parts apply to <strong>every node</strong>, root and children, in discovery order, and each node&#39;s values are hashed together with its
 <code>path</code>, so the same error nested one level deeper fingerprints differently.</p>
@@ -516,6 +517,12 @@ nothing.</p>
 implementation because the web platform has no synchronous digest and this package has no dependencies. The <code>fp1</code> prefix
 names the recipe: if it ever changes, fingerprints from the two versions are not comparable, and the prefix is how a reader
 can tell.</p>
+<p>Computed fingerprints are omitted with a fingerprint reporting error when new input safety handling, lossy snapshot
+preparation, colliding redacted keys, or pattern changes whose transform skips a legacy scrub pass prevent the supported
+canonical input from being reconstructed. Supported <code>fp1_</code> hashes retain their recipe, including its existing 16,384-byte nested JSON and 16,384-code-unit string output cuts. A limit
+in an independent JSON view does not invalidate an otherwise complete fingerprint. Explicit call fingerprints still win.
+Function parts use the node path; CORJ does not infer a source path from application code. Numeric and string path segments
+read the same property and policy path but remain distinct labels in the existing fingerprint recipe.</p>
 <p><code>maker.makeFingerprint(caught)</code> computes the value alone — discovery and node fields, without <code>as_json</code>, the context or the
 limiter. It returns <code>undefined</code> when <code>fingerprintParts</code> is <code>null</code> or <code>[]</code>. <code>makeFingerprint(caught, { requireStack: true })</code>
 returns a value only when the hash is backed by the root&#39;s own stack frames: <code>&#39;stack&#39;</code> is one of the parts, <strong>and</strong> the
@@ -582,6 +589,16 @@ punctuation and children share that budget; for <code>Corj.makeReportArray</code
 <code>&#39;utf8-bytes&#39;</code> (<code>Buffer.byteLength(json, &#39;utf8&#39;)</code>) or <code>&#39;utf16-code-units&#39;</code> (<code>json.length</code>). Invalid values throw when the
 maker is built. The floor is 512 because that is the smallest budget the worst case of a minimal report is guaranteed to
 fit: a 128-character <code>occurrence_id</code>, a 64-character <code>fingerprint</code>, both omission flags, and the array form.</p>
+<p>Input safety ceilings apply even with <code>maxReportSize: null</code> or a view&#39;s <code>maxSize: null</code>: 10,000 JSON candidate entries per
+serialization, depth 128, 10,000 child-source candidates across graph discovery, 16,384 decimal BigInt digits before decimal
+conversion, 1,000,000 UTF-16 units per text subject/intermediate and in aggregate per serialization or prepared snapshot,
+10,000 display stack lines, and 128 prototype lookup steps. Dropped values and repeated children still consume candidate budgets. Oversized
+text is withheld whole before patterns or transforms, since cutting it first could split a secret. Input exhaustion sets
+<code>truncated</code> and retains safe partial output with existing markers. Display stack truncation may still fingerprint the full
+supported raw stack.</p>
+<p>These bound library-controlled work, not elapsed time. Native enumeration/allocation, proxy traps, default-mode hooks and
+getters, individual regular expressions (including overridden methods), and application callbacks cannot be interrupted
+synchronously. A replacement may allocate before CORJ can check its result.</p>
 <p>Reports that fit are preserved exactly. Oversized reports set <code>truncated: true</code> on the root. Optional root parts go first,
 each whole and each leaving a flag behind, and only then is error content reduced:</p>
 <ol>
@@ -667,7 +684,7 @@ one inside the catch block that was reporting the first.</p>
 <tr>
 <td><code>stackFormat</code></td>
 <td><code>&#39;lines&#39;</code></td>
-<td><code>&#39;lines&#39;</code> stores <code>stack.split(&#39;\n&#39;)</code>, <code>&#39;string&#39;</code> the raw string.</td>
+<td><code>&#39;lines&#39;</code> stores at most 10,000 stack lines plus a truncation marker, <code>&#39;string&#39;</code> the raw string.</td>
 </tr>
 <tr>
 <td><code>inspection</code></td>
@@ -773,6 +790,19 @@ call. Add <code>inspection: &#39;no-invoke&#39;</code> if the getter must also n
 <p>The <code>transform</code> context is <code>{ stage, path, reportKey, sourceProperty }</code>, where <code>stage</code> is <code>&#39;prop-access&#39;</code>, <code>&#39;as_string&#39;</code>, <code>&#39;as_json&#39;</code> or
 <code>&#39;warning&#39;</code>. (<code>&#39;children&#39;</code> reaches only the skip rules, never <code>transform</code>: a children source is excluded before it is read or
 not at all.)</p>
+<p><strong>Transforms receive safe snapshots by default.</strong> An object or array is copied into detached plain data before the
+callback runs. CORJ applies configured key/path exclusions and string patterns to nested keys and values first. Objects have
+no prototype; arrays retain their array identity with inherited executable behavior removed. Only own enumerable data is
+copied. Accessors, functions, symbols and BigInts become <code>[not-inspected]</code>; ancestor cycles become <code>[circular]</code>. Preparation
+never calls getters or serialization hooks. The source object is unchanged. This protects configured secrets; it cannot
+identify secrets absent from your policy. Callback context paths and source-property names deliberately retain original
+source names for policy matching; treat that metadata as sensitive.</p>
+<pre><code class="language-typescript"><span class="hl-7">let</span><span class="hl-1"> </span><span class="hl-2">callbackPassword</span><span class="hl-1">: </span><span class="hl-5">unknown</span><span class="hl-1">;</span><br/><span class="hl-7">const</span><span class="hl-1"> </span><span class="hl-8">maker</span><span class="hl-1"> = </span><span class="hl-7">new</span><span class="hl-1"> </span><span class="hl-4">CorjMaker</span><span class="hl-1">({</span><br/><span class="hl-1">  </span><span class="hl-2">redact:</span><span class="hl-1"> {</span><br/><span class="hl-1">    </span><span class="hl-2">keys:</span><span class="hl-1"> [</span><span class="hl-3">&#39;password&#39;</span><span class="hl-1">],</span><br/><span class="hl-1">    </span><span class="hl-4">transform</span><span class="hl-2">:</span><span class="hl-1"> (</span><span class="hl-2">value</span><span class="hl-1">, { </span><span class="hl-2">path</span><span class="hl-1"> }) </span><span class="hl-7">=&gt;</span><span class="hl-1"> {</span><br/><span class="hl-1">      </span><span class="hl-0">if</span><span class="hl-1"> (</span><span class="hl-2">path</span><span class="hl-1"> === </span><span class="hl-3">&#39;$&#39;</span><span class="hl-1"> &amp;&amp; </span><span class="hl-7">typeof</span><span class="hl-1"> </span><span class="hl-2">value</span><span class="hl-1"> === </span><span class="hl-3">&#39;object&#39;</span><span class="hl-1"> &amp;&amp; </span><span class="hl-2">value</span><span class="hl-1"> !== </span><span class="hl-7">null</span><span class="hl-1">) {</span><br/><span class="hl-1">        </span><span class="hl-2">callbackPassword</span><span class="hl-1"> = (</span><span class="hl-2">value</span><span class="hl-1"> </span><span class="hl-0">as</span><span class="hl-1"> </span><span class="hl-5">Record</span><span class="hl-1">&lt;</span><span class="hl-5">string</span><span class="hl-1">, </span><span class="hl-5">unknown</span><span class="hl-1">&gt;).</span><span class="hl-2">password</span><span class="hl-1">;</span><br/><span class="hl-1">      }</span><br/><span class="hl-1">      </span><span class="hl-0">return</span><span class="hl-1"> </span><span class="hl-2">value</span><span class="hl-1">;</span><br/><span class="hl-1">    },</span><br/><span class="hl-1">  },</span><br/><span class="hl-1">});</span><br/><span class="hl-7">const</span><span class="hl-1"> </span><span class="hl-8">report</span><span class="hl-1"> = </span><span class="hl-2">maker</span><span class="hl-1">.</span><span class="hl-4">makeReport</span><span class="hl-1">({ </span><span class="hl-2">user:</span><span class="hl-1"> </span><span class="hl-3">&#39;ada&#39;</span><span class="hl-1">, </span><span class="hl-2">password:</span><span class="hl-1"> </span><span class="hl-3">&#39;hunter2&#39;</span><span class="hl-1"> });</span><br/><span class="hl-6">// callbackPassword === &#39;[redacted]&#39;</span><br/><span class="hl-6">// report.as_json: { user: &#39;ada&#39;, password: &#39;[redacted]&#39; }</span>
+</code><button>Copy</button></pre>
+<p>Returned containers are sanitized before later callbacks or output. If scrubbed object keys collide, CORJ preserves members
+with suffixes such as <code>name (2)</code> and <code>name (3)</code>, skipping names already emitted. Policy paths continue to use original keys.
+Snapshot inspection failures fail closed. Other application callbacks, including fingerprint/source functions,
+<code>makeReportId</code> and a custom <code>onReportingError</code>, keep receiving their documented original inputs and require your trust.</p>
 <a id="md:what-the-policy-reaches" class="tsd-anchor"></a><h2><a href="#md:what-the-policy-reaches">What the policy reaches</a></h2><ul>
 <li>every report field: <code>message</code>, <code>stack</code>, <code>constructor_name</code>, <code>as_string</code>, and every value <strong>and property name</strong> inside
 <code>as_json</code>, at any depth;</li>
@@ -792,7 +822,7 @@ path-keyed <code>transform</code> that rewrites it in <code>as_json</code> rewri
 </ul>
 <p>A children source the policy excludes is not followed: the node gets <code>children_omitted: &quot;redacted&quot;</code> instead of a child report.
 Report schema, cycle handling and the <code>maxReportSize</code> budget are unaffected — redaction runs before the size limit is applied.
-Two property names that scrub to the same text collapse into one key in <code>as_json</code>.</p>
+Property names that scrub to the same text retain their values with suffixes such as <code> (2)</code> and <code> (3)</code> in <code>as_json</code>.</p>
 <p>Because <code>keys</code> matches a property <em>name</em> wherever it appears, a broad name has a broad reach: <code>keys: [&#39;name&#39;]</code> also blanks
 <code>constructor_name</code>, which is read as <code>constructor.name</code>.</p>
 <p>Since <code>corj/v0.14</code>, <code>paths</code> rules also see <code>$context...</code> and any named root a <code>makeJsonView</code> view uses, so an unanchored <code>RegExp</code>
@@ -800,9 +830,10 @@ such as <code>/\.headers$/</code> starts matching there too. It fails safe — m
 caught value alone, anchor it with <code>^\$\.</code>:</p>
 <pre><code class="language-typescript"><span class="hl-7">const</span><span class="hl-1"> </span><span class="hl-8">onCaughtOnly</span><span class="hl-1"> = { </span><span class="hl-2">paths:</span><span class="hl-1"> [</span><span class="hl-11">/</span><span class="hl-12">^</span><span class="hl-15">\$\.</span><span class="hl-11">.</span><span class="hl-14">*</span><span class="hl-15">\.</span><span class="hl-11">headers</span><span class="hl-12">$</span><span class="hl-11">/</span><span class="hl-1">] };</span><br/><span class="hl-7">const</span><span class="hl-1"> </span><span class="hl-8">onContextOnly</span><span class="hl-1"> = { </span><span class="hl-2">paths:</span><span class="hl-1"> [</span><span class="hl-3">&#39;$context.user.email&#39;</span><span class="hl-1">] };</span>
 </code><button>Copy</button></pre>
-<p>Three fields are still never rewritten: <code>occurrence_id</code>, <code>fingerprint</code> and a default report <code>id</code>. A scrubbed correlation
-handle correlates with nothing, a fingerprint is a hash of values the policy has already seen, and a scrubbed structural id
-would break <code>child_ids</code>.</p>
+<p>The final <code>occurrence_id</code>, <code>fingerprint</code> and default report <code>id</code> are not post-processed by transforms or string patterns.
+An excluded occurrence-ID source still yields the literal <code>[redacted]</code> and stops source resolution, as documented above; an
+explicit call <code>occurrenceId</code> wins. Computed fingerprints hash policy-processed values, and preserving default structural IDs
+keeps <code>child_ids</code> linked to their reports.</p>
 <a id="md:applying-the-policy-to-your-own-text" class="tsd-anchor"></a><h2><a href="#md:applying-the-policy-to-your-own-text">Applying the policy to your own text</a></h2><p>A <strong>custom</strong> <code>onReportingError</code> receives the caught object unchanged, and anything you log next to a report is text CORJ never sees.
 <code>maker.scrubText</code> applies the maker&#39;s own policy to one such string: it always returns a string, and without a policy it
 returns the text unchanged.</p>

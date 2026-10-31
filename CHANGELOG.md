@@ -1,3 +1,23 @@
+# [15.0.0](https://github.com/dany-fedorov/caught-object-report-json/compare/v14.0.0...v15.0.0) (2026-10-31)
+
+
+### Features
+
+* **api:** export four long-named root functions instead of the Corj object ([f6958b5](https://github.com/dany-fedorov/caught-object-report-json/commit/f6958b515af285783f750e7b84d9d2a9dbd7f8f6))
+
+
+### BREAKING CHANGES
+
+* **api:** `Corj.makeReport` is `makeCaughtObjectReport`,
+`Corj.makeReportArray` is `makeCaughtObjectReportArray`,
+`Corj.restoreExpectedValues` is `restoreCaughtObjectReportExpectedValues`,
+`Corj.resolveRedactPolicy` is `resolveCaughtObjectReportRedactPolicy`, all
+exported from the package root; the `Corj` object no longer exists. Replace
+`import { Corj } from '...'` with `import * as Corj from '...'` and the
+member names above.
+
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
+
 # 14.0.0 (2026-10-17)
 
 ### BREAKING CHANGES

@@ -63,7 +63,22 @@ export type CorjRedactTransform = (
   context: CorjContext,
 ) => unknown;
 
-/** A redaction policy as it is passed in; every part is optional. */
+/**
+ * A redaction policy as it is passed in; every part is optional. `keys` and
+ * `paths` skip reads, so an excluded getter never runs; `patterns` and
+ * `transform` rewrite text wherever the report emits it. To remove a secret's
+ * text from `message`, `stack` and `as_string` alike, use `patterns`.
+ *
+ * @example
+ * ```typescript
+ * const redact: CorjRedactPolicyInput = {
+ *   keys: ['password', /^authorization$/i],
+ *   paths: ['$.cause.config.headers'],
+ *   patterns: [/sk-live-[A-Za-z0-9]+/g], // the g flag is required
+ *   transform: (value, { sourceProperty }) => (sourceProperty === 'url' ? '[url]' : value),
+ * };
+ * ```
+ */
 export type CorjRedactPolicyInput = {
   /** Property names never read from the caught object. A string matches exactly. */
   keys?: readonly (string | RegExp)[];

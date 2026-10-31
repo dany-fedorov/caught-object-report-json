@@ -1,0 +1,35 @@
+# caught-object-report-json (CORJ)
+
+> One JSON shape for every JavaScript error. `Corj.makeReport(caught)` turns anything a `catch` block receives (an `Error`, a nested `cause` chain, an `AggregateError`, a thrown string or `null`, a hostile object with throwing getters) into one bounded, typed JSON report that never throws, is capped in bytes, flattens nested errors into `children`, and carries an `occurrence_id` and a `fingerprint`. Zero runtime dependencies. CommonJS build with TypeScript declarations; works in Node, Bun and browsers through a bundler.
+
+Package name: `caught-object-report-json`. Current report format: `corj/v0.15`. Current major: 14.
+
+Invariants an integrator can rely on:
+- `Corj.makeReport` and `CorjMaker#makeReport` never throw because of the caught value. Only invalid configuration throws (`TypeError` / `RangeError`), at the constructor or call site.
+- Compact JSON of the whole report is at most `maxReportSize` bytes (default 100000; floor 512; `null` disables). `truncated: true` on the root means something was cut.
+- A missing report field means its documented expected value; `null` means producing it threw (see `reporting_errors`); `"[not-inspected]"` means `inspection: 'no-invoke'` declined to run code.
+- Nested errors from `cause` and `errors` are flattened breadth-first into `children`, each with `id`, `path` (JSONPath such as `$.cause.errors[0]`), `level` and `child_ids`. Every object is reported once; repeats and cycles are references by id.
+
+Entry points: `Corj.makeReport(caught, input?)`, `Corj.makeReportArray(caught, input?)`, `new CorjMaker(options?)` with `makeReport`, `makeReportArray`, `withOptions`, `makeFingerprint`, `makeJsonView`, `scrubText`; `Corj.restoreExpectedValues(report)`, `Corj.resolveRedactPolicy(input)`.
+
+## Docs
+
+- [README](https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/README.md): hook, install, quick start, graduated examples, agent section.
+- [API reference](https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/docs/api.md): every export with signature, parameters, throws, and a verified example.
+- [Guide](https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/docs/guide.md): report fields and omission rules, nested errors, occurrence id, fingerprint, context, size limit, reporting errors, options table with types and constraints, redaction, no-invoke inspection, limits and non-goals, supported runtimes.
+- [Examples](https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/docs/examples.md): twelve runnable examples with printed output.
+- [Recipes](https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/docs/recipes.md): structured loggers, pino, agent tool-call boundary, schema validation, winston.
+- [Upgrading](https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/docs/UPGRADING.md): migration notes for each major.
+
+## Machine-readable
+
+- [JSON Schema, report object, corj/v0.15](https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.15/report-object.json)
+- [JSON Schema, report array, corj/v0.15](https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.15/report-array.json)
+- [JSON Schema, definitions with per-field descriptions](https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.15/definitions.json)
+- [TypeScript source with JSDoc](https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/src/index.ts): the shipped `index.d.ts` carries the same JSDoc.
+- [TypeDoc](https://dany-fedorov.github.io/caught-object-report-json/modules.html)
+
+## Optional
+
+- [CHANGELOG](https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/CHANGELOG.md)
+- [npm](https://www.npmjs.com/package/caught-object-report-json)

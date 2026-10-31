@@ -67,6 +67,7 @@ Four keys for a plain `Error` (real output; Node's own frames cut from the stack
   - [5. Redact before anyone reads it](#5-redact-before-anyone-reads-it)
   - [6. Configure once](#6-configure-once)
   - [7. Same failure again?](#7-same-failure-again)
+- [Report every error from your server](#report-every-error-from-your-server)
 - [LLM harnesses and agent graphs](#llm-harnesses-and-agent-graphs)
 - [For AI agents reading this](#for-ai-agents-reading-this)
 - [When not to use CORJ](#when-not-to-use-corj)
@@ -253,6 +254,22 @@ corj.makeReport(err).occurrence_id;                      // 'CORJ_…', new per 
 
 Pass your own id for correlation with the request that failed: `corj.makeReport(caught, { occurrenceId: requestId })`.
 
+# Report every error from your server
+
+One page per server, each a complete verified file that logs every failure as a report and answers failed requests with a
+`500` quoting the report's `occurrence_id`. Open only the page for your server; they all have the same shape.
+
+| Runtime | Servers |
+| --- | --- |
+| Node.js | [Express](https://github.com/dany-fedorov/caught-object-report-json/blob/main/docs/servers/express.md), [Fastify](https://github.com/dany-fedorov/caught-object-report-json/blob/main/docs/servers/fastify.md), [NestJS](https://github.com/dany-fedorov/caught-object-report-json/blob/main/docs/servers/nestjs.md), [Koa](https://github.com/dany-fedorov/caught-object-report-json/blob/main/docs/servers/koa.md), [hapi](https://github.com/dany-fedorov/caught-object-report-json/blob/main/docs/servers/hapi.md), [native `http`](https://github.com/dany-fedorov/caught-object-report-json/blob/main/docs/servers/node-http.md) |
+| Bun | [`Bun.serve`](https://github.com/dany-fedorov/caught-object-report-json/blob/main/docs/servers/bun-native.md), [Elysia](https://github.com/dany-fedorov/caught-object-report-json/blob/main/docs/servers/elysia.md) |
+| Deno | [`Deno.serve`](https://github.com/dany-fedorov/caught-object-report-json/blob/main/docs/servers/deno-native.md), [Oak](https://github.com/dany-fedorov/caught-object-report-json/blob/main/docs/servers/oak.md) |
+| All three | [Hono](https://github.com/dany-fedorov/caught-object-report-json/blob/main/docs/servers/hono.md) |
+
+Each page covers the request-level hook, the process-level hooks (`uncaughtException` / `unhandledRejection`, or Deno's
+events), and the framework's own quirks, such as what it does to a thrown `null`. Index with a one-line summary per
+server: [docs/servers](https://github.com/dany-fedorov/caught-object-report-json/blob/main/docs/servers/README.md).
+
 # LLM harnesses and agent graphs
 
 An LLM harness catches failures from model clients and tools at the boundary of each graph node. CORJ gives that boundary a
@@ -295,6 +312,7 @@ If you are an agent integrating or consuming this package, this is the shortest 
   `message`, `as_string`, `as_json`, `stack`, `children_omitted`, `children` (object form) or `id`/`path`/`level`/`child_ids`
   (every node), `context`, `reporting_errors`, `v`, `$schema`. Types and omission rules:
   [Fields](https://github.com/dany-fedorov/caught-object-report-json/blob/main/docs/guide.md#fields).
+- **Wiring a server.** Fetch exactly one page from `docs/servers/<slug>.md` (slugs: `express`, `fastify`, `nestjs`, `koa`, `hapi`, `node-http`, `bun-native`, `elysia`, `hono`, `deno-native`, `oak`). Each holds a complete verified file, install and run commands, expected output and caveats.
 - **Complete reference.** [docs/api.md](https://github.com/dany-fedorov/caught-object-report-json/blob/main/docs/api.md)
   has every export with signature, parameters, what throws, and a verified example. The shipped `index.d.ts` carries the
   same JSDoc.
@@ -327,6 +345,7 @@ graph or decide retryability. The complete list with reasoning is
 | [Guide](https://github.com/dany-fedorov/caught-object-report-json/blob/main/docs/guide.md) | Every report field and why it is there; nested errors, occurrence id, fingerprint, context, size limit, reporting errors; the options table with types and constraints; redaction; `no-invoke` inspection; runtimes. |
 | [API reference](https://github.com/dany-fedorov/caught-object-report-json/blob/main/docs/api.md) | Every export with signature, parameters, throws and a verified example. |
 | [Examples](https://github.com/dany-fedorov/caught-object-report-json/blob/main/docs/examples.md) | Twelve runnable examples with printed output. |
+| [Servers](https://github.com/dany-fedorov/caught-object-report-json/blob/main/docs/servers/README.md) | One verified page per server: Express, Fastify, NestJS, Koa, hapi, native http, Bun.serve, Elysia, Hono, Deno.serve, Oak. |
 | [Recipes](https://github.com/dany-fedorov/caught-object-report-json/blob/main/docs/recipes.md) | Structured loggers, pino, an agent tool-call boundary, schema validation, winston. |
 | [Upgrading](https://github.com/dany-fedorov/caught-object-report-json/blob/main/docs/UPGRADING.md) | Migration notes for every major since v8. |
 | [TypeDoc](https://dany-fedorov.github.io/caught-object-report-json/modules.html) | Generated reference with source links. |

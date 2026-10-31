@@ -8,7 +8,12 @@
       "$id": "https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.15-full/definitions.json/$defs/BASE_PROPERTIES_MIXIN",
       "type": "object",
       "description": "Base properties shared by all report objects. This is the complete form of corj/v0.15: the default implementation produces it with `omitExpectedValues: false`, and `restoreExpectedValues` converts a corj/v0.15 report into it. No field is omitted for holding its expected value.",
-      "required": ["instanceof_error", "typeof", "as_string", "as_json"],
+      "required": [
+        "instanceof_error",
+        "typeof",
+        "as_string",
+        "as_json"
+      ],
       "properties": {
         "occurrence_id": {
           "description": "Root only. Identifies this occurrence: from the call, from a configured source, or a generated CORJ_ id.",
@@ -98,7 +103,7 @@
           ]
         },
         "stack": {
-          "description": "Optional base property. Result of `caught.stack`. Not set if `caught` does not have a string `stack`. Set to `null` if accessing `caught.stack` throws. The default implementation stores `stack.split(\"\\n\")` as an array of lines (`parseStackToArray`, on by default); the raw string is stored when that option is off.",
+          "description": "Optional base property. Result of `caught.stack`. Not set if `caught` does not have a string `stack`. Set to `null` if accessing `caught.stack` throws. The default implementation stores the stack as an array of lines (`stackFormat: \"lines\"`, the default, at most 10,000 lines plus a `[truncated]` marker) or as the raw string (`stackFormat: \"string\"`).",
           "oneOf": [
             {
               "type": "null"
@@ -126,13 +131,23 @@
         },
         "v": {
           "description": "Optional root property. A version of report, added by the metadata option. `corj/v0.15-full` marks a complete report.",
-          "enum": ["corj/v0.15-full"]
+          "enum": [
+            "corj/v0.15-full"
+          ]
+        },
+        "$schema": {
+          "description": "Optional root property. URL of the JSON Schema this report conforms to, added by the metadata option (`metadata: true` or `metadata: { $schema: true }`). Off by default.",
+          "type": "string"
         },
         "as_string_format": {
           "description": "Optional base property. A format of `as_string` field, can be omitted. \"derived\" marks a value rebuilt from property descriptors without calling any method, which is what the `no-invoke` inspection mode produces.",
           "oneOf": [
             {
-              "enum": [".toCorjAsString", "String", "derived"]
+              "enum": [
+                ".toCorjAsString",
+                "String",
+                "derived"
+              ]
             }
           ]
         },
@@ -179,7 +194,11 @@
       "$id": "https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.15-full/definitions.json/$defs/REPORTING_ERROR",
       "description": "One failure met while a report was produced. The same shape reaches the onReportingError handler.",
       "type": "object",
-      "required": ["stage", "path", "error"],
+      "required": [
+        "stage",
+        "path",
+        "error"
+      ],
       "additionalProperties": false,
       "properties": {
         "stage": {
@@ -237,7 +256,11 @@
     "REPORT_OBJECT_IN_ARRAY_PROPERTIES_MIXIN": {
       "$id": "https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.15-full/definitions.json/$defs/REPORT_OBJECT_IN_ARRAY_PROPERTIES_MIXIN",
       "type": "object",
-      "required": ["id", "path", "level"],
+      "required": [
+        "id",
+        "path",
+        "level"
+      ],
       "properties": {
         "id": {
           "description": "Required array-element property. String id unique for this report, from the makeReportId option. The root is \"root\" by default.",

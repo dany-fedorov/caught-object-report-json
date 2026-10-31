@@ -2,7 +2,7 @@
   "$id": "https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.15/report-array.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Caught Object Report JSON",
-  "description": "A JS caught object representation. Default implementation is https://www.npmjs.com/package/caught-object-report-json.",
+  "description": "A JavaScript caught value as a flat array of report nodes: the root first, then every nested error, linked through child_ids. Produced by Corj.makeReportArray in https://www.npmjs.com/package/caught-object-report-json.",
   "type": "array",
   "items": {
     "allOf": [
@@ -13,5 +13,36 @@
         "$ref": "https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.15/definitions.json/$defs/REPORT_OBJECT_IN_ARRAY_PROPERTIES_MIXIN"
       }
     ]
-  }
+  },
+  "examples": [
+    [
+      {
+        "occurrence_id": "CORJ_3ZXNV4KVDGW98B4KK4W8JAHE4S",
+        "fingerprint": "fp1_85947d3cc4e6bfe95d39ee994023028c",
+        "id": "root",
+        "path": "$",
+        "level": 0,
+        "stack": [
+          "Error: checkout failed",
+          "    at Object.<anonymous> (/srv/app/checkout.js:3:9)"
+        ],
+        "child_ids": [
+          "0"
+        ],
+        "v": "corj/v0.15"
+      },
+      {
+        "id": "0",
+        "path": "$.cause",
+        "level": 1,
+        "as_json": {
+          "code": "CARD_DECLINED"
+        },
+        "stack": [
+          "TypeError: card declined",
+          "    at Object.<anonymous> (/srv/app/checkout.js:4:26)"
+        ]
+      }
+    ]
+  ]
 }

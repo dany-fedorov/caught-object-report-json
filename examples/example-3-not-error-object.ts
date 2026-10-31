@@ -1,4 +1,4 @@
-import { Corj } from '../src';
+import * as Corj from '../src';
 
 class Hostile {
   get message(): string {
@@ -9,7 +9,7 @@ class Hostile {
 try {
   throw new Hostile();
 } catch (caught: unknown) {
-  const report = Corj.makeReport(caught, {
+  const report = Corj.makeCaughtObjectReport(caught, {
     onReportingError: (error, record) => {
       console.log('onReportingError::', { error: String(error), record });
     },

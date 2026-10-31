@@ -1,7 +1,7 @@
 # API reference
 
 Every public export of `caught-object-report-json`, with its signature, what it accepts, what it throws, and a runnable
-example. The snippets are plain Node and were run against version 14; ids and hashes in the printed output vary per run and
+example. The snippets are plain Node and were run against version 15; ids and hashes in the printed output vary per run and
 are shortened to `…`; stacks are cut to one frame.
 
 Generated TypeDoc for the same surface, with source links, is at
@@ -9,13 +9,13 @@ Generated TypeDoc for the same surface, with source links, is at
 same information for an editor or an agent reading `node_modules`.
 
 - [Imports](#imports)
-- [`Corj`](#corj) (stateless utilities)
-  - [`Corj.makeReport`](#corjmakereportcaught-input)
-  - [`Corj.makeReportArray`](#corjmakereportarraycaught-input)
-  - [`Corj.restoreExpectedValues`](#corjrestoreexpectedvaluesreport)
-  - [`Corj.resolveRedactPolicy`](#corjresolveredactpolicyinput)
+- [Root functions](#root-functions) (stateless utilities)
+  - [`Corj.makeCaughtObjectReport`](#corjmakecaughtobjectreportcaught-input)
+  - [`Corj.makeCaughtObjectReportArray`](#corjmakecaughtobjectreportarraycaught-input)
+  - [`Corj.restoreCaughtObjectReportExpectedValues`](#corjrestorecaughtobjectreportexpectedvaluesreport)
+  - [`Corj.resolveCaughtObjectReportRedactPolicy`](#corjresolvecaughtobjectreportredactpolicyinput)
 - [`CorjMaker`](#corjmaker) (configure once, reuse)
-  - [`new CorjMaker`](#new-corjmakeroptions)
+  - [`new CorjMaker`](#new-corjcorjmakeroptions)
   - [`maker.options`](#makeroptions)
   - [`maker.makeReport`](#makermakereportcaught-call)
   - [`maker.makeReportArray`](#makermakereportarraycaught-call)
@@ -40,27 +40,33 @@ same information for an editor or an agent reading `node_modules`.
 
 ## Imports
 
+The convention used in every example in this repository is a namespace import named `Corj`:
+
 ```typescript
-import { Corj, CorjMaker } from 'caught-object-report-json';
+import * as Corj from 'caught-object-report-json';
 import type { CorjReport, CorjReportNode, CorjOptionsInput } from 'caught-object-report-json';
+
+const report = Corj.makeCaughtObjectReport(caught);
+const maker = new Corj.CorjMaker({ maxDepth: 2 });
 ```
 
 ```javascript
-const { Corj, CorjMaker } = require('caught-object-report-json');
+const Corj = require('caught-object-report-json');
 ```
 
-The package is one CommonJS module with declarations. Named imports work in Node (CommonJS and ESM), Bun and bundlers; see
-[Supported runtimes](./guide.md#supported-runtimes) for the default-import matrix.
+Named imports work too (`import { makeCaughtObjectReport, CorjMaker } from '...'`); the function names are long enough to
+stand alone. The package is one CommonJS module with declarations. Named imports work in Node (CommonJS and ESM), Bun and
+bundlers; see [Supported runtimes](./guide.md#supported-runtimes) for the default-import matrix.
 
-# `Corj`
+# Root functions
 
-A frozen object holding the four stateless utilities. Each `Corj.makeReport*` call builds a `CorjMaker` from the options in
-its input, so for a hot path construct a [`CorjMaker`](#corjmaker) once instead.
+Four stateless functions exported from the package root. Each `makeCaughtObjectReport*` call builds a `CorjMaker` from the
+options in its input, so for a hot path construct a [`CorjMaker`](#corjmaker) once instead.
 
-## `Corj.makeReport(caught, input?)`
+## `Corj.makeCaughtObjectReport(caught, input?)`
 
 ```typescript
-Corj.makeReport(caught: unknown, input?: CorjReportInput): CorjReport
+Corj.makeCaughtObjectReport(caught: unknown, input?: CorjReportInput): CorjReport
 ```
 
 Describes any caught value as one JSON object. Nested errors reachable through `cause` and `errors` are flattened into
@@ -75,11 +81,11 @@ Returns a [`CorjReport`](#corjreport). Never throws because of `caught`; throws 
 invalid `input` (an unknown key, a wrong type, or a third positional argument).
 
 ```javascript
-const { Corj } = require('caught-object-report-json');
+const Corj = require('caught-object-report-json');
 
 const outer = new Error('outer', { cause: Object.assign(new TypeError('inner'), { code: 'E_X' }) });
 
-console.log(JSON.stringify(Corj.makeReport(outer, { context: { tool: 'search' } }), null, 2));
+console.log(JSON.stringify(Corj.makeCaughtObjectReport(outer, { context: { tool: 'search' } }), null, 2));
 ```
 
 ```json
@@ -110,18 +116,18 @@ console.log(JSON.stringify(Corj.makeReport(outer, { context: { tool: 'search' } 
 `message` and `constructor_name` are absent because they are recoverable from the first stack line; see
 [Omitted expected values](./guide.md#omitted-expected-values).
 
-## `Corj.makeReportArray(caught, input?)`
+## `Corj.makeCaughtObjectReportArray(caught, input?)`
 
 ```typescript
-Corj.makeReportArray(caught: unknown, input?: CorjReportInput): CorjReportNode[]
+Corj.makeCaughtObjectReportArray(caught: unknown, input?: CorjReportInput): CorjReportNode[]
 ```
 
 The same report as a flat list: the root first, then every nested error, each with `id`, `path`, `level` and `child_ids`.
 Root-only fields (`occurrence_id`, `fingerprint`, `context`, `reporting_errors`, `v`, `$schema`) stay on the first element.
-Same parameters and throwing rules as `Corj.makeReport`.
+Same parameters and throwing rules as `Corj.makeCaughtObjectReport`.
 
 ```javascript
-const rows = Corj.makeReportArray(outer, { metadata: false });
+const rows = Corj.makeCaughtObjectReportArray(outer, { metadata: false });
 console.log(JSON.stringify(rows.map(({ stack, ...rest }) => rest), null, 2));
 ```
 
@@ -134,11 +140,11 @@ console.log(JSON.stringify(rows.map(({ stack, ...rest }) => rest), null, 2));
 
 Use the array form when rows go into a table or a log store that indexes by `path` or `id`.
 
-## `Corj.restoreExpectedValues(report)`
+## `Corj.restoreCaughtObjectReportExpectedValues(report)`
 
 ```typescript
-Corj.restoreExpectedValues(report: CorjReport): CorjReport
-Corj.restoreExpectedValues(report: CorjReportNode[]): CorjReportNode[]
+Corj.restoreCaughtObjectReportExpectedValues(report: CorjReport): CorjReport
+Corj.restoreCaughtObjectReportExpectedValues(report: CorjReportNode[]): CorjReportNode[]
 ```
 
 Returns a copy of an object or array report with every omitted expected value filled back in, turning a `corj/v0.15` report
@@ -146,8 +152,8 @@ into its `corj/v0.15-full` form. The result is exactly what `omitExpectedValues:
 `v` or `$schema`.
 
 ```javascript
-const compact = Corj.makeReport(new Error('x'));
-const full = Corj.restoreExpectedValues(compact);
+const compact = Corj.makeCaughtObjectReport(new Error('x'));
+const full = Corj.restoreCaughtObjectReportExpectedValues(compact);
 
 console.log(Object.keys(compact)); // [ 'occurrence_id', 'fingerprint', 'stack', 'v' ]
 console.log(full.instanceof_error, full.typeof, full.message, full.constructor_name, full.v);
@@ -157,21 +163,21 @@ console.log(full.instanceof_error, full.typeof, full.message, full.constructor_n
 Use it on the consuming side when a reader wants every field present, for example before validating against the `-full`
 schema.
 
-## `Corj.resolveRedactPolicy(input)`
+## `Corj.resolveCaughtObjectReportRedactPolicy(input)`
 
 ```typescript
-Corj.resolveRedactPolicy(input: CorjRedactPolicyInput | CorjRedactPolicy | null | undefined): CorjRedactPolicy | null
+Corj.resolveCaughtObjectReportRedactPolicy(input: CorjRedactPolicyInput | CorjRedactPolicy | null | undefined): CorjRedactPolicy | null
 ```
 
 Validates a redaction policy and returns it frozen with every field present. Returns `null` for `null` and `undefined`.
 Accepts an already-resolved policy and returns it as is. Throws `TypeError` for anything invalid.
 
 ```javascript
-console.log(Corj.resolveRedactPolicy({ keys: ['password'] }));
+console.log(Corj.resolveCaughtObjectReportRedactPolicy({ keys: ['password'] }));
 // { keys: [ 'password' ], paths: [], patterns: [], replacement: '[redacted]', transform: null }
 
 try {
-  Corj.resolveRedactPolicy({ patterns: [/sk-\w+/] }); // missing the g flag
+  Corj.resolveCaughtObjectReportRedactPolicy({ patterns: [/sk-\w+/] }); // missing the g flag
 } catch (e) {
   console.log(e.message);
   // redact.patterns must all be global; /sk-\w+/ would replace only its first match
@@ -184,10 +190,10 @@ Call it at startup so a bad policy fails before the first catch block that would
 
 Validates and freezes one set of options, then produces reports with them. Construct once, reuse for every caught object.
 
-## `new CorjMaker(options?)`
+## `new Corj.CorjMaker(options?)`
 
 ```typescript
-new CorjMaker(options?: CorjOptionsInput)
+new Corj.CorjMaker(options?: CorjOptionsInput)
 ```
 
 | Parameter | Type | Meaning |
@@ -198,9 +204,9 @@ Throws `TypeError` for an unknown option name (the message lists the valid ones)
 for a number out of range. Nothing about a caught object is involved yet, so a bad configuration fails here, once.
 
 ```javascript
-const { CorjMaker } = require('caught-object-report-json');
+const Corj = require('caught-object-report-json');
 
-const corj = new CorjMaker({
+const maker = new Corj.CorjMaker({
   maxReportSize: 16_000,
   maxDepth: 2,
   metadata: false,
@@ -208,7 +214,7 @@ const corj = new CorjMaker({
 });
 
 try {
-  new CorjMaker({ maxReportSize: 100 });
+  new Corj.CorjMaker({ maxReportSize: 100 });
 } catch (e) {
   console.log(e.message); // maxReportSize must be a safe integer >= 512, or null to disable the limit
 }
@@ -223,8 +229,8 @@ readonly options: CorjOptions
 The resolved, frozen options, every field present.
 
 ```javascript
-console.log(new CorjMaker({ maxDepth: 2 }).options.maxDepth); // 2
-console.log(new CorjMaker().options.fingerprintParts); // [ 'constructor_name', 'stack' ]
+console.log(new Corj.CorjMaker({ maxDepth: 2 }).options.maxDepth); // 2
+console.log(new Corj.CorjMaker().options.fingerprintParts); // [ 'constructor_name', 'stack' ]
 ```
 
 ## `maker.makeReport(caught, call?)`
@@ -238,12 +244,12 @@ maker.makeReport(caught: unknown, call?: CorjCallInput): CorjReport
 | `caught` | `unknown` | The caught value. |
 | `call` | [`CorjCallInput`](#corjcallinput) | Optional. `occurrenceId`, `fingerprint` and `context` for this occurrence only. |
 
-Unlike `Corj.makeReport`, the second argument accepts call-level values only: passing an option such as `maxDepth` here throws
+Unlike `Corj.makeCaughtObjectReport`, the second argument accepts call-level values only: passing an option such as `maxDepth` here throws
 `TypeError: Unknown call input "maxDepth". Known call inputs: occurrenceId, fingerprint, context`. Never throws because of
 `caught`.
 
 ```javascript
-const report = corj.makeReport(caught, {
+const report = maker.makeReport(caught, {
   occurrenceId: requestId, // a token off the wire; an invalid one is recorded, not thrown
   context: { route: '/checkout', attempt: 2 },
 });
@@ -255,7 +261,7 @@ const report = corj.makeReport(caught, {
 maker.makeReportArray(caught: unknown, call?: CorjCallInput): CorjReportNode[]
 ```
 
-The flat form under this maker's options; see [`Corj.makeReportArray`](#corjmakereportarraycaught-input).
+The flat form under this maker's options; see [`Corj.makeCaughtObjectReportArray`](#corjmakecaughtobjectreportarraycaught-input).
 
 ## `maker.withOptions(options)`
 
@@ -267,7 +273,7 @@ Returns a new maker with `options` applied on top of this maker's options. The o
 as the constructor's.
 
 ```javascript
-const base = new CorjMaker({ maxReportSize: 16_000, redact: { keys: ['password'] } });
+const base = new Corj.CorjMaker({ maxReportSize: 16_000, redact: { keys: ['password'] } });
 const forModel = base.withOptions({ maxReportSize: 4096, maxDepth: 1, metadata: false });
 
 console.log(base.options.maxReportSize, forModel.options.maxReportSize); // 16000 4096
@@ -292,15 +298,15 @@ Returns `undefined` when `fingerprintParts` is `null` or `[]`, when hashing fail
 options object with any other key.
 
 ```javascript
-const corj = new CorjMaker();
+const maker = new Corj.CorjMaker();
 const err = new Error('timeout');
 
-const a = corj.makeFingerprint(err);
-const b = corj.makeFingerprint(err);
+const a = maker.makeFingerprint(err);
+const b = maker.makeFingerprint(err);
 console.log(a === b, a.startsWith('fp1_')); // true true
 
-console.log(corj.makeFingerprint('boom')); // 'fp1_…'  (hash of the string's own text)
-console.log(corj.makeFingerprint('boom', { requireStack: true })); // undefined  (nothing frame-backed to hash)
+console.log(maker.makeFingerprint('boom')); // 'fp1_…'  (hash of the string's own text)
+console.log(maker.makeFingerprint('boom', { requireStack: true })); // undefined  (nothing frame-backed to hash)
 ```
 
 Use `requireStack: true` when the fingerprint will be shown to an audience that could guess the error text.
@@ -323,9 +329,9 @@ The bounded, cycle-safe, redacted [JSON view](./guide.md#a-json-view-of-any-valu
 Returns `{ value, truncated, errors }`. Throws `TypeError` for an invalid `root` and `RangeError` for an invalid `maxSize`.
 
 ```javascript
-const corj = new CorjMaker({ redact: { keys: ['password'], patterns: [/sk-[a-z0-9]+/g] } });
+const maker = new Corj.CorjMaker({ redact: { keys: ['password'], patterns: [/sk-[a-z0-9]+/g] } });
 
-console.log(corj.makeJsonView({ user: 'ada', password: 'p', note: 'key sk-abc' }, { root: '$req', maxSize: 512 }));
+console.log(maker.makeJsonView({ user: 'ada', password: 'p', note: 'key sk-abc' }, { root: '$req', maxSize: 512 }));
 // { value: { user: 'ada', password: '[redacted]', note: 'key [redacted]' }, truncated: false, errors: [] }
 ```
 
@@ -340,7 +346,7 @@ such as a log line written next to a report. Always returns a string; without a 
 `transform` that drops the value, returns a non-string or throws yields the policy's `replacement`.
 
 ```javascript
-console.log(corj.scrubText('token sk-123 used', { path: '$audit' })); // token [redacted] used
+console.log(maker.scrubText('token sk-123 used', { path: '$audit' })); // token [redacted] used
 ```
 
 # The caught object's side: `toCorjAsString` and `toCorjAsJson`
@@ -362,7 +368,7 @@ class PaymentError extends Error {
   }
 }
 
-const report = Corj.makeReport(new PaymentError('declined', { code: 'insufficient_funds', raw: '…' }), { metadata: false });
+const report = Corj.makeCaughtObjectReport(new PaymentError('declined', { code: 'insufficient_funds', raw: '…' }), { metadata: false });
 console.log(report.as_string, report.as_json, report.as_string_format, report.as_json_format);
 // PaymentError(insufficient_funds) { decline: 'insufficient_funds', path: '$' } .toCorjAsString .toCorjAsJson
 ```
@@ -375,7 +381,7 @@ value (a non-string, or something without a JSON form) falls back silently. Unde
 ## `CorjOptionsInput`
 
 Every maker option, each optional. Accepted by `new CorjMaker`, `maker.withOptions`, and (merged with call values) by
-`Corj.makeReport` and `Corj.makeReportArray`. The full table with defaults, constraints and what each one throws is
+`Corj.makeCaughtObjectReport` and `Corj.makeCaughtObjectReportArray`. The full table with defaults, constraints and what each one throws is
 [Options](./guide.md#options) in the guide.
 
 ```typescript
@@ -421,10 +427,10 @@ because that is a shape error in your code.
 type CorjReportInput = CorjOptionsInput & CorjCallInput;
 ```
 
-The single input object of `Corj.makeReport` and `Corj.makeReportArray`: options and call values together.
+The single input object of `Corj.makeCaughtObjectReport` and `Corj.makeCaughtObjectReportArray`: options and call values together.
 
 ```javascript
-Corj.makeReport(caught, { maxDepth: 1, metadata: false, occurrenceId: 'req-42', context: { tool: 'search' } });
+Corj.makeCaughtObjectReport(caught, { maxDepth: 1, metadata: false, occurrenceId: 'req-42', context: { tool: 'search' } });
 ```
 
 ## `CorjRedactPolicyInput`
@@ -481,7 +487,7 @@ and `"[not-inspected]"` means `inspection: 'no-invoke'` declined to run code to 
 
 ## `CorjReportNode`
 
-One element of `children`, or of a `Corj.makeReportArray` result. All of `CorjReport`'s base fields plus:
+One element of `children`, or of a `Corj.makeCaughtObjectReportArray` result. All of `CorjReport`'s base fields plus:
 
 ```typescript
 type CorjReportNode = CorjReportBase & {
@@ -511,7 +517,7 @@ Rows appear in the report's `reporting_errors` (at most 8) and are passed as the
 
 ```javascript
 const hostile = { code: 'E_FAIL', get message() { throw new Error('getter exploded'); } };
-const report = Corj.makeReport(hostile, { onReportingError: () => {}, metadata: false });
+const report = Corj.makeCaughtObjectReport(hostile, { onReportingError: () => {}, metadata: false });
 console.log(report.message, report.reporting_errors[0]);
 // null { stage: 'prop-access', path: '$', reportKey: 'message', sourceProperty: 'message', error: 'Error: getter exploded' }
 ```
@@ -566,9 +572,9 @@ type CorjJsonView = {
 | Situation | Result |
 | --- | --- |
 | Anything the caught object does: a throwing getter, a hostile `toString`, a revoked `Proxy`, a cycle, a BigInt | Never throws. The affected field is `null` or marked, and a row is added to `reporting_errors`. |
-| Unknown option name, wrong option type | `TypeError` from the constructor, `withOptions`, or `Corj.makeReport*` |
+| Unknown option name, wrong option type | `TypeError` from the constructor, `withOptions`, or `Corj.makeCaughtObjectReport*` |
 | Option out of range (`maxReportSize < 512`, negative `maxDepth`, …) | `RangeError`, same places |
-| Non-global `redact.patterns` entry, `replacement` over 128 characters, malformed matcher list | `TypeError` from `Corj.resolveRedactPolicy` or the constructor |
+| Non-global `redact.patterns` entry, `replacement` over 128 characters, malformed matcher list | `TypeError` from `Corj.resolveCaughtObjectReportRedactPolicy` or the constructor |
 | `occurrenceIdSources` entry after `{ auto: 'random' }`, path over 16 segments, repeated `fingerprintParts` entry | `TypeError` from the constructor |
 | Call input that is not an object, has an unknown key, or a third positional argument | `TypeError` from the report method |
 | Call `occurrenceId` or `fingerprint` that is not a valid token | Does **not** throw: recorded as a reporting error, sources used instead |

@@ -28,7 +28,7 @@ try {
 } catch (caught: unknown) {
   caught.heh = 123n;
   caught.heh_1 = new Number(123);
-  const report = Corj.makeReport(caught);
+  const report = Corj.makeCaughtObjectReport(caught);
   console.log(JSON.stringify(report, null, 2));
 }
 ```
@@ -64,7 +64,7 @@ down, and the report brings it up as a child with its own `as_json`.
 try {
   await fetch('http://127.0.0.1:65530/users/23'); // nothing listens here
 } catch (caught: unknown) {
-  const report = Corj.makeReport(caught);
+  const report = Corj.makeCaughtObjectReport(caught);
   console.log(JSON.stringify(report, null, 2));
 }
 ```
@@ -117,7 +117,7 @@ class Hostile {
 try {
   throw new Hostile();
 } catch (caught: unknown) {
-  const report = Corj.makeReport(caught, {
+  const report = Corj.makeCaughtObjectReport(caught, {
     onReportingError: (error, record) => {
       console.log('onReportingError::', { error: String(error), record });
     },
@@ -172,7 +172,7 @@ and then prints from the catch block
 try {
   throw new Error(`Hi, I'm a regular Error object.`);
 } catch (caught: unknown) {
-  const report = Corj.makeReport(caught, {
+  const report = Corj.makeCaughtObjectReport(caught, {
     metadata: { $schema: true, v: false },
   });
   console.log(JSON.stringify(report, null, 2));
@@ -208,7 +208,7 @@ const caught = new AggregateError(
   'AggregateError message',
   { cause: new Error('Cause Error object') },
 );
-const report = Corj.makeReport(caught, { metadata: false });
+const report = Corj.makeCaughtObjectReport(caught, { metadata: false });
 console.log(JSON.stringify(report, null, 2));
 ```
 
@@ -277,7 +277,7 @@ const caught = new Error("lvl 0", {
 });
 caught.nestedError = 'lvl 1; obj 1';
 caught.extraField = 'error info';
-const report = Corj.makeReport(caught, {
+const report = Corj.makeCaughtObjectReport(caught, {
   maxDepth: 2,
   childrenSources: ['cause', 'errors', 'nestedError'],
   metadata: false,
@@ -357,12 +357,12 @@ prints
 ## 7. [A CorjMaker instance to provide options once](../examples/example-7-using-corj-maker-instance.ts)
 
 ```typescript
-const corj = new CorjMaker({ metadata: false });
+const maker = new Corj.CorjMaker({ metadata: false });
 
 try {
   throw new Error(`Hi, I'm a regular Error object.`);
 } catch (caught: unknown) {
-  const report = corj.makeReport(caught);
+  const report = maker.makeReport(caught);
   console.log(JSON.stringify(report, null, 2));
 }
 ```
@@ -387,7 +387,7 @@ prints
 `child_ids`.
 
 ```typescript
-const corj = new CorjMaker({ metadata: false });
+const maker = new Corj.CorjMaker({ metadata: false });
 
 const User = zod.object({
   name: zod.string(),
@@ -398,7 +398,7 @@ try {
   const validatedStallmanObject = User.parse({ name: 'Richard Stallman' });
   console.log('Hello, validated', validatedStallmanObject.name);
 } catch (caught: unknown) {
-  const reportArray = corj.makeReportArray(caught);
+  const reportArray = maker.makeReportArray(caught);
   console.log(JSON.stringify(reportArray, null, 2));
 }
 ```
@@ -481,7 +481,7 @@ The code and the output are in [Recipes](./recipes.md#winston-uncaught-exception
 ## 10. [Report size limit](../examples/example-10-report-size-limit.ts)
 
 ```typescript
-const report = Corj.makeReport(
+const report = Corj.makeCaughtObjectReport(
   { code: 'FETCH_FAILED', attempts: Array(100).fill('timeout') },
   {
     maxReportSize: 512,
@@ -551,7 +551,7 @@ const second = new Error('second', { cause: shared });
 const root = new AggregateError([first, second], 'root');
 shared.cause = root;
 
-const rows = Corj.makeReportArray(root, { metadata: false });
+const rows = Corj.makeCaughtObjectReportArray(root, { metadata: false });
 console.log(JSON.stringify(rows.map(({ stack, ...rest }) => rest), null, 2));
 ```
 
@@ -588,13 +588,13 @@ type NodeResult<T> = { node: string } & (
   | { ok: false; error: CorjReport }
 );
 
-const corj = new CorjMaker({ maxReportSize: 4096, maxDepth: 2, maxChildren: 4, metadata: true });
+const maker = new Corj.CorjMaker({ maxReportSize: 4096, maxDepth: 2, maxChildren: 4, metadata: true });
 
 async function runNode<T>(node: string, operation: () => Promise<T>): Promise<NodeResult<T>> {
   try {
     return { node, ok: true, value: await operation() };
   } catch (caught: unknown) {
-    return { node, ok: false, error: corj.makeReport(caught) };
+    return { node, ok: false, error: maker.makeReport(caught) };
   }
 }
 ```

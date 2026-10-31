@@ -1,9 +1,13 @@
 // Node, ESM: the CommonJS package is consumed through Node's interop.
 import corj from 'caught-object-report-json';
-import { Corj, CorjMaker } from 'caught-object-report-json';
+import * as Corj from 'caught-object-report-json';
+import { CorjMaker } from 'caught-object-report-json';
 import { runScenarios } from './scenarios.mjs';
 
-if (typeof Corj?.makeReport !== 'function' || typeof CorjMaker !== 'function') {
+if (
+  typeof Corj?.makeCaughtObjectReport !== 'function' ||
+  typeof CorjMaker !== 'function'
+) {
   throw new Error('named exports are not available through the ESM interop');
 }
 

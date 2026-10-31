@@ -1,6 +1,6 @@
-import { Corj } from '../src';
+import * as Corj from '../src';
 
-const report = Corj.makeReport(
+const report = Corj.makeCaughtObjectReport(
   { code: 'FETCH_FAILED', attempts: Array(100).fill('timeout') },
   {
     maxReportSize: 512,

@@ -1,7 +1,7 @@
 import { z as zod } from 'zod';
-import { CorjMaker } from '../src';
+import * as Corj from '../src';
 
-const corj = new CorjMaker({ metadata: false });
+const maker = new Corj.CorjMaker({ metadata: false });
 
 const User = zod.object({
   name: zod.string(),
@@ -12,6 +12,6 @@ try {
   const validatedStallmanObject = User.parse({ name: 'Richard Stallman' });
   console.log('Hello, validated', validatedStallmanObject.name);
 } catch (caught: unknown) {
-  const reportArray = corj.makeReportArray(caught);
+  const reportArray = maker.makeReportArray(caught);
   console.log(JSON.stringify(reportArray, null, 2));
 }

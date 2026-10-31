@@ -1,8 +1,12 @@
-import { Corj, CorjMaker, CORJ_VERSION_FULL } from '../src/index';
+import * as Corj from '../src/index';
+import { CorjMaker, CORJ_VERSION_FULL } from '../src/index';
 import type { CorjReport, CorjReportNode } from '../src/index';
 import { makeMinimalReport } from '../src/report-size';
 
-const { makeReport, makeReportArray } = Corj;
+const {
+  makeCaughtObjectReport: makeReport,
+  makeCaughtObjectReportArray: makeReportArray,
+} = Corj;
 
 const ErrorWithCause = Error as unknown as new (
   message?: string,

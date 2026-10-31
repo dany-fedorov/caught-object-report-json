@@ -120,28 +120,29 @@ describe('Assertions about package exports', function () {
         "CORJ_TRUNCATED_MARKER",
         "CORJ_VERSION",
         "CORJ_VERSION_FULL",
-        "Corj",
         "CorjMaker",
+        "makeCaughtObjectReport",
+        "makeCaughtObjectReportArray",
+        "resolveCaughtObjectReportRedactPolicy",
+        "restoreCaughtObjectReportExpectedValues",
       ]
     `);
   });
 
-  test('Corj is the exact frozen utility namespace', () => {
-    const Corj = (corj as Record<string, unknown>)['Corj'] as Record<
-      string,
-      unknown
-    >;
-
-    expect(Object.keys(Corj).sort()).toEqual([
+  test('the four utilities are root functions and the old names are gone', () => {
+    for (const name of [
+      'makeCaughtObjectReport',
+      'makeCaughtObjectReportArray',
+      'resolveCaughtObjectReportRedactPolicy',
+      'restoreCaughtObjectReportExpectedValues',
+    ]) {
+      expect(typeof (corj as Record<string, unknown>)[name]).toBe('function');
+    }
+    for (const name of [
+      'Corj',
       'makeReport',
       'makeReportArray',
       'resolveRedactPolicy',
-      'restoreExpectedValues',
-    ]);
-    expect(Object.isFrozen(Corj)).toBe(true);
-    for (const name of [
-      'makeReport',
-      'makeReportArray',
       'resolveCorjRedactPolicy',
       'restoreExpectedValues',
     ]) {

@@ -1,5 +1,5 @@
+import * as Corj from '../src';
 import {
-  Corj,
   CORJ_VERSION,
   CORJ_VERSION_FULL,
   CorjMaker,
@@ -14,7 +14,7 @@ import {
 } from './utils/getReportObjectReportValidator';
 import { LEGACY } from './legacy-options';
 
-const { restoreExpectedValues } = Corj;
+const { restoreCaughtObjectReportExpectedValues: restoreExpectedValues } = Corj;
 
 describe('review regressions', () => {
   afterEach(() => {

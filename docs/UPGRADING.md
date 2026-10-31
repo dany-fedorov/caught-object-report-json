@@ -4,12 +4,59 @@ Migration notes for each major version of `caught-object-report-json`. The newes
 option names with a `TypeError` that lists the valid ones, so a stale call site fails at the first report rather than
 silently. Release-by-release detail is in the [CHANGELOG](../CHANGELOG.md).
 
+- [Upgrading from v14](#upgrading-from-v14)
 - [Upgrading from v13](#upgrading-from-v13)
 - [Upgrading from v12](#upgrading-from-v12)
 - [Upgrading from v11](#upgrading-from-v11)
 - [Upgrading from v10](#upgrading-from-v10)
 - [Upgrading from v9](#upgrading-from-v9)
 - [Upgrading from v8](#upgrading-from-v8)
+
+# Upgrading from v14
+
+15.0.0 removes the frozen `Corj` object and exports its four functions from the package root under longer, self-describing
+names. `CorjMaker`, every constant, every type, the maker's methods (`maker.makeReport`, `maker.makeReportArray`, …) and the
+report formats `corj/v0.15` / `corj/v0.15-full` are unchanged.
+
+| 14.x | 15.0.0 |
+| --- | --- |
+| `Corj.makeReport(caught, input?)` | `makeCaughtObjectReport(caught, input?)` |
+| `Corj.makeReportArray(caught, input?)` | `makeCaughtObjectReportArray(caught, input?)` |
+| `Corj.restoreExpectedValues(report)` | `restoreCaughtObjectReportExpectedValues(report)` |
+| `Corj.resolveRedactPolicy(input)` | `resolveCaughtObjectReportRedactPolicy(input)` |
+| `import { Corj } from '...'` | `import * as Corj from '...'` (the convention every example now uses) |
+
+With the namespace import, a call site changes only in the member name:
+
+```typescript
+// 14.x
+import { Corj, CorjMaker } from 'caught-object-report-json';
+const report = Corj.makeReport(caught);
+const maker = new CorjMaker({ maxDepth: 2 });
+
+// 15.x
+import * as Corj from 'caught-object-report-json';
+const report = Corj.makeCaughtObjectReport(caught);
+const maker = new Corj.CorjMaker({ maxDepth: 2 });
+```
+
+Named imports work as well, and read fine because the names carry their subject:
+
+```typescript
+import { makeCaughtObjectReport, CorjMaker } from 'caught-object-report-json';
+```
+
+A find-and-replace that covers most codebases, in order:
+
+1. `Corj.makeReportArray(` → `Corj.makeCaughtObjectReportArray(`
+2. `Corj.makeReport(` → `Corj.makeCaughtObjectReport(`
+3. `Corj.restoreExpectedValues(` → `Corj.restoreCaughtObjectReportExpectedValues(`
+4. `Corj.resolveRedactPolicy(` → `Corj.resolveCaughtObjectReportRedactPolicy(`
+5. `import { Corj } from` → `import * as Corj from`; where `CorjMaker` was imported beside `Corj`, either keep it as a named
+   import or write `new Corj.CorjMaker(...)`.
+
+In TypeScript, a leftover `import { Corj }` fails with "Module has no exported member 'Corj'", and an assignment to a
+namespace member fails with "Cannot assign to '…' because it is a read-only property", so nothing slips through silently.
 
 # Upgrading from v13
 

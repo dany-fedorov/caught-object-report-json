@@ -19,13 +19,13 @@ npm install express caught-object-report-json
 
 ```javascript
 import express from 'express';
-import { CorjMaker } from 'caught-object-report-json';
+import * as Corj from 'caught-object-report-json';
 
-const corj = new CorjMaker({ maxReportSize: 16_000, maxDepth: 3 });
+const maker = new Corj.CorjMaker({ maxReportSize: 16_000, maxDepth: 3 });
 
 /** One JSON log line per failure. Swap console.error for your logger. */
 function logError(where, caught, context) {
-  const report = corj.makeReport(caught, { context });
+  const report = maker.makeReport(caught, { context });
   console.error(JSON.stringify({ level: 'error', where, error: report }));
   return report;
 }
@@ -100,7 +100,7 @@ Log lines on stderr, trimmed. Note the second one: Express 5 replaced the reject
 ## Adapting it
 
 - Keep one `CorjMaker` per process and reuse it; it validates options once at startup.
-- Put request identifiers in `context`, not in the report: `corj.makeReport(caught, { context: { requestId } })`.
+- Put request identifiers in `context`, not in the report: `maker.makeReport(caught, { context: { requestId } })`.
 - Tune `maxReportSize` to what one log line may cost you; the whole report, children included, stays under it.
 - Add `redact: { keys: [...], patterns: [...] }` before the logs leave the machine; see [Redacting what the report emits](../guide.md#redacting-what-the-report-emits).
 - The 500 body quotes `occurrence_id` so a client or a support ticket can name the exact log line. `fingerprint` groups repeats of the same failure; see [Fingerprint](../guide.md#fingerprint).

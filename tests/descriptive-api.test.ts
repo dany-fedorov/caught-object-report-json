@@ -1,13 +1,13 @@
 import * as corj from '../src/index';
 
 describe('descriptive API', () => {
-  test('Corj utilities work when extracted from the namespace', () => {
-    const Corj = (corj as Record<string, any>)['Corj'];
+  test('the utilities work when extracted from the module namespace', () => {
+    const Corj = corj as Record<string, any>;
     const {
-      makeReport,
-      makeReportArray,
-      restoreExpectedValues,
-      resolveRedactPolicy,
+      makeCaughtObjectReport: makeReport,
+      makeCaughtObjectReportArray: makeReportArray,
+      restoreCaughtObjectReportExpectedValues: restoreExpectedValues,
+      resolveCaughtObjectReportRedactPolicy: resolveRedactPolicy,
     } = Corj;
 
     expect(makeReport(new Error('x')).v).toBe('corj/v0.15');
@@ -17,7 +17,7 @@ describe('descriptive API', () => {
   });
 
   test('free report calls merge configuration and call context in one bag', () => {
-    const report = corj.Corj.makeReport(new Error('x'), {
+    const report = corj.makeCaughtObjectReport(new Error('x'), {
       context: { runId: 'r' },
       maxDepth: 1,
       occurrenceIdSources: null,
@@ -41,14 +41,14 @@ describe('descriptive API', () => {
 
   test('free report calls reject a third positional argument', () => {
     expect(() =>
-      (corj.Corj.makeReport as (...args: unknown[]) => unknown)(
+      (corj.makeCaughtObjectReport as (...args: unknown[]) => unknown)(
         new Error('x'),
         {},
         {},
       ),
     ).toThrow();
     expect(() =>
-      (corj.Corj.makeReportArray as (...args: unknown[]) => unknown)(
+      (corj.makeCaughtObjectReportArray as (...args: unknown[]) => unknown)(
         new Error('x'),
         {},
         {},
@@ -78,7 +78,7 @@ describe('descriptive API', () => {
         },
       },
     });
-    const report = corj.Corj.makeReport(caught, {
+    const report = corj.makeCaughtObjectReport(caught, {
       onReportingError: (
         _reportingFailure: unknown,
         record: corj.CorjReportingError,

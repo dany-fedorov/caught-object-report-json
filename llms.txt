@@ -21,6 +21,21 @@ Entry points: `Corj.makeReport(caught, input?)`, `Corj.makeReportArray(caught, i
 - [Recipes](https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/docs/recipes.md): structured loggers, pino, agent tool-call boundary, schema validation, winston.
 - [Upgrading](https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/docs/UPGRADING.md): migration notes for each major.
 
+## Servers (fetch exactly one page: complete verified file, install, run, expected output, caveats)
+
+- [Express 5 on Node](https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/docs/servers/express.md)
+- [Fastify 5 on Node, pino serializer](https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/docs/servers/fastify.md)
+- [NestJS 12 global exception filter](https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/docs/servers/nestjs.md)
+- [Koa 3 on Node](https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/docs/servers/koa.md)
+- [hapi 21 onPreResponse](https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/docs/servers/hapi.md)
+- [Node native http.createServer](https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/docs/servers/node-http.md)
+- [Bun.serve error option](https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/docs/servers/bun-native.md)
+- [Elysia 1.4 onError plus Bun.serve fallback](https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/docs/servers/elysia.md)
+- [Hono 4 on Node, Bun or Deno](https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/docs/servers/hono.md)
+- [Deno.serve onError option](https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/docs/servers/deno-native.md)
+- [Oak 17 on Deno](https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/docs/servers/oak.md)
+- [Servers index](https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/docs/servers/README.md): one-line summary per server and what every page shares.
+
 ## Machine-readable
 
 - [JSON Schema, report object, corj/v0.15](https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.15/report-object.json)

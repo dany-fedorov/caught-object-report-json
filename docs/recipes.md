@@ -1,6 +1,7 @@
 # Recipes
 
-Short integrations that are not part of the package. Each one is a pattern, not an API: copy it and adapt it.
+Short integrations that are not part of the package. Each one is a pattern, not an API: copy it and adapt it. For a
+complete server wired to log every error, see the per-server pages in [servers/](./servers/README.md).
 
 - [Any structured logger](#any-structured-logger)
 - [pino](#pino)

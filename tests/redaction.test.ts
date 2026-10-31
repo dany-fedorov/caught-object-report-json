@@ -1,17 +1,17 @@
 import type { CorjContext, CorjRedactPolicyInput } from '../src';
-import {
-  Corj,
-  CORJ_OMITTED_MARKER,
-  CORJ_REDACTED_MARKER,
-  CorjMaker,
-} from '../src';
+import * as Corj from '../src';
+import { CORJ_OMITTED_MARKER, CORJ_REDACTED_MARKER, CorjMaker } from '../src';
 import * as reportSize from '../src/report-size';
 import {
   getReportArrayReportValidator,
   getReportObjectReportValidator,
 } from './utils/getReportObjectReportValidator';
 
-const { makeReport, resolveRedactPolicy, restoreExpectedValues } = Corj;
+const {
+  makeCaughtObjectReport: makeReport,
+  resolveCaughtObjectReportRedactPolicy: resolveRedactPolicy,
+  restoreCaughtObjectReportExpectedValues: restoreExpectedValues,
+} = Corj;
 
 /** The one string that must never survive a policy that excludes it. */
 const SECRET = 'sk-live-MARKER-0123456789';

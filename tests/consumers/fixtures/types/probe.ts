@@ -1,7 +1,7 @@
 // Declaration resolution: every supported moduleResolution mode must find the
 // package's types through its published layout, with no path mapping.
+import * as Corj from 'caught-object-report-json';
 import {
-  Corj,
   CorjMaker,
   CORJ_DEFAULT_OPTIONS,
   CORJ_OMITTED_MARKER,
@@ -33,28 +33,32 @@ const warning: CorjContext = {
   reportKey: 'message',
 };
 
-const resolved = Corj.resolveRedactPolicy(redact);
+const resolved = Corj.resolveCaughtObjectReportRedactPolicy(redact);
 const scrubbed: string =
   resolved === null
     ? 'no policy'
     : new CorjMaker({ redact: resolved }).scrubText('sk-live-AAA', warning);
 
 const input: CorjReportInput = { ...options, context: { runId: 'typed' } };
-const report: CorjReport = Corj.makeReport(new Error('typed'), input);
-const rows: CorjReportNode[] = Corj.makeReportArray(
+const report: CorjReport = Corj.makeCaughtObjectReport(
+  new Error('typed'),
+  input,
+);
+const rows: CorjReportNode[] = Corj.makeCaughtObjectReportArray(
   new Error('typed'),
   options,
 );
 const maker = new CorjMaker(options).withOptions({ maxChildren: 3 });
 
 const withApplicationField = { ...report, applicationField: 1 as const };
-const restored = Corj.restoreExpectedValues(withApplicationField);
+const restored =
+  Corj.restoreCaughtObjectReportExpectedValues(withApplicationField);
 const applicationField: 1 = restored.applicationField;
 
 export const surface = {
   report,
   rows,
-  full: Corj.restoreExpectedValues(report),
+  full: Corj.restoreCaughtObjectReportExpectedValues(report),
   fromMaker: maker.makeReport('caught'),
   defaults: CORJ_DEFAULT_OPTIONS.inspection,
   markers: [CORJ_OMITTED_MARKER, CORJ_REDACTED_MARKER],

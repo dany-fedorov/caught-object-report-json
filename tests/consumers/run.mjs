@@ -330,9 +330,11 @@ const checks = {
           false,
         );
         const removedNames = [
+          'Corj',
           'makeReport',
           'makeReportArray',
           'resolveCorjRedactPolicy',
+          'resolveRedactPolicy',
           'restoreExpectedValues',
         ];
         const removedDiagnostics =
@@ -362,11 +364,11 @@ const checks = {
           false,
         );
         results.push({
-          name: `${moduleResolution}: Corj members are readonly`,
+          name: `${moduleResolution}: namespace members are readonly`,
           ok: readonly !== null && /error TS2540:/.test(readonly),
           error:
             readonly === null
-              ? 'assignment to Corj.makeReport type-checked'
+              ? 'assignment to Corj.makeCaughtObjectReport type-checked'
               : /error TS2540:/.test(readonly)
               ? undefined
               : `expected a readonly-property diagnostic, got: ${readonly}`,

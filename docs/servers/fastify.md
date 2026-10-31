@@ -7,7 +7,7 @@ Every server page in this folder has the same shape: one complete file that boot
 ## Where errors are caught
 
 - **Request errors:** `app.setErrorHandler((caught, request, reply) => …)`, which receives everything a route throws or passes to `reply.send(err)`.
-- **Logging:** Fastify logs through pino. The example replaces pino's `err` serializer with `corj.makeReport`, so any `log.error({ err })` anywhere in the app carries a report, including the two process-level hooks.
+- **Logging:** Fastify logs through pino. The example replaces pino's `err` serializer with `maker.makeReport`, so any `log.error({ err })` anywhere in the app carries a report, including the two process-level hooks.
 - **Outside a request:** `process.on("uncaughtException")` and `process.on("unhandledRejection")`, logged through `app.log.error({ err })`.
 
 ## Install
@@ -20,16 +20,16 @@ npm install fastify caught-object-report-json
 
 ```javascript
 import Fastify from 'fastify';
-import { CorjMaker } from 'caught-object-report-json';
+import * as Corj from 'caught-object-report-json';
 
-const corj = new CorjMaker({ maxReportSize: 16_000, maxDepth: 3 });
+const maker = new Corj.CorjMaker({ maxReportSize: 16_000, maxDepth: 3 });
 
 // Fastify logs through pino. Replace pino's `err` serializer so every
 // `log.error({ err })` line carries a report instead of pino's Error dump.
 const app = Fastify({
   logger: {
     level: 'info',
-    serializers: { err: (caught) => corj.makeReport(caught) },
+    serializers: { err: (caught) => maker.makeReport(caught) },
   },
 });
 
@@ -58,7 +58,7 @@ app.get('/reject', async (request, reply) => {
 
 // Every error thrown or passed to reply.send(err) in a route ends here.
 app.setErrorHandler((caught, request, reply) => {
-  const report = corj.makeReport(caught, { context: { method: request.method, url: request.url } });
+  const report = maker.makeReport(caught, { context: { method: request.method, url: request.url } });
   request.log.error({ report, where: 'request' }); // `report`, not `err`: the serializer would report it twice
   const status = typeof caught?.statusCode === 'number' && caught.statusCode >= 400 ? caught.statusCode : 500;
   reply.code(status).send({ error: status === 500 ? 'Internal Server Error' : caught.message, occurrence_id: report.occurrence_id });
@@ -103,7 +103,7 @@ Pino lines on stdout (`"level":50` is pino's `error`), trimmed:
 ## Adapting it
 
 - Keep one `CorjMaker` per process and reuse it; it validates options once at startup.
-- Put request identifiers in `context`, not in the report: `corj.makeReport(caught, { context: { requestId } })`.
+- Put request identifiers in `context`, not in the report: `maker.makeReport(caught, { context: { requestId } })`.
 - Tune `maxReportSize` to what one log line may cost you; the whole report, children included, stays under it.
 - Add `redact: { keys: [...], patterns: [...] }` before the logs leave the machine; see [Redacting what the report emits](../guide.md#redacting-what-the-report-emits).
 - The 500 body quotes `occurrence_id` so a client or a support ticket can name the exact log line. `fingerprint` groups repeats of the same failure; see [Fingerprint](../guide.md#fingerprint).

@@ -18,12 +18,12 @@ Every server page in this folder has the same shape: one complete file that boot
 ## The file: `server.ts`
 
 ```typescript
-import { CorjMaker } from 'npm:caught-object-report-json@14';
+import * as Corj from 'npm:caught-object-report-json@15';
 
-const corj = new CorjMaker({ maxReportSize: 16_000, maxDepth: 3 });
+const maker = new Corj.CorjMaker({ maxReportSize: 16_000, maxDepth: 3 });
 
 function logError(where: string, caught: unknown, context?: unknown) {
-  const report = corj.makeReport(caught, { context });
+  const report = maker.makeReport(caught, { context });
   console.error(JSON.stringify({ level: 'error', where, error: report }));
   return report;
 }
@@ -101,12 +101,12 @@ request. The `context` is whatever the hook knew; process-level hooks know nothi
 ## Notes for this server
 
 - Deno is not covered by this package's consumer tests (see Supported runtimes in the guide). The example was run as shown with Deno 2.9.6 and behaved as documented, but Deno is a mirrored, not a tested, target.
-- The import is `npm:caught-object-report-json@14`. In a project with a `deno.json`, add it to `imports` instead.
+- The import is `npm:caught-object-report-json@15`. In a project with a `deno.json`, add it to `imports` instead.
 
 ## Adapting it
 
 - Keep one `CorjMaker` per process and reuse it; it validates options once at startup.
-- Put request identifiers in `context`, not in the report: `corj.makeReport(caught, { context: { requestId } })`.
+- Put request identifiers in `context`, not in the report: `maker.makeReport(caught, { context: { requestId } })`.
 - Tune `maxReportSize` to what one log line may cost you; the whole report, children included, stays under it.
 - Add `redact: { keys: [...], patterns: [...] }` before the logs leave the machine; see [Redacting what the report emits](../guide.md#redacting-what-the-report-emits).
 - The 500 body quotes `occurrence_id` so a client or a support ticket can name the exact log line. `fingerprint` groups repeats of the same failure; see [Fingerprint](../guide.md#fingerprint).

@@ -20,12 +20,12 @@ Every server page in this folder has the same shape: one complete file that boot
 
 ```typescript
 import { Application } from 'jsr:@oak/oak@17';
-import { CorjMaker } from 'npm:caught-object-report-json@14';
+import * as Corj from 'npm:caught-object-report-json@15';
 
-const corj = new CorjMaker({ maxReportSize: 16_000, maxDepth: 3 });
+const maker = new Corj.CorjMaker({ maxReportSize: 16_000, maxDepth: 3 });
 
 function logError(where: string, caught: unknown, context?: unknown) {
-  const report = corj.makeReport(caught, { context });
+  const report = maker.makeReport(caught, { context });
   console.error(JSON.stringify({ level: 'error', where, error: report }));
   return report;
 }
@@ -120,7 +120,7 @@ request. The `context` is whatever the hook knew; process-level hooks know nothi
 ## Adapting it
 
 - Keep one `CorjMaker` per process and reuse it; it validates options once at startup.
-- Put request identifiers in `context`, not in the report: `corj.makeReport(caught, { context: { requestId } })`.
+- Put request identifiers in `context`, not in the report: `maker.makeReport(caught, { context: { requestId } })`.
 - Tune `maxReportSize` to what one log line may cost you; the whole report, children included, stays under it.
 - Add `redact: { keys: [...], patterns: [...] }` before the logs leave the machine; see [Redacting what the report emits](../guide.md#redacting-what-the-report-emits).
 - The 500 body quotes `occurrence_id` so a client or a support ticket can name the exact log line. `fingerprint` groups repeats of the same failure; see [Fingerprint](../guide.md#fingerprint).

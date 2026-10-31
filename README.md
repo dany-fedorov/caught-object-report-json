@@ -19,12 +19,12 @@ That is what your logger gets today. `Error` has no JSON form, `throw` accepts a
 report with a published schema:
 
 ```typescript
-import { Corj } from 'caught-object-report-json';
+import * as Corj from 'caught-object-report-json';
 
 try {
   await fetchUser(id);
 } catch (caught: unknown) {
-  logger.error({ error: Corj.makeReport(caught) });
+  logger.error({ error: Corj.makeCaughtObjectReport(caught) });
 }
 ```
 
@@ -87,14 +87,14 @@ npm install caught-object-report-json
 # Quick start
 
 ```typescript
-import { Corj } from 'caught-object-report-json';
+import * as Corj from 'caught-object-report-json';
 
 try {
   throw new Error('checkout failed', {
     cause: Object.assign(new TypeError('card declined'), { code: 'CARD_DECLINED' }),
   });
 } catch (caught: unknown) {
-  console.log(JSON.stringify(Corj.makeReport(caught), null, 2));
+  console.log(JSON.stringify(Corj.makeCaughtObjectReport(caught), null, 2));
 }
 ```
 
@@ -124,7 +124,7 @@ try {
 
 Real output, with Node's own frames cut from the stacks. The cause is a child with a JSONPath. Its extra property landed in `as_json`. `message` and `constructor_name` are not
 repeated because the first stack line already carries them; a reader that wants every field present calls
-`Corj.restoreExpectedValues(report)`.
+`Corj.restoreCaughtObjectReportExpectedValues(report)`.
 
 # Step by step
 
@@ -135,13 +135,13 @@ Each step adds one capability. Outputs are real, with ids elided.
 `throw` accepts anything, and TypeScript types `caught` as `unknown`. CORJ reports what it got:
 
 ```typescript
-Corj.makeReport('boom');
+Corj.makeCaughtObjectReport('boom');
 // { instanceof_error: false, typeof: 'string', constructor_name: 'String', as_string: 'boom', as_json: 'boom', ... }
 
-Corj.makeReport(null);
+Corj.makeCaughtObjectReport(null);
 // { instanceof_error: false, as_string: 'null', as_json: null, ... }
 
-Corj.makeReport({ code: 'E_FAIL', retryable: true });
+Corj.makeCaughtObjectReport({ code: 'E_FAIL', retryable: true });
 // { instanceof_error: false, constructor_name: 'Object', as_string: '[object Object]', as_json: { code: 'E_FAIL', retryable: true }, ... }
 ```
 
@@ -158,7 +158,7 @@ const shared = new Error('shared cause');
 const root = new AggregateError([new Error('first', { cause: shared }), new Error('second', { cause: shared })], 'root');
 shared.cause = root; // a cycle
 
-Corj.makeReportArray(root).map(({ id, path, child_ids }) => ({ id, path, child_ids }));
+Corj.makeCaughtObjectReportArray(root).map(({ id, path, child_ids }) => ({ id, path, child_ids }));
 // [ { id: 'root', path: '$',               child_ids: ['0', '1'] },
 //   { id: '0',    path: '$.errors[0]',     child_ids: ['2'] },
 //   { id: '1',    path: '$.errors[1]',     child_ids: ['2'] },
@@ -176,12 +176,12 @@ recorded in the report itself.
 ```typescript
 const hostile = { code: 'E_FAIL', get message() { throw new Error('getter exploded'); } };
 
-const report = Corj.makeReport(hostile, { onReportingError: () => {} }); // default handler prints a console.warn line
+const report = Corj.makeCaughtObjectReport(hostile, { onReportingError: () => {} }); // default handler prints a console.warn line
 report.message;             // null
 report.reporting_errors[0]; // { stage: 'prop-access', path: '$', reportKey: 'message', sourceProperty: 'message', error: 'Error: getter exploded' }
 ```
 
-`Corj.makeReport` throws only for invalid configuration, and then at the call site, never inside the report. If you would
+`Corj.makeCaughtObjectReport` throws only for invalid configuration, and then at the call site, never inside the report. If you would
 rather the caught object's code did not run at all, `inspection: 'no-invoke'` reads property descriptors and calls no
 getter, `toString` or `toJSON`; content that would need code to produce becomes `"[not-inspected]"`.
 
@@ -191,7 +191,7 @@ The whole report, children included, is limited to `maxReportSize` bytes of comp
 broken: strings end with `[truncated]`, arrays and objects keep a prefix, and the root gets `truncated: true`.
 
 ```typescript
-const report = Corj.makeReport(
+const report = Corj.makeCaughtObjectReport(
   { code: 'FETCH_FAILED', attempts: Array(100).fill('timeout') },
   { maxReportSize: 512, metadata: false },
 );
@@ -209,7 +209,7 @@ Error text is duplicated across `message`, `stack` and `as_string`. A `patterns`
 `keys` and `paths` stop a property from being read at all.
 
 ```typescript
-Corj.makeReport(new Error('refused key sk-live-4f9a2c'), {
+Corj.makeCaughtObjectReport(new Error('refused key sk-live-4f9a2c'), {
   redact: { keys: ['password', /^authorization$/i], patterns: [/sk-live-[A-Za-z0-9]+/g] },
 }).stack[0];
 // 'Error: refused key [redacted]'
@@ -224,18 +224,18 @@ A `CorjMaker` validates its options at construction, so a typo fails at startup 
 reused for every report.
 
 ```typescript
-import { CorjMaker } from 'caught-object-report-json';
+import * as Corj from 'caught-object-report-json';
 
-const corj = new CorjMaker({
+const maker = new Corj.CorjMaker({
   maxReportSize: 16_000,
   maxDepth: 2,
   redact: { patterns: [/sk-live-[A-Za-z0-9]+/g] },
 });
 
-const report = corj.makeReport(caught, { context: { requestId, route: '/checkout' } });
-const smaller = corj.withOptions({ maxReportSize: 4096 }); // a new maker; `corj` is unchanged
+const report = maker.makeReport(caught, { context: { requestId, route: '/checkout' } });
+const smaller = maker.withOptions({ maxReportSize: 4096 }); // a new maker; `corj` is unchanged
 
-new CorjMaker({ maxReportSize: 100 });
+new Corj.CorjMaker({ maxReportSize: 100 });
 // RangeError: maxReportSize must be a safe integer >= 512, or null to disable the limit
 ```
 
@@ -247,12 +247,12 @@ new CorjMaker({ maxReportSize: 100 });
 failure from the same place compare equal while `occurrence_id` tells them apart.
 
 ```typescript
-const corj = new CorjMaker();
-corj.makeFingerprint(err) === corj.makeFingerprint(err); // true, 'fp1_…'
-corj.makeReport(err).occurrence_id;                      // 'CORJ_…', new per occurrence
+const maker = new Corj.CorjMaker();
+maker.makeFingerprint(err) === maker.makeFingerprint(err); // true, 'fp1_…'
+maker.makeReport(err).occurrence_id;                      // 'CORJ_…', new per occurrence
 ```
 
-Pass your own id for correlation with the request that failed: `corj.makeReport(caught, { occurrenceId: requestId })`.
+Pass your own id for correlation with the request that failed: `maker.makeReport(caught, { occurrenceId: requestId })`.
 
 # Report every error from your server
 
@@ -282,7 +282,7 @@ async function callTool<T>(name: string, run: () => Promise<T>, attempt: number)
   try {
     return { ok: true, value: await run() };
   } catch (caught: unknown) {
-    return { ok: false, error: corj.makeReport(caught, { context: { tool: name, attempt } }) };
+    return { ok: false, error: maker.makeReport(caught, { context: { tool: name, attempt } }) };
   }
 }
 ```
@@ -303,9 +303,14 @@ CORJ supplies the diagnostic representation. Graph state, retry policy and token
 
 If you are an agent integrating or consuming this package, this is the shortest reliable path.
 
-- **Entry points.** `Corj.makeReport(caught, input?)` returns one object; `Corj.makeReportArray(caught, input?)` returns
-  the same nodes as a flat array, root first. `new CorjMaker(options)` holds options for reuse and exposes `makeReport`,
-  `makeReportArray`, `withOptions`, `makeFingerprint`, `makeJsonView` and `scrubText`.
+- **Import convention.** `import * as Corj from 'caught-object-report-json'` (CommonJS: `const Corj = require(...)`).
+  Every example in this repository uses it.
+- **Entry points.** `Corj.makeCaughtObjectReport(caught, input?)` returns one object;
+  `Corj.makeCaughtObjectReportArray(caught, input?)` returns the same nodes as a flat array, root first.
+  `new Corj.CorjMaker(options)` holds options for reuse and exposes `makeReport`, `makeReportArray`, `withOptions`,
+  `makeFingerprint`, `makeJsonView` and `scrubText`. `Corj.restoreCaughtObjectReportExpectedValues` and
+  `Corj.resolveCaughtObjectReportRedactPolicy` complete the surface. Versions up to 14 exposed the four functions on a
+  frozen `Corj` object with shorter names; that object is gone.
 - **Invariants.** Never throws because of the caught value. Compact JSON is at most `maxReportSize` bytes (default
   100000). A missing field means its documented expected value; `null` means producing it threw, see `reporting_errors`.
 - **Report fields.** `occurrence_id`, `fingerprint`, `truncated`, `instanceof_error`, `typeof`, `constructor_name`,
@@ -355,11 +360,11 @@ graph or decide retryability. The complete list with reasoning is
 
 | Call | Returns | One line |
 | --- | --- | --- |
-| `Corj.makeReport(caught, input?)` | `CorjReport` | The report as one object, with defaults plus `input` (options and per-call values). |
-| `Corj.makeReportArray(caught, input?)` | `CorjReportNode[]` | The same nodes as a flat array, root first. |
-| `Corj.restoreExpectedValues(report)` | a copy | Fills omitted expected values back in (`corj/v0.15` to `corj/v0.15-full`). |
-| `Corj.resolveRedactPolicy(input)` | `CorjRedactPolicy \| null` | Validates a redaction policy ahead of time; throws `TypeError` if invalid. |
-| `new CorjMaker(options?)` | `CorjMaker` | Validates and freezes options once; throws `TypeError` / `RangeError` for bad ones. |
+| `Corj.makeCaughtObjectReport(caught, input?)` | `CorjReport` | The report as one object, with defaults plus `input` (options and per-call values). |
+| `Corj.makeCaughtObjectReportArray(caught, input?)` | `CorjReportNode[]` | The same nodes as a flat array, root first. |
+| `Corj.restoreCaughtObjectReportExpectedValues(report)` | a copy | Fills omitted expected values back in (`corj/v0.15` to `corj/v0.15-full`). |
+| `Corj.resolveCaughtObjectReportRedactPolicy(input)` | `CorjRedactPolicy \| null` | Validates a redaction policy ahead of time; throws `TypeError` if invalid. |
+| `new Corj.CorjMaker(options?)` | `CorjMaker` | Validates and freezes options once; throws `TypeError` / `RangeError` for bad ones. |
 | `maker.makeReport(caught, call?)` | `CorjReport` | `call` is `{ occurrenceId?, fingerprint?, context? }`. |
 | `maker.makeReportArray(caught, call?)` | `CorjReportNode[]` | Flat form under the maker's options. |
 | `maker.withOptions(options)` | `CorjMaker` | A new maker with overrides; the original is unchanged. |
@@ -388,10 +393,12 @@ Not tested, so not supported: Deno, Cloudflare Workers and other edge runtimes, 
 
 # Upgrading
 
-14.0.0 hardens reporting against hostile inputs without renaming or removing any option; the report format stays
-`corj/v0.15`. Redaction transforms now receive detached snapshots, input ceilings apply even with `maxReportSize: null`, and
-a fingerprint that cannot be rebuilt faithfully is omitted with a reporting error. Details for this and every earlier major
-are in [UPGRADING.md](https://github.com/dany-fedorov/caught-object-report-json/blob/main/docs/UPGRADING.md).
+15.0.0 removes the frozen `Corj` object and exports its four functions from the package root under longer names:
+`makeReport` is `makeCaughtObjectReport`, `makeReportArray` is `makeCaughtObjectReportArray`, `restoreExpectedValues` is
+`restoreCaughtObjectReportExpectedValues`, `resolveRedactPolicy` is `resolveCaughtObjectReportRedactPolicy`. With the
+`import * as Corj` convention, call sites change only in the member name. `CorjMaker`, every constant, every type and the
+report format `corj/v0.15` are unchanged. Details for this and every earlier major are in
+[UPGRADING.md](https://github.com/dany-fedorov/caught-object-report-json/blob/main/docs/UPGRADING.md).
 
 # Links
 

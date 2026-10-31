@@ -1,10 +1,15 @@
-import { Corj, CORJ_DEFAULT_OPTIONS, CorjContext, CorjMaker } from '../src';
+import * as Corj from '../src';
+import { CORJ_DEFAULT_OPTIONS, CorjContext, CorjMaker } from '../src';
 import {
   getReportArrayReportValidator,
   getReportObjectReportValidator,
 } from './utils/getReportObjectReportValidator';
 
-const { makeReport, makeReportArray, restoreExpectedValues } = Corj;
+const {
+  makeCaughtObjectReport: makeReport,
+  makeCaughtObjectReportArray: makeReportArray,
+  restoreCaughtObjectReportExpectedValues: restoreExpectedValues,
+} = Corj;
 
 const marker = '[truncated]';
 const quiet = { onReportingError: () => undefined };

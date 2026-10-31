@@ -1,5 +1,5 @@
 import { strict as assert } from 'node:assert';
-import { Corj, CorjMaker } from '../src';
+import * as Corj from '../src';
 import type { CorjReport } from '../src';
 
 type Llm = { complete(prompt: string): Promise<string> };
@@ -8,7 +8,7 @@ type NodeResult<T> = { node: string } & (
   | { ok: false; error: CorjReport }
 );
 
-const corj = new CorjMaker({
+const maker = new Corj.CorjMaker({
   maxReportSize: 4096,
   reportSizeUnit: 'utf8-bytes',
   maxDepth: 2,
@@ -23,7 +23,7 @@ async function runNode<T>(
   try {
     return { node, ok: true, value: await operation() };
   } catch (caught: unknown) {
-    return { node, ok: false, error: corj.makeReport(caught) };
+    return { node, ok: false, error: maker.makeReport(caught) };
   }
 }
 
@@ -56,7 +56,7 @@ async function main() {
   assert.equal(nextNode(failed), 'fallback');
   if (failed.ok) throw new Error('Expected the failing fixture to fail');
 
-  const full = Corj.restoreExpectedValues(failed.error);
+  const full = Corj.restoreCaughtObjectReportExpectedValues(failed.error);
   assert.equal(full.message, 'Model request failed');
   assert.equal(full.children?.[0]?.path, '$.cause');
   assert.deepEqual(full.children?.[0]?.as_json, { code: 'MODEL_UNAVAILABLE' });

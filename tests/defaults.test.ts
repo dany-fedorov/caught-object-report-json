@@ -1,6 +1,7 @@
-import { Corj, CORJ_DEFAULT_OPTIONS } from '../src/index';
+import * as Corj from '../src/index';
+import { CORJ_DEFAULT_OPTIONS } from '../src/index';
 
-const { makeReport } = Corj;
+const { makeCaughtObjectReport: makeReport } = Corj;
 
 describe('defaults', () => {
   test('a report carries an id and a fingerprint out of the box', () => {

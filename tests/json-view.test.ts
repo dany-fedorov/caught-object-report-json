@@ -1,7 +1,8 @@
-import { Corj, CorjMaker } from '../src/index';
+import * as Corj from '../src/index';
+import { CorjMaker } from '../src/index';
 import * as corj from '../src/index';
 
-const { resolveRedactPolicy } = Corj;
+const { resolveCaughtObjectReportRedactPolicy: resolveRedactPolicy } = Corj;
 
 const silent = () => undefined;
 

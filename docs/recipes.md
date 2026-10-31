@@ -15,14 +15,14 @@ Every JSON logger accepts an object. Put the report under one key and keep your 
 size budget:
 
 ```typescript
-import { CorjMaker } from 'caught-object-report-json';
+import * as Corj from 'caught-object-report-json';
 
-const corj = new CorjMaker({ maxReportSize: 16_000 });
+const maker = new Corj.CorjMaker({ maxReportSize: 16_000 });
 
 try {
   await job.run();
 } catch (caught: unknown) {
-  logger.error({ jobId: job.id, error: corj.makeReport(caught) });
+  logger.error({ jobId: job.id, error: maker.makeReport(caught) });
 }
 ```
 
@@ -36,11 +36,11 @@ or `null` is logged with the same shape as an `Error`:
 
 ```typescript
 import pino from 'pino';
-import { Corj } from 'caught-object-report-json';
+import * as Corj from 'caught-object-report-json';
 
 const logger = pino({
   serializers: {
-    err: (caught: unknown) => Corj.makeReport(caught, { maxReportSize: 16_000 }),
+    err: (caught: unknown) => Corj.makeCaughtObjectReport(caught, { maxReportSize: 16_000 }),
   },
 });
 
@@ -57,14 +57,14 @@ Wrap each model or tool call once. Keep the typed outcome in your own record, ro
 report (selected and redacted) back to the model when a retry makes sense.
 
 ```typescript
-import { CorjMaker } from 'caught-object-report-json';
+import * as Corj from 'caught-object-report-json';
 import type { CorjReport } from 'caught-object-report-json';
 
 type Outcome<T> =
   | { ok: true; value: T }
   | { ok: false; error: CorjReport };
 
-const corj = new CorjMaker({
+const maker = new Corj.CorjMaker({
   maxReportSize: 4096,
   maxDepth: 2,
   maxChildren: 4,
@@ -75,7 +75,7 @@ async function callTool<T>(name: string, run: () => Promise<T>, attempt: number)
   try {
     return { ok: true, value: await run() };
   } catch (caught: unknown) {
-    return { ok: false, error: corj.makeReport(caught, { context: { tool: name, attempt } }) };
+    return { ok: false, error: maker.makeReport(caught, { context: { tool: name, attempt } }) };
   }
 }
 
@@ -100,17 +100,17 @@ The schema URL is exported as a constant, and `metadata: true` puts it on the re
 
 ```typescript
 import Ajv2020 from 'ajv/dist/2020';
-import { Corj, CORJ_REPORT_OBJECT_JSON_SCHEMA_LINK } from 'caught-object-report-json';
+import * as Corj from 'caught-object-report-json';
 
 const ajv = new Ajv2020({ loadSchema: async (uri) => (await fetch(uri)).json() });
 const validate = await ajv.compileAsync(await (await fetch(CORJ_REPORT_OBJECT_JSON_SCHEMA_LINK)).json());
 
-const report = Corj.makeReport(new Error('x'), { metadata: true });
+const report = Corj.makeCaughtObjectReport(new Error('x'), { metadata: true });
 validate(report); // true; report.$schema === CORJ_REPORT_OBJECT_JSON_SCHEMA_LINK
 ```
 
 Use `CORJ_FULL_REPORT_OBJECT_JSON_SCHEMA_LINK` for a report produced with `omitExpectedValues: false` or by
-`Corj.restoreExpectedValues`, and the `*_ARRAY_*` constants for `Corj.makeReportArray` output.
+`Corj.restoreCaughtObjectReportExpectedValues`, and the `*_ARRAY_*` constants for `Corj.makeCaughtObjectReportArray` output.
 
 ## winston uncaught-exception handler
 
@@ -120,7 +120,7 @@ replaces the `message` with a report. It is a monkey patch, so pin your winston 
 
 ```typescript
 import { createLogger, transports, ExceptionHandler } from 'winston';
-import { Corj } from 'caught-object-report-json';
+import * as Corj from 'caught-object-report-json';
 
 const origGetAllInfo = ExceptionHandler.prototype.getAllInfo;
 ExceptionHandler.prototype.getAllInfo = function getAllInfoExtended(err: unknown): object {
@@ -128,7 +128,7 @@ ExceptionHandler.prototype.getAllInfo = function getAllInfoExtended(err: unknown
     ExceptionHandler.prototype,
     err instanceof Error ? err : 'stub error so getAllInfo does not break on null or undefined',
   );
-  return { ...errorInfoByWinston, error: err, message: Corj.makeReport(err) };
+  return { ...errorInfoByWinston, error: err, message: Corj.makeCaughtObjectReport(err) };
 };
 
 const logger = createLogger({

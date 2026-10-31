@@ -138,7 +138,7 @@ export type CorjChildrenOmitted =
  *
  * With `omitExpectedValues` (the default) a field holding its expected value is
  * left out, see {@link CORJ_EXPECTED_VALUES}: a missing field means the expected
- * value, `null` means producing the value failed. {@link Corj.restoreExpectedValues}
+ * value, `null` means producing the value failed. {@link restoreCaughtObjectReportExpectedValues}
  * fills them back in.
  */
 export type CorjReportBase = {
@@ -184,7 +184,7 @@ export type CorjReportBase = {
   $schema?: CorjSchemaLink;
 };
 
-/** Report object produced by {@link Corj.makeReport} and {@link CorjMaker.makeReport}. */
+/** Report object produced by {@link makeCaughtObjectReport} and {@link CorjMaker.makeReport}. */
 export type CorjReport = CorjReportBase & {
   /** Every nested error found through `children_sources`, flattened breadth-first. Absent when there are none. */
   children?: CorjReportNode[];
@@ -192,7 +192,7 @@ export type CorjReport = CorjReportBase & {
 
 /**
  * One node of a flattened error tree: an element of {@link CorjReport.children},
- * or of the array produced by {@link Corj.makeReportArray} whose first element is the root.
+ * or of the array produced by {@link makeCaughtObjectReportArray} whose first element is the root.
  */
 export type CorjReportNode = CorjReportBase & {
   /** From `makeReportId`; `"root"` for the root and the discovery index otherwise by default. */
@@ -315,7 +315,7 @@ export type CorjOptions = {
 };
 
 /**
- * Options accepted by {@link CorjMaker}, {@link Corj.makeReport} and {@link Corj.makeReportArray}. Missing ones keep their defaults.
+ * Options accepted by {@link CorjMaker}, {@link makeCaughtObjectReport} and {@link makeCaughtObjectReportArray}. Missing ones keep their defaults.
  *
  * @example
  * ```typescript
@@ -344,7 +344,7 @@ export type CorjOptionsInput = {
  *
  * @example
  * ```typescript
- * corj.makeReport(caught, { occurrenceId: 'req-42', context: { tool: 'search', attempt: 2 } });
+ * maker.makeReport(caught, { occurrenceId: 'req-42', context: { tool: 'search', attempt: 2 } });
  * ```
  */
 export type CorjCallInput = {
@@ -356,7 +356,7 @@ export type CorjCallInput = {
   context?: unknown;
 };
 
-/** Configuration and per-call values accepted by {@link Corj.makeReport} and {@link Corj.makeReportArray}. */
+/** Configuration and per-call values accepted by {@link makeCaughtObjectReport} and {@link makeCaughtObjectReportArray}. */
 export type CorjReportInput = CorjOptionsInput & CorjCallInput;
 
 //  ██████╗ ██████╗ ███╗   ██╗███████╗████████╗ █████╗ ███╗   ██╗████████╗███████╗
@@ -2251,12 +2251,14 @@ const ROOT_PATTERN = /^\$([A-Za-z_][A-Za-z0-9_]*)?$/;
  *
  * @example
  * ```typescript
- * const corj = new CorjMaker({ maxReportSize: 16_000, maxDepth: 2, redact: { keys: ['password'] } });
+ * import * as Corj from 'caught-object-report-json';
+ *
+ * const maker = new Corj.CorjMaker({ maxReportSize: 16_000, maxDepth: 2, redact: { keys: ['password'] } });
  *
  * try {
  *   await job.run();
  * } catch (caught: unknown) {
- *   logger.error({ jobId: job.id, error: corj.makeReport(caught, { context: { attempt: 1 } }) });
+ *   logger.error({ jobId: job.id, error: maker.makeReport(caught, { context: { attempt: 1 } }) });
  * }
  * ```
  */
@@ -2269,7 +2271,7 @@ export class CorjMaker {
    *
    * @example
    * ```typescript
-   * new CorjMaker({ maxReportSize: 100 });
+   * new Corj.CorjMaker({ maxReportSize: 100 });
    * // RangeError: maxReportSize must be a safe integer >= 512, or null to disable the limit
    * ```
    */
@@ -2333,7 +2335,7 @@ export class CorjMaker {
    *
    * @example
    * ```typescript
-   * const base = new CorjMaker({ redact: { keys: ['password'] } });
+   * const base = new Corj.CorjMaker({ redact: { keys: ['password'] } });
    * const forModel = base.withOptions({ maxReportSize: 4096, metadata: false }); // keeps the redact policy
    * ```
    */
@@ -2368,7 +2370,7 @@ export class CorjMaker {
    *
    * @example
    * ```typescript
-   * const report = corj.makeReport(caught, { occurrenceId: requestId, context: { route: '/checkout' } });
+   * const report = maker.makeReport(caught, { occurrenceId: requestId, context: { route: '/checkout' } });
    * // { occurrence_id: 'req-42', fingerprint: 'fp1_…', stack: [...], children?: [...], context: {...}, v: 'corj/v0.15' }
    * ```
    */
@@ -2384,7 +2386,7 @@ export class CorjMaker {
    *
    * @example
    * ```typescript
-   * corj.makeReportArray(new Error('outer', { cause: new Error('inner') })).map((node) => node.path);
+   * maker.makeReportArray(new Error('outer', { cause: new Error('inner') })).map((node) => node.path);
    * // [ '$', '$.cause' ]
    * ```
    */
@@ -2411,8 +2413,8 @@ export class CorjMaker {
    *
    * @example
    * ```typescript
-   * corj.makeFingerprint(err) === corj.makeFingerprint(err); // true, 'fp1_' + 32 hex characters
-   * corj.makeFingerprint('boom', { requireStack: true });    // undefined: nothing frame-backed to hash
+   * maker.makeFingerprint(err) === maker.makeFingerprint(err); // true, 'fp1_' + 32 hex characters
+   * maker.makeFingerprint('boom', { requireStack: true });    // undefined: nothing frame-backed to hash
    * ```
    */
   makeFingerprint(
@@ -2444,8 +2446,8 @@ export class CorjMaker {
    *
    * @example
    * ```typescript
-   * const corj = new CorjMaker({ redact: { keys: ['password'] } });
-   * corj.makeJsonView({ user: 'ada', password: 'p' }, { root: '$request', maxSize: 512 });
+   * const maker = new Corj.CorjMaker({ redact: { keys: ['password'] } });
+   * maker.makeJsonView({ user: 'ada', password: 'p' }, { root: '$request', maxSize: 512 });
    * // { value: { user: 'ada', password: '[redacted]' }, truncated: false, errors: [] }
    * ```
    */
@@ -2491,8 +2493,8 @@ export class CorjMaker {
    *
    * @example
    * ```typescript
-   * const corj = new CorjMaker({ redact: { patterns: [/sk-[a-z0-9]+/g] } });
-   * corj.scrubText('token sk-123 used', { path: '$audit' }); // 'token [redacted] used'
+   * const maker = new Corj.CorjMaker({ redact: { patterns: [/sk-[a-z0-9]+/g] } });
+   * maker.scrubText('token sk-123 used', { path: '$audit' }); // 'token [redacted] used'
    * ```
    */
   scrubText(
@@ -2557,68 +2559,81 @@ function splitReportInput(input: CorjReportInput | undefined): {
   };
 }
 
-/** {@link CorjMaker.makeReport} with {@link CORJ_DEFAULT_OPTIONS} and the given overrides. */
-function makeReport(caught: unknown, input?: CorjReportInput): CorjReport {
+/**
+ * {@link CorjMaker.makeReport} with {@link CORJ_DEFAULT_OPTIONS} and the given
+ * overrides: the report as one object. Builds a {@link CorjMaker} from the
+ * options in `input`; on a hot path construct one `CorjMaker` and reuse it.
+ *
+ * @example
+ * ```typescript
+ * import * as Corj from 'caught-object-report-json';
+ *
+ * try {
+ *   await fetchUser(id);
+ * } catch (caught: unknown) {
+ *   logger.error({ error: Corj.makeCaughtObjectReport(caught) });
+ *   // { occurrence_id: 'CORJ_…', fingerprint: 'fp1_…', stack: ['Error: …', '    at …'], v: 'corj/v0.15' }
+ * }
+ * ```
+ */
+export function makeCaughtObjectReport(
+  caught: unknown,
+  input?: CorjReportInput,
+): CorjReport {
   if (arguments.length > 2) {
-    throw new TypeError('makeReport accepts caught and one input object');
+    throw new TypeError(
+      'makeCaughtObjectReport accepts caught and one input object',
+    );
   }
   const { options, call } = splitReportInput(input);
   return makerFor(options).makeReport(caught, call);
 }
 
-/** {@link CorjMaker.makeReportArray} with {@link CORJ_DEFAULT_OPTIONS} and the given overrides. */
-function makeReportArray(
+/**
+ * {@link CorjMaker.makeReportArray} with {@link CORJ_DEFAULT_OPTIONS} and the
+ * given overrides: the root first, then every nested error, linked by `child_ids`.
+ *
+ * @example
+ * ```typescript
+ * Corj.makeCaughtObjectReportArray(new Error('outer', { cause: new Error('inner') })).map((node) => node.path);
+ * // [ '$', '$.cause' ]
+ * ```
+ */
+export function makeCaughtObjectReportArray(
   caught: unknown,
   input?: CorjReportInput,
 ): CorjReportNode[] {
   if (arguments.length > 2) {
-    throw new TypeError('makeReportArray accepts caught and one input object');
+    throw new TypeError(
+      'makeCaughtObjectReportArray accepts caught and one input object',
+    );
   }
   const { options, call } = splitReportInput(input);
   return makerFor(options).makeReportArray(caught, call);
 }
 
 /**
- * Stateless report utilities for one-off calls and report post-processing.
- * Each `makeReport*` call builds a {@link CorjMaker} from the options in its
- * input; on a hot path construct one `CorjMaker` and reuse it.
+ * Restores fields omitted because they held their documented expected values,
+ * turning a `corj/v0.15` report into its `corj/v0.15-full` form. Accepts an
+ * object or an array report and returns a copy.
  *
  * @example
  * ```typescript
- * try {
- *   await fetchUser(id);
- * } catch (caught: unknown) {
- *   logger.error({ error: Corj.makeReport(caught) });
- *   // { occurrence_id: 'CORJ_…', fingerprint: 'fp1_…', stack: ['Error: …', '    at …'], v: 'corj/v0.15' }
- * }
+ * const full = Corj.restoreCaughtObjectReportExpectedValues(Corj.makeCaughtObjectReport(new Error('x')));
+ * // full.instanceof_error === true, full.message === 'x', full.constructor_name === 'Error', full.v === 'corj/v0.15-full'
  * ```
  */
-export const Corj = Object.freeze({
-  /** {@link CorjMaker.makeReport} with {@link CORJ_DEFAULT_OPTIONS} and the given overrides. */
-  makeReport,
-  /** {@link CorjMaker.makeReportArray} with {@link CORJ_DEFAULT_OPTIONS} and the given overrides. */
-  makeReportArray,
-  /**
-   * Restores fields omitted because they held their documented expected values,
-   * turning a `corj/v0.15` report into its `corj/v0.15-full` form. Returns a copy.
-   *
-   * @example
-   * ```typescript
-   * const full = Corj.restoreExpectedValues(Corj.makeReport(new Error('x')));
-   * // full.instanceof_error === true, full.message === 'x', full.constructor_name === 'Error', full.v === 'corj/v0.15-full'
-   * ```
-   */
-  restoreExpectedValues,
-  /**
-   * Validates and freezes a redaction policy; `undefined` and `null` both mean "no policy".
-   * Call it at startup so a bad policy fails before the first catch block that would use it.
-   *
-   * @example
-   * ```typescript
-   * Corj.resolveRedactPolicy({ keys: ['password'] });
-   * // { keys: ['password'], paths: [], patterns: [], replacement: '[redacted]', transform: null }
-   * Corj.resolveRedactPolicy({ patterns: [/sk-\w+/] }); // TypeError: redact.patterns must all be global; …
-   * ```
-   */
-  resolveRedactPolicy,
-});
+export const restoreCaughtObjectReportExpectedValues = restoreExpectedValues;
+
+/**
+ * Validates and freezes a redaction policy; `undefined` and `null` both mean "no policy".
+ * Call it at startup so a bad policy fails before the first catch block that would use it.
+ *
+ * @example
+ * ```typescript
+ * Corj.resolveCaughtObjectReportRedactPolicy({ keys: ['password'] });
+ * // { keys: ['password'], paths: [], patterns: [], replacement: '[redacted]', transform: null }
+ * Corj.resolveCaughtObjectReportRedactPolicy({ patterns: [/sk-\w+/] }); // TypeError: redact.patterns must all be global; …
+ * ```
+ */
+export const resolveCaughtObjectReportRedactPolicy = resolveRedactPolicy;

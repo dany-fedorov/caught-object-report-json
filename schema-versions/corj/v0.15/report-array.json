@@ -2,7 +2,7 @@
   "$id": "https://raw.githubusercontent.com/dany-fedorov/caught-object-report-json/main/schema-versions/corj/v0.15/report-array.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Caught Object Report JSON",
-  "description": "A JavaScript caught value as a flat array of report nodes: the root first, then every nested error, linked through child_ids. Produced by Corj.makeReportArray in https://www.npmjs.com/package/caught-object-report-json.",
+  "description": "A JavaScript caught value as a flat array of report nodes: the root first, then every nested error, linked through child_ids. Produced by Corj.makeCaughtObjectReportArray in https://www.npmjs.com/package/caught-object-report-json.",
   "type": "array",
   "items": {
     "allOf": [

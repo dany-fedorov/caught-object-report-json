@@ -1,5 +1,5 @@
+import * as Corj from '../src';
 import {
-  Corj,
   CORJ_EXPECTED_VALUES,
   CORJ_VERSION,
   CORJ_VERSION_FULL,
@@ -13,7 +13,11 @@ import {
 } from './utils/getReportObjectReportValidator';
 import { LEGACY } from './legacy-options';
 
-const { makeReport, makeReportArray, restoreExpectedValues } = Corj;
+const {
+  makeCaughtObjectReport: makeReport,
+  makeCaughtObjectReportArray: makeReportArray,
+  restoreCaughtObjectReportExpectedValues: restoreExpectedValues,
+} = Corj;
 
 const quiet = { ...LEGACY, onReportingError: () => undefined };
 

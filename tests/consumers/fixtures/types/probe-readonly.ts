@@ -1,3 +1,3 @@
-import { Corj } from 'caught-object-report-json';
+import * as Corj from 'caught-object-report-json';
 
-Corj.makeReport = () => ({ v: 'corj/v0.15' });
+Corj.makeCaughtObjectReport = () => ({ v: 'corj/v0.15' });

@@ -2,7 +2,8 @@
 // and `./package.json` resolve, and `import` and `require` reach one instance.
 import { createRequire } from 'node:module';
 import * as namespace from 'caught-object-report-json';
-import { Corj, CorjMaker } from 'caught-object-report-json';
+import * as Corj from 'caught-object-report-json';
+import { CorjMaker } from 'caught-object-report-json';
 
 const require = createRequire(import.meta.url);
 const results = [];
@@ -53,33 +54,38 @@ check('./package.json still resolves', () => {
 });
 
 check('named ESM imports from the root still work', () =>
-  typeof Corj?.makeReport === 'function' && typeof CorjMaker === 'function'
+  typeof Corj?.makeCaughtObjectReport === 'function' &&
+  typeof CorjMaker === 'function'
     ? undefined
     : 'the root does not expose its named bindings through the ESM interop',
 );
 
-check('Corj is the exact frozen utility namespace', () => {
-  const keys = Object.keys(Corj).sort();
-  const expected = [
-    'makeReport',
-    'makeReportArray',
-    'resolveRedactPolicy',
-    'restoreExpectedValues',
+check('the four utilities are root functions in ESM and CommonJS', () => {
+  const required = require('caught-object-report-json');
+  const names = [
+    'makeCaughtObjectReport',
+    'makeCaughtObjectReportArray',
+    'resolveCaughtObjectReportRedactPolicy',
+    'restoreCaughtObjectReportExpectedValues',
   ];
-  return Object.isFrozen(Corj) &&
-    JSON.stringify(keys) === JSON.stringify(expected)
+  const missing = names.filter(
+    (name) =>
+      typeof namespace[name] !== 'function' ||
+      typeof required[name] !== 'function',
+  );
+  return missing.length === 0
     ? undefined
-    : `unexpected Corj namespace: frozen=${Object.isFrozen(
-        Corj,
-      )} keys=${JSON.stringify(keys)}`;
+    : `root utilities missing: ${missing.join(', ')}`;
 });
 
 check('legacy utility exports are absent from ESM and CommonJS', () => {
   const required = require('caught-object-report-json');
   const legacy = [
+    'Corj',
     'makeReport',
     'makeReportArray',
     'resolveCorjRedactPolicy',
+    'resolveRedactPolicy',
     'restoreExpectedValues',
   ];
   const present = legacy.filter(

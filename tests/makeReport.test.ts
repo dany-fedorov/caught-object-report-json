@@ -1,11 +1,15 @@
-import { Corj, CorjMaker } from '../src';
+import * as Corj from '../src';
+import { CorjMaker } from '../src';
 import {
   getReportArrayReportValidator,
   getReportObjectReportValidator,
 } from './utils/getReportObjectReportValidator';
 import { LEGACY } from './legacy-options';
 
-const { makeReport, makeReportArray } = Corj;
+const {
+  makeCaughtObjectReport: makeReport,
+  makeCaughtObjectReportArray: makeReportArray,
+} = Corj;
 
 describe('makeReport', function () {
   test('default', () => {

@@ -620,7 +620,7 @@ returns the text unchanged.
 ```typescript
 import * as Corj from 'caught-object-report-json';
 
-const maker: CorjMaker = new Corj.CorjMaker({
+const maker: Corj.CorjMaker = new Corj.CorjMaker({
   redact: { patterns: [/sk-live-[A-Za-z0-9]+/g] },
   onReportingError: (caught, { stage, path }) => {
     const line = `corj ${stage} failed at ${path}: ${String(caught)}`;

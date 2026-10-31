@@ -103,10 +103,10 @@ import Ajv2020 from 'ajv/dist/2020';
 import * as Corj from 'caught-object-report-json';
 
 const ajv = new Ajv2020({ loadSchema: async (uri) => (await fetch(uri)).json() });
-const validate = await ajv.compileAsync(await (await fetch(CORJ_REPORT_OBJECT_JSON_SCHEMA_LINK)).json());
+const validate = await ajv.compileAsync(await (await fetch(Corj.CORJ_REPORT_OBJECT_JSON_SCHEMA_LINK)).json());
 
 const report = Corj.makeCaughtObjectReport(new Error('x'), { metadata: true });
-validate(report); // true; report.$schema === CORJ_REPORT_OBJECT_JSON_SCHEMA_LINK
+validate(report); // true; report.$schema === Corj.CORJ_REPORT_OBJECT_JSON_SCHEMA_LINK
 ```
 
 Use `CORJ_FULL_REPORT_OBJECT_JSON_SCHEMA_LINK` for a report produced with `omitExpectedValues: false` or by
